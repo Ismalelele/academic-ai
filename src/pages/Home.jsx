@@ -1,5 +1,6 @@
-import { RefreshCw, Plus, Send, Activity, CheckCircle, Clock, BookOpen } from 'lucide-react';
-import { useState } from 'react';
+import { RefreshCw, Plus, Send, Activity, CheckCircle, Clock, BookOpen, Calendar, MapPin, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useSchedule } from '../context/ScheduleContext';
 
 export default function Home() {
   const [tasks, setTasks] = useState([
@@ -14,6 +15,46 @@ export default function Home() {
     ));
   };
 
+  const { schedule } = useSchedule();
+  const [now, setNow] = useState(new Date());
+
+  // Update clock every minute for dynamic schedule check
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  let currentClass = null;
+  let nextClass = null;
+
+  if (schedule) {
+    const jsDay = now.getDay();
+    const day = jsDay === 0 ? 6 : jsDay - 1; // 0=Lunes...5=Sabado, 6=Domingo
+    const timeInMins = now.getHours() * 60 + now.getMinutes();
+
+    const todaysClasses = schedule
+      .filter(c => c.day === day)
+      .sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
+
+    for (let i = 0; i < todaysClasses.length; i++) {
+      const cls = todaysClasses[i];
+      const startMins = cls.startH * 60 + cls.startM;
+      const endMins = cls.endH * 60 + cls.endM;
+
+      if (timeInMins >= startMins && timeInMins <= endMins) {
+        currentClass = cls;
+        nextClass = todaysClasses[i + 1] || null;
+        break;
+      } else if (timeInMins < startMins) {
+        nextClass = cls;
+        break;
+      }
+    }
+  }
+
+  // Helper to format time text
+  const formatTime = (h, m) => `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
   return (
     <main className="main-content">
       <header>
@@ -24,6 +65,60 @@ export default function Home() {
       <div className="dashboard-grid">
         {/* Main Stats Column */}
         <div className="main-dashboard-content">
+          
+          {/* Live Classes Widget */}
+          <div className="live-classes-widget">
+            {!schedule ? (
+              <div className="live-classes-empty">
+                <Calendar size={32} />
+                <p>Aún no has cargado tu horario.</p>
+                <span className="subtitle">Sube una foto en la pestaña Horario para que la IA organice tu día.</span>
+              </div>
+            ) : (
+              <div className="live-classes-container">
+                <div className={`class-card current ${!currentClass ? 'inactive' : ''}`}>
+                  <div className="class-card-header">
+                    <span className="badge-live">AHORA</span>
+                  </div>
+                  {currentClass ? (
+                    <>
+                      <h3>{currentClass.title}</h3>
+                      <div className="class-details">
+                        <span className="detail-item"><Clock size={16} /> {formatTime(currentClass.startH, currentClass.startM)} - {formatTime(currentClass.endH, currentClass.endM)}</span>
+                        <span className="detail-item"><MapPin size={16} /> {currentClass.room}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="free-time">
+                      <h3>Tiempo libre</h3>
+                      <p>Aprovecha para avanzar en tus tareas.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="class-card next">
+                  <div className="class-card-header">
+                    <span className="badge-next">PRÓXIMA</span>
+                  </div>
+                  {nextClass ? (
+                    <>
+                      <h3>{nextClass.title}</h3>
+                      <div className="class-details">
+                        <span className="detail-item"><Clock size={16} /> {formatTime(nextClass.startH, nextClass.startM)}</span>
+                        <span className="detail-item"><MapPin size={16} /> {nextClass.room}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="free-time">
+                      <h3>No hay más clases hoy</h3>
+                      <p>¡Buen trabajo!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon"><Activity size={28} /></div>

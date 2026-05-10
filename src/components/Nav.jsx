@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Wrench, Sun, Moon, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Calendar, Wrench, MessageSquare, ListTodo, Sun, Moon, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Nav({ isDarkMode, toggleTheme }) {
@@ -36,6 +36,16 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           <li>
             <NavLink to="/herramientas" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
               <Wrench /> <span>Herramientas</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/asistente" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+              <MessageSquare /> <span>Asistente IA</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/tareas" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+              <ListTodo /> <span>Gestor de Tareas</span>
             </NavLink>
           </li>
         </ul>
