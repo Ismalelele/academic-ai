@@ -14,7 +14,7 @@ AcademicAI es una plataforma web moderna de gestión académica diseñada para e
 
 Este proyecto utiliza un stack moderno enfocado en la velocidad, la privacidad del usuario (procesamiento local) y la integración con Inteligencia Artificial de vanguardia.
 
-### 💻 Frontend (Interfaz de Usuario)
+###  Frontend (Interfaz de Usuario)
 *   **React.js (v18):** Librería principal para construir la interfaz de usuario de forma modular y reactiva.
 *   **Vite:** Herramienta de construcción ultrarrápida (Bundler) que ofrece un entorno de desarrollo mucho más veloz que Create React App.
 *   **CSS3 Vanilla:** Estilos nativos sin frameworks pesados, utilizando variables CSS, flexbox, grid y un sistema de diseño propio basado en *Glassmorphism* (desenfoques y transparencias).
