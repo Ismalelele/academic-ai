@@ -43,15 +43,14 @@ export default function Horario() {
       <div className="timetable-container">
         <div className="time-column">
             <div className="time-header">HORAS</div>
-            <div className="time-slot">08:15 - 08:55</div><div className="time-slot">08:56 - 09:35</div>
-            <div className="time-slot">09:45 - 10:25</div><div className="time-slot">10:26 - 11:05</div>
-            <div className="time-slot">11:15 - 11:55</div><div className="time-slot">11:56 - 12:35</div>
-            <div className="time-slot">12:45 - 13:25</div><div className="time-slot">13:26 - 14:05</div>
-            <div className="time-slot">14:15 - 14:55</div><div className="time-slot">14:56 - 15:35</div>
-            <div className="time-slot">15:45 - 16:25</div><div className="time-slot">16:26 - 17:05</div>
-            <div className="time-slot">17:15 - 17:55</div><div className="time-slot">17:56 - 18:35</div>
-            <div className="time-slot">18:40 - 19:20</div><div className="time-slot">19:21 - 20:00</div>
-            <div className="time-slot">20:51 - 21:30</div><div className="time-slot">21:40 - 22:20</div>
+            {Array.from({ length: 15 }).map((_, i) => {
+              const hour = i + 8;
+              return (
+                <div key={hour} className="time-slot">
+                  {hour.toString().padStart(2, '0')}:00
+                </div>
+              );
+            })}
         </div>
 
         <div className="days-container">
@@ -84,9 +83,25 @@ export default function Horario() {
                 ))}
                 
                 {!schedule && !isProcessing && (
-                  <div className="empty-schedule">
-                    <p>Aún no has cargado un horario.</p>
-                    <span>Sube una foto o PDF para que la IA lo organice por ti.</span>
+                  <div className="empty-schedule" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '30px', background: 'var(--bg)', zIndex: 10 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '5px' }}>Aún no has cargado un horario.</p>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>Sube una foto o PDF para que la IA lo organice por ti.</span>
+                    </div>
+                    
+                    <div style={{ background: 'var(--primary-light)', border: '1px solid var(--primary)', borderRadius: '14px', padding: '25px', maxWidth: '550px', boxShadow: 'var(--shadow-sm)' }}>
+                      <h4 style={{ color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', fontSize: '1.1rem', fontWeight: '800' }}>
+                        ⚠️ Instrucciones de subida
+                      </h4>
+                      <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '12px', lineHeight: '1.5', fontWeight: '600' }}>
+                        Para que la IA no se confunda y dibuje los ramos en el día equivocado, asegúrate de que tu captura de pantalla contenga:
+                      </p>
+                      <ul style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginLeft: '25px', lineHeight: '1.7', fontWeight: '500' }}>
+                        <li>Los <strong>encabezados de los días</strong> (Lunes a Domingo) arriba.</li>
+                        <li>Las <strong>horas o duración</strong> en el eje izquierdo.</li>
+                        <li>El <strong>nombre de las asignaturas</strong> legible.</li>
+                      </ul>
+                    </div>
                   </div>
                 )}
             </div>

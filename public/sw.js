@@ -1,0 +1,29 @@
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  console.log('[Service Worker] Instalado exitosamente.');
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('[Service Worker] Activado y listo para recibir Push.');
+});
+
+// Manejo de clicks en las notificaciones del SO
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  // Al hacer clic en la notificación, abre o enfoca la pestaña de AcademicAI
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Si ya hay una pestaña abierta con la app, enfócala
+      for (let client of windowClients) {
+        if (client.url.includes('/') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Si no hay ninguna abierta, abre una nueva
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
+  );
+});

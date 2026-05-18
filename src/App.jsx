@@ -8,6 +8,11 @@ import Asistente from './pages/Asistente';
 import Tareas from './pages/Tareas';
 import { ScheduleProvider } from './context/ScheduleContext';
 import { ChatProvider } from './context/ChatContext';
+import { AuthProvider } from './context/AuthContext';
+import { TaskProvider } from './context/TaskContext';
+import { NotificationProvider } from './context/NotificationContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import Login from './pages/Login';
 
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -26,22 +31,35 @@ function App() {
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   return (
-    <ScheduleProvider>
-      <ChatProvider>
-        <BrowserRouter>
-          <div className="app-container">
-            <Nav isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/horario" element={<Horario />} />
-              <Route path="/herramientas" element={<Herramientas />} />
-              <Route path="/asistente" element={<Asistente />} />
-              <Route path="/tareas" element={<Tareas />} />
-            </Routes>
-          </div>
-        </BrowserRouter>
-      </ChatProvider>
-    </ScheduleProvider>
+    <AuthProvider>
+      <ScheduleProvider>
+        <TaskProvider>
+          <NotificationProvider>
+            <ChatProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Login />} />
+                  <Route path="/*" element={
+                    <ProtectedRoute>
+                      <div className="app-container">
+                        <Nav isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+                        <Routes>
+                          <Route path="/dashboard" element={<Home />} />
+                          <Route path="/horario" element={<Horario />} />
+                          <Route path="/herramientas" element={<Herramientas />} />
+                          <Route path="/asistente" element={<Asistente />} />
+                          <Route path="/tareas" element={<Tareas />} />
+                        </Routes>
+                      </div>
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+              </BrowserRouter>
+            </ChatProvider>
+          </NotificationProvider>
+        </TaskProvider>
+      </ScheduleProvider>
+    </AuthProvider>
   );
 }
 

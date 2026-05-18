@@ -1,35 +1,27 @@
-import { useState, useEffect } from 'react';
-import { Plus, GripVertical, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, GripVertical, Trash2, Loader } from 'lucide-react';
 import { useSchedule } from '../context/ScheduleContext';
-
-const initialTasks = [
-  { id: '1', title: 'Estudiar para el certamen de Ciberseguridad', status: 'todo', tag: 'Ciberseguridad', priority: 'high' },
-  { id: '2', title: 'Entregar informe de Formulación', status: 'in-progress', tag: 'Proyectos', priority: 'medium' },
-  { id: '3', title: 'Configurar entorno AWS', status: 'done', tag: 'Laboratorio', priority: 'low' }
-];
+import { useTasks } from '../context/TaskContext';
 
 export default function Tareas() {
   const { schedule } = useSchedule();
+  const { tasks, isLoading, addTask, updateTaskStatus, deleteTask, deleteMultipleTasks } = useTasks();
+  
   const uniqueSubjects = schedule ? Array.from(new Set(schedule.map(c => c.title))) : [];
 
-  const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('kanban_tasks');
-    return saved ? JSON.parse(saved) : initialTasks;
-  });
   const [newTasks, setNewTasks] = useState({ todo: '', 'in-progress': '', done: '' });
   const [newTasksTags, setNewTasksTags] = useState({ todo: 'General', 'in-progress': 'General', done: 'General' });
+  const [newTasksPriority, setNewTasksPriority] = useState({ todo: 'low', 'in-progress': 'low', done: 'low' });
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
-  const [toast, setToast] = useState({ visible: false, message: '' });
-
-  useEffect(() => {
-    localStorage.setItem('kanban_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+  const [toasts, setToasts] = useState([]);
 
   const showToast = (message) => {
-    setToast({ visible: true, message });
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message }]);
+    
     setTimeout(() => {
-      setToast(prev => ({ ...prev, visible: false }));
+      setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
   };
 
@@ -37,28 +29,27 @@ export default function Tareas() {
     setNewTasks(prev => ({ ...prev, [status]: value }));
   };
 
-  const addTask = (e, status) => {
+  const handleAddTask = async (e, status) => {
     e.preventDefault();
     if (!newTasks[status]?.trim()) return;
-    const newTask = {
-      id: Date.now().toString(),
-      title: newTasks[status],
-      status: status,
-      tag: newTasksTags[status],
-      priority: 'low'
-    };
-    setTasks([...tasks, newTask]);
+    
+    await addTask(newTasks[status], status, newTasksTags[status], newTasksPriority[status]);
     setNewTasks(prev => ({ ...prev, [status]: '' }));
+    setNewTasksPriority(prev => ({ ...prev, [status]: 'low' }));
   };
 
-  const deleteTask = (id) => {
-    setTasks(tasks.filter(t => t.id !== id));
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    showToast('Se eliminó 1 tarea.');
+  const handleDeleteTask = async (id) => {
+    const success = await deleteTask(id);
+    if (success) {
+      setSelectedTaskIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      showToast('Se eliminó 1 tarea.');
+    } else {
+      showToast('Error al eliminar la tarea.');
+    }
   };
 
   const toggleSelection = (id) => {
@@ -70,19 +61,22 @@ export default function Tareas() {
     });
   };
 
-  const deleteSelectedTasks = () => {
+  const handleDeleteSelectedTasks = async () => {
     const count = selectedTaskIds.size;
-    setTasks(tasks.filter(t => !selectedTaskIds.has(t.id)));
-    setSelectedTaskIds(new Set());
-    showToast(`Se eliminaron ${count} tarea${count > 1 ? 's' : ''}.`);
+    const taskIdsArray = Array.from(selectedTaskIds);
+    const success = await deleteMultipleTasks(taskIdsArray);
+    if (success) {
+      setSelectedTaskIds(new Set());
+      showToast(`Se eliminaron ${count} tarea${count > 1 ? 's' : ''}.`);
+    } else {
+      showToast('Error al eliminar las tareas.');
+    }
   };
 
   const handleDragStart = (e, id) => {
     setDraggedTaskId(id);
-    // Needed for Firefox drag-and-drop to work
     e.dataTransfer.setData('text/plain', id);
     e.dataTransfer.effectAllowed = 'move';
-    // Add visual cue
     setTimeout(() => {
       e.target.classList.add('is-dragging');
     }, 0);
@@ -105,49 +99,22 @@ export default function Tareas() {
     if (column) column.classList.remove('drag-over');
   };
 
-  const getDragAfterElement = (container, y) => {
-    const draggableElements = [...container.querySelectorAll('.kanban-card:not(.is-dragging)')];
-    
-    return draggableElements.reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset) {
-        return { offset: offset, element: child };
-      } else {
-        return closest;
-      }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-  };
-
-  const handleDrop = (e, status) => {
+  const handleDrop = async (e, status) => {
     e.preventDefault();
     const column = e.target.closest('.kanban-column');
     if (column) column.classList.remove('drag-over');
     
     if (draggedTaskId) {
-      const container = column.querySelector('.kanban-cards-container');
-      const afterElement = getDragAfterElement(container, e.clientY);
-      
       const draggedTask = tasks.find(t => t.id === draggedTaskId);
-      if (!draggedTask) return;
-      
-      const remainingTasks = tasks.filter(t => t.id !== draggedTaskId);
-      const updatedTask = { ...draggedTask, status };
-      
-      if (afterElement == null) {
-        setTasks([...remainingTasks, updatedTask]);
-      } else {
-        const afterTaskId = afterElement.dataset.id;
-        const insertIndex = remainingTasks.findIndex(t => t.id === afterTaskId);
-        remainingTasks.splice(insertIndex, 0, updatedTask);
-        setTasks([...remainingTasks]);
+      if (draggedTask && draggedTask.status !== status) {
+        await updateTaskStatus(draggedTaskId, status);
       }
     }
   };
 
-  const moveTask = (id, newStatus) => {
+  const moveTask = async (id, newStatus) => {
     if (!newStatus) return;
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    await updateTaskStatus(id, newStatus);
   };
 
   const getPrevStatus = (status) => {
@@ -209,7 +176,7 @@ export default function Tareas() {
                   <span className={`kanban-tag ${task.priority}`}>{task.tag}</span>
                   <span className="kanban-tag" style={{ background: 'var(--border-color)', color: 'var(--text-main)' }}>{statusMap[task.status]}</span>
                 </div>
-                <button className="btn-delete-task" onClick={() => deleteTask(task.id)}><Trash2 size={14}/></button>
+                <button className="btn-delete-task" onClick={() => handleDeleteTask(task.id)}><Trash2 size={14}/></button>
               </div>
               <p>{task.title}</p>
               
@@ -229,15 +196,27 @@ export default function Tareas() {
           </div>
         ))}
       </div>
-      <form className="kanban-add-task-form" onSubmit={(e) => addTask(e, status)}>
+      <form className="kanban-add-task-form" onSubmit={(e) => handleAddTask(e, status)} style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
         <select 
           className="kanban-select"
+          style={{ width: '80px', padding: '5px', fontSize: '0.8rem' }}
           value={newTasksTags[status]} 
           onChange={(e) => setNewTasksTags(prev => ({ ...prev, [status]: e.target.value }))}
         >
           <option value="General">General</option>
           {uniqueSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
         </select>
+        
+        <select 
+          className="kanban-select"
+          style={{ width: '80px', padding: '5px', fontSize: '0.8rem', color: newTasksPriority[status] === 'high' ? '#ef4444' : 'inherit' }}
+          value={newTasksPriority[status]} 
+          onChange={(e) => setNewTasksPriority(prev => ({ ...prev, [status]: e.target.value }))}
+        >
+          <option value="low">Normal</option>
+          <option value="high">Urgente 🔥</option>
+        </select>
+
         <input 
           className="kanban-input-inline"
           type="text" 
@@ -261,27 +240,42 @@ export default function Tareas() {
       <header className="kanban-header">
         <div>
           <h1>Gestor de Tareas</h1>
-          <p className="subtitle" style={{ color: 'var(--text-muted)', marginTop: '5px' }}>Organiza tu flujo de estudio con metodología Kanban</p>
+          <p className="subtitle" style={{ color: 'var(--text-muted)', marginTop: '5px' }}>Organiza tu flujo de estudio con metodología Kanban en la Nube</p>
         </div>
         {selectedTaskIds.size > 0 && (
           <div className="bulk-actions">
-            <span className="selected-count">{selectedTaskIds.size} seleccionadas</span>
-            <button className="btn-danger" onClick={deleteSelectedTasks}>
+            <span className="selected-count">
+              {selectedTaskIds.size === 1 
+                ? '1 tarea seleccionada' 
+                : `${selectedTaskIds.size} tareas seleccionadas`}
+            </span>
+            <button className="btn-danger" onClick={handleDeleteSelectedTasks}>
               <Trash2 size={18} /> Eliminar
             </button>
           </div>
         )}
       </header>
 
-      <div className="kanban-board">
-        {renderColumn('Por hacer', 'todo', '📝')}
-        {renderColumn('En progreso', 'in-progress', '⏳')}
-        {renderColumn('Terminado', 'done', '✅')}
-      </div>
+      {isLoading ? (
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '20px', color: 'var(--text-muted)'}}>
+          <Loader size={48} className="lucide-spin" />
+          <p>Sincronizando tareas desde la nube...</p>
+        </div>
+      ) : (
+        <div className="kanban-board">
+          {renderColumn('Por hacer', 'todo', '📝')}
+          {renderColumn('En progreso', 'in-progress', '⏳')}
+          {renderColumn('Terminado', 'done', '✅')}
+        </div>
+      )}
 
-      {toast.visible && (
-        <div className="toast-notification">
-          {toast.message}
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map(toast => (
+            <div key={toast.id} className="toast-notification">
+              {toast.message}
+            </div>
+          ))}
         </div>
       )}
     </main>

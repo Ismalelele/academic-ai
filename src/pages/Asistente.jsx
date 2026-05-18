@@ -70,11 +70,6 @@ export default function Asistente() {
         <div className="documents-list">
           <div className="documents-list-header">
             <h3>Documentos Subidos</h3>
-            {currentData.documents.length > 0 && (
-              <button className="btn-clear-docs" onClick={() => clearDocuments(activeSubject)} title="Borrar todos los documentos">
-                <Trash2 size={16} /> Limpiar
-              </button>
-            )}
           </div>
           {currentData.documents.length === 0 ? (
             <div className="empty-docs">
@@ -89,7 +84,7 @@ export default function Asistente() {
                     <FileText size={16} style={{ flexShrink: 0, color: 'var(--primary)' }} />
                     <span className="doc-name" style={{ opacity: doc.selected === false ? 0.5 : 1 }}>{doc.name}</span>
                     {doc.isParsing && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontStyle: 'italic', flexShrink: 0, animation: 'pulse 1.5s infinite' }}>Leyendo...</span>}
-                    {doc.error && <span style={{ fontSize: '0.75rem', color: '#ef4444', fontStyle: 'italic', flexShrink: 0 }}>Error</span>}
+                    {doc.error && <span style={{ fontSize: '0.75rem', color: '#ef4444', fontStyle: 'italic', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }} title={typeof doc.error === 'string' ? doc.error : 'Error'}>Error: {typeof doc.error === 'string' ? doc.error : 'Fallo subida'}</span>}
                   </div>
                   
                   <div className="doc-actions" onClick={e => e.stopPropagation()}>
