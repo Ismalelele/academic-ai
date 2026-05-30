@@ -10,30 +10,32 @@ AcademicAI es una plataforma web moderna de gestión académica diseñada para e
 *   **Gestor de Horarios:** Interfaz visual para cargar y visualizar tu carga académica semanal de forma estructurada.
 *   **Diseño Moderno (Glassmorphism):** Una interfaz de usuario pulida, con soporte nativo para Modo Oscuro, tipografías modernas (Plus Jakarta Sans) y micro-animaciones fluidas.
 
-##  Tecnologías Utilizadas y por Implementar
+##  Tecnologías Utilizadas
 
-Este proyecto utiliza un stack moderno enfocado en la velocidad, la privacidad del usuario (procesamiento local) y la integración con Inteligencia Artificial de vanguardia.
+Este proyecto utiliza un stack moderno enfocado en la velocidad, el procesamiento híbrido (extracción en el navegador y almacenamiento estructurado) y la integración con Inteligencia Artificial de vanguardia.
 
 ###  Frontend (Interfaz de Usuario)
 *   **React.js (v18):** Librería principal para construir la interfaz de usuario de forma modular y reactiva.
-*   **Vite:** Herramienta de construcción ultrarrápida (Bundler) que ofrece un entorno de desarrollo mucho más veloz que Create React App.
-*   **CSS3 Vanilla:** Estilos nativos sin frameworks pesados, utilizando variables CSS, flexbox, grid y un sistema de diseño propio basado en *Glassmorphism* (desenfoques y transparencias).
+*   **Vite:** Herramienta de construcción ultrarrápida (Bundler) para el entorno de desarrollo y empaquetado.
+*   **CSS3 Vanilla:** Estilos nativos utilizando variables CSS, flexbox, grid y un sistema de diseño propio basado en *Glassmorphism* (desenfoques y transparencias).
 *   **Lucide React:** Colección de iconos SVG limpios y modernos para toda la interfaz.
-*   **Marked:** Parseador de Markdown a HTML rápido y seguro, usado para renderizar las respuestas de la IA.
+*   **Marked / React Markdown:** Procesador de Markdown a HTML rápido y seguro, usado para renderizar las respuestas de la IA.
+*   **Vite Plugin PWA:** Configuración de la Progressive Web App para habilitar el funcionamiento offline y la visualización de notificaciones del sistema.
 
-###  Inteligencia Artificial y Procesamiento (RAG)
-*   **Groq API (Cloud):** Motor de inferencia ultrarrápido utilizado como "cerebro" principal del asistente. Utiliza actualmente el modelo **Llama 3.1 (8B Instant)** de Meta.
-*   **Gemini API (Google) / Modelos de Visión (*Planeado*):** Se implementará para el procesamiento OCR avanzado (Lectura de imágenes de horarios para convertirlos en datos estructurados).
-*   **pdfjs-dist (Mozilla):** Librería robusta para leer y extraer texto crudo de documentos PDF de manera 100% local en el navegador del usuario.
-*   **mammoth.js:** Conversor diseñado para transformar documentos de Word (`.docx`) a HTML/Texto conservando el significado semántico, procesado localmente.
+###  Inteligencia Artificial y Procesamiento
+*   **Groq API (Cloud):** Motor de inferencia ultrarrápido utilizado como cerebro principal del asistente. Utiliza actualmente el modelo **Llama 3.1 (8B Instant)** de Meta.
+*   **Gemini API (Google):** Procesador multimodal de visión artificial (`gemini-2.5-flash`) utilizado en el módulo de digitalización de horarios para extraer la estructura tabular a partir de imágenes.
+*   **pdfjs-dist (Mozilla):** Extractor local de texto crudo a partir de documentos PDF cargados por el usuario.
+*   **mammoth.js:** Conversor local que extrae texto estructurado desde documentos Word (`.docx`).
 
-###  Almacenamiento y Backend
-*   **LocalStorage (Nativo del Navegador):** Actualmente usado para persistir configuraciones, tareas y el horario básico sin necesidad de servidor.
-*   **Supabase / Firebase (*Planeado*):** Base de datos en la nube (BaaS) que se implementará en el futuro para guardar el estado completo del usuario (apuntes, historial de chat de la IA, tareas completadas) y permitir el inicio de sesión en múltiples dispositivos.
+###  Almacenamiento y Backend (BaaS)
+*   **Supabase (BaaS):** Utilizado para la persistencia en la nube de los usuarios (autenticación JWT), tareas, horarios y documentos extraídos.
+*   **LocalStorage (Nativo del Navegador):** Usado para almacenar de forma persistente notas de apuntes locales, calificaciones por asignatura, y caché de recomendaciones y configuraciones de alertas.
 
+##  Funcionamiento del Asistente (RAG Ligero)
 
-El sistema implementa **Retrieval-Augmented Generation (RAG)** de forma ligera en el cliente:
-1. El usuario sube un archivo (PDF/DOCX/TXT).
-2. El navegador extrae el texto usando librerías nativas de JavaScript, manteniendo la privacidad y velocidad sin depender de servidores backend pesados.
-3. El texto extraído de los documentos *marcados* (activos) se inyecta como contexto en un prompt del sistema.
-4. Groq procesa la solicitud mediante un modelo Llama 3 ultrarrápido y devuelve la respuesta en formato Markdown, limitándose a no inventar información fuera del contexto.
+El sistema implementa una arquitectura de **Generación Aumentada por Recuperación (RAG)** híbrida:
+1. **Extracción en Cliente:** El navegador del usuario extrae el texto del documento (PDF/DOCX/TXT) localmente con `pdf.js` o `mammoth.js`.
+2. **Almacenamiento Sincronizado:** El texto extraído y el archivo original se guardan en Supabase (base de datos relacional y almacenamiento de objetos).
+3. **Contextualización:** Al realizar una consulta en el chat, el frontend obtiene el texto del repositorio seleccionado, lo concatena, limita su tamaño a 8000 caracteres para asegurar la compatibilidad con el límite de tokens, y lo inyecta directamente como contexto en el prompt enviado al LLM.
+4. **Generación con Llama 3.1:** Groq procesa la consulta utilizando el contexto inyectado de forma efímera (política de retención cero) y devuelve una respuesta estructurada libre de alucinaciones.

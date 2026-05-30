@@ -11,7 +11,7 @@ export const useNotifications = () => useContext(NotificationContext);
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const { user } = useAuth();
-  const { schedule } = useSchedule();
+  const { effectiveSchedule } = useSchedule();
   const { tasks } = useTasks();
 
   // 1. Cargar notificaciones de Supabase
@@ -22,21 +22,35 @@ export const NotificationProvider = ({ children }) => {
     }
 
     const fetchNotifications = async () => {
-      const { data, error } = await supabase
-        .from('notificaciones')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('fecha_creacion', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('notificaciones')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('fecha_creacion', { ascending: false });
 
-      if (!error && data) {
-        setNotifications(data.map(n => ({
-          id: n.id_notificacion,
-          title: n.titulo,
-          message: n.mensaje,
-          type: n.tipo,
-          read: n.leida,
-          createdAt: n.fecha_creacion
-        })));
+        if (error) throw error;
+
+        if (data) {
+          const formatted = data.map(n => ({
+            id: n.id_notificacion,
+            title: n.titulo,
+            message: n.mensaje,
+            type: n.tipo,
+            read: n.leida,
+            createdAt: n.fecha_creacion
+          }));
+          setNotifications(formatted);
+          localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(formatted));
+        }
+      } catch (error) {
+        console.warn("Fallo al conectar con Supabase para notificaciones. Usando respaldo local:", error);
+        const saved = localStorage.getItem(`academic_notifications_${user.id}`);
+        if (saved) {
+          setNotifications(JSON.parse(saved));
+        } else {
+          setNotifications([]);
+        }
       }
     };
 
@@ -75,42 +89,96 @@ export const NotificationProvider = ({ children }) => {
     // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
     triggerOSNotification(title, message);
 
-    // Insertar en Supabase
-    const { data, error } = await supabase
-      .from('notificaciones')
-      .insert([{
-        user_id: user.id,
-        titulo: title,
-        mensaje: message,
-        tipo: type,
-        leida: false
-      }])
-      .select()
-      .single();
+    const localNewNotif = {
+      id: `notif-local-${Date.now()}`,
+      title,
+      message,
+      type,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
 
-    if (!error && data) {
-      const newNotif = {
-        id: data.id_notificacion,
-        title: data.titulo,
-        message: data.mensaje,
-        type: data.tipo,
-        read: data.leida,
-        createdAt: data.fecha_creacion
-      };
-      setNotifications(prev => [newNotif, ...prev]);
-      return newNotif;
+    // Actualizar localmente de inmediato
+    setNotifications(prev => {
+      const updated = [localNewNotif, ...prev];
+      localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      // Insertar en Supabase
+      const { data, error } = await supabase
+        .from('notificaciones')
+        .insert([{
+          user_id: user.id,
+          titulo: title,
+          mensaje: message,
+          tipo: type,
+          leida: false
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const dbNotif = {
+          id: data.id_notificacion,
+          title: data.titulo,
+          message: data.mensaje,
+          type: data.tipo,
+          read: data.leida,
+          createdAt: data.fecha_creacion
+        };
+        // Reemplazar la notificacion local temporal con la real de base de datos
+        setNotifications(prev => {
+          const replaced = prev.map(n => n.id === localNewNotif.id ? dbNotif : n);
+          localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(replaced));
+          return replaced;
+        });
+        return dbNotif;
+      }
+    } catch (err) {
+      console.warn("Fallo al crear notificación en Supabase. Guardada localmente de respaldo.", err);
     }
-    return null;
+
+    return localNewNotif;
   };
 
   const markAsRead = async (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    await supabase.from('notificaciones').update({ leida: true }).eq('id_notificacion', id).eq('user_id', user?.id);
+    setNotifications(prev => {
+      const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
+      localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      if (typeof id === 'string' && id.startsWith('notif-local-')) {
+        return;
+      }
+      const { error } = await supabase.from('notificaciones').update({ leida: true }).eq('id_notificacion', id).eq('user_id', user?.id);
+      if (error) throw error;
+    } catch (err) {
+      console.warn("Fallo al marcar notificación como leída en Supabase.", err);
+    }
   };
 
   const deleteNotification = async (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    await supabase.from('notificaciones').delete().eq('id_notificacion', id).eq('user_id', user?.id);
+    setNotifications(prev => {
+      const updated = prev.filter(n => n.id !== id);
+      localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      if (typeof id === 'string' && id.startsWith('notif-local-')) {
+        return;
+      }
+      const { error } = await supabase.from('notificaciones').delete().eq('id_notificacion', id).eq('user_id', user?.id);
+      if (error) throw error;
+    } catch (err) {
+      console.warn("Fallo al eliminar notificación en Supabase.", err);
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -141,9 +209,9 @@ export const NotificationProvider = ({ children }) => {
       let firedAlert = false;
 
       // Revisar Horario (Avisar si hay una clase en exactamente 15 minutos)
-      if (schedule && schedule.length > 0) {
-        schedule.forEach(cls => {
-          if (cls.day === currentDay) {
+      if (effectiveSchedule && effectiveSchedule.length > 0) {
+        effectiveSchedule.forEach(cls => {
+          if (cls.day === currentDay && !cls.isSuspended) {
             const startMins = cls.startH * 60 + cls.startM;
             // Si la clase empieza en exactamente 15 minutos (para no spamear)
             if (startMins - currentMins === 15) {
@@ -191,7 +259,7 @@ export const NotificationProvider = ({ children }) => {
     checkAlerts();
     const interval = setInterval(checkAlerts, 60000);
     return () => clearInterval(interval);
-  }, [schedule, tasks, notifications, user, dailyAlertTime]);
+  }, [effectiveSchedule, tasks, notifications, user, dailyAlertTime]);
 
   return (
     <NotificationContext.Provider value={{
