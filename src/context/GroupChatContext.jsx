@@ -433,15 +433,23 @@ export const GroupChatProvider = ({ children }) => {
       return targetGroup;
     } else {
       try {
-        // Buscar el grupo por código
+        // Buscar el grupo por código — usar .maybeSingle() para evitar error PGRST116
+        // cuando RLS bloquea filas de otros usuarios
         const { data: gData, error: gErr } = await supabase
           .from('chat_grupos')
           .select('*')
           .eq('codigo_invitacion', cleanedCode)
-          .single();
+          .maybeSingle();
 
-        if (gErr || !gData) {
-          throw new Error("El código de invitación no existe.");
+        if (gErr) {
+          console.error("Error al buscar grupo por código:", gErr);
+          throw new Error("Error al buscar el grupo. Verifica tu conexión e intenta de nuevo.");
+        }
+
+        if (!gData) {
+          // Puede ser que el código no exista O que RLS bloquee la lectura
+          console.warn("Grupo no encontrado con código:", cleanedCode, "— Si el código es válido, puede ser un problema de permisos (RLS) en la tabla chat_grupos.");
+          throw new Error("El código de invitación no existe o no se pudo acceder. Si estás seguro de que el código es correcto, contacta al administrador.");
         }
 
         // Crear la membresía como pendiente
