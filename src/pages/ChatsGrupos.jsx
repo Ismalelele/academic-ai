@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { 
   MessageSquare, Plus, Users, Send, Copy, Check, X, Bell, BellOff, 
   BookOpen, HelpCircle, ShieldAlert, Sparkles, Hash, ArrowRight,
-  Star, ChevronLeft, ChevronRight, Brain, PencilLine, Trash2
+  Star, ChevronLeft, ChevronRight, Brain, PencilLine, Trash2, Loader
 } from 'lucide-react';
 import { useGroupChat } from '../context/GroupChatContext';
 import { useAuth } from '../context/AuthContext';
