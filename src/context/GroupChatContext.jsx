@@ -23,6 +23,11 @@ export const GroupChatProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
+    if (user.id.startsWith('user-local-')) {
+      setIsFallbackMode(true);
+      return;
+    }
+
     const checkTables = async () => {
       try {
         // Verificar que las 3 tablas de chat existen
@@ -260,6 +265,10 @@ export const GroupChatProvider = ({ children }) => {
   // --- MÉTODOS SUPABASE ---
 
   const loadSupabaseData = async () => {
+    if (!user || user.id.startsWith('user-local-')) {
+      setIsFallbackMode(true);
+      return;
+    }
     try {
       setLoading(true);
       

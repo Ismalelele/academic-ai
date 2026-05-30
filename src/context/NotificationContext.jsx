@@ -22,6 +22,11 @@ export const NotificationProvider = ({ children }) => {
     }
 
     const fetchNotifications = async () => {
+      if (user.id.startsWith('user-local-')) {
+        const saved = localStorage.getItem(`academic_notifications_${user.id}`);
+        setNotifications(saved ? JSON.parse(saved) : []);
+        return;
+      }
       try {
         const { data, error } = await supabase
           .from('notificaciones')

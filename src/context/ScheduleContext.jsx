@@ -53,6 +53,13 @@ export const ScheduleProvider = ({ children }) => {
     }
 
     const fetchSchedule = async () => {
+      if (user.id.startsWith('user-local-')) {
+        const localSchedule = localStorage.getItem(`academic_schedule_${user.id}`);
+        setSchedule(localSchedule ? JSON.parse(localSchedule) : null);
+        const localExceptions = localStorage.getItem(`academic_exceptions_${user.id}`);
+        setExceptions(localExceptions ? JSON.parse(localExceptions) : []);
+        return;
+      }
       try {
         // Buscar el horario más reciente de este usuario
         const { data: horarioData, error: horarioError } = await supabase

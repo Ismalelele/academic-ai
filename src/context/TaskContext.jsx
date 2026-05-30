@@ -96,6 +96,12 @@ export const TaskProvider = ({ children }) => {
 
     const fetchTasks = async () => {
       setIsLoading(true);
+      if (user.id.startsWith('user-local-')) {
+        const savedTasks = localStorage.getItem(`academic_tasks_${user.id}`);
+        setTasks(savedTasks ? JSON.parse(savedTasks) : []);
+        setIsLoading(false);
+        return;
+      }
       try {
         const { data, error } = await supabase
           .from('tareas')

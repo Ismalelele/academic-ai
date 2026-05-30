@@ -150,6 +150,37 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (newMetadata) => {
+    try {
+      if (!user) return { error: new Error("No hay usuario autenticado") };
+
+      if (user.id.startsWith('user-local-')) {
+        const updatedUser = {
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            ...newMetadata
+          }
+        };
+        setUser(updatedUser);
+        localStorage.setItem('sb-local-session-user', JSON.stringify(updatedUser));
+        return { data: updatedUser, error: null };
+      }
+
+      const { data, error } = await supabase.auth.updateUser({
+        data: newMetadata
+      });
+      if (error) throw error;
+      if (data?.user) {
+        setUser(data.user);
+      }
+      return { data: data?.user || null, error: null };
+    } catch (error) {
+      console.warn("Fallo al actualizar el perfil en Supabase:", error);
+      return { data: null, error };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -157,7 +188,8 @@ export const AuthProvider = ({ children }) => {
       signInWithGoogle, 
       signUpWithEmail, 
       signInWithEmail, 
-      signOut 
+      signOut,
+      updateProfile
     }}>
       {!loading && children}
     </AuthContext.Provider>

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, 
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Settings, Camera, User, Check
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
@@ -16,7 +16,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [showProfilePopover, setShowProfilePopover] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateProfile } = useAuth();
   const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications();
   const { effectiveSchedule } = useSchedule();
   const { tasks } = useTasks();
@@ -26,6 +26,131 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const chatbotBodyRef = useRef();
   const profileRef = useRef();
   const navLinksRef = useRef();
+
+  // Profile settings states
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileCarrera, setProfileCarrera] = useState('');
+  const [profileUniversidad, setProfileUniversidad] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
+  const [profileAnio, setProfileAnio] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileStatus, setProfileStatus] = useState(null);
+
+  const presetGradients = [
+    'linear-gradient(135deg, #8b5cf6, #38bdf8)', // Violet-Blue
+    'linear-gradient(135deg, #ec4899, #f43f5e)', // Pink-Rose
+    'linear-gradient(135deg, #10b981, #059669)', // Green-DarkGreen
+    'linear-gradient(135deg, #f59e0b, #eab308)', // Amber-Yellow
+    'linear-gradient(135deg, #ef4444, #f97316)', // Red-Orange
+    'linear-gradient(135deg, #6366f1, #a855f7)'  // Indigo-Purple
+  ];
+
+  const renderAvatar = (avatarUrl, name, size = '38px', fontSize = '1.1rem') => {
+    const isGradient = avatarUrl && avatarUrl.startsWith('linear-gradient');
+    const hasAvatar = avatarUrl && !isGradient;
+
+    if (hasAvatar) {
+      return (
+        <img 
+          src={avatarUrl} 
+          alt="Avatar" 
+          style={{ 
+            width: size, 
+            height: size, 
+            borderRadius: '50%', 
+            objectFit: 'cover', 
+            border: '2px solid var(--primary)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            transition: 'all 0.2s',
+            flexShrink: 0
+          }}
+        />
+      );
+    }
+
+    const gradient = isGradient ? avatarUrl : 'linear-gradient(135deg, #8b5cf6, #38bdf8)';
+    return (
+      <div 
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: gradient,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: fontSize,
+          border: '2px solid var(--primary)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          transition: 'all 0.2s',
+          flexShrink: 0
+        }}
+      >
+        {(name || 'U').charAt(0).toUpperCase()}
+      </div>
+    );
+  };
+
+  const openSettingsModal = () => {
+    setProfileName(user?.user_metadata?.full_name || '');
+    setProfileCarrera(user?.user_metadata?.carrera || '');
+    setProfileUniversidad(user?.user_metadata?.universidad || '');
+    setProfileAvatar(user?.user_metadata?.avatar_url || '');
+    setProfileAnio(user?.user_metadata?.anio_ingreso || '1er Año');
+    setProfileBio(user?.user_metadata?.bio || '');
+    setProfileStatus(null);
+    setShowSettingsModal(true);
+    setShowProfilePopover(false);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!profileName.trim()) {
+      setProfileStatus({ text: "El nombre no puede estar vacío", type: "error" });
+      return;
+    }
+    
+    setIsSavingProfile(true);
+    setProfileStatus(null);
+    
+    const { data, error } = await updateProfile({
+      full_name: profileName,
+      carrera: profileCarrera,
+      universidad: profileUniversidad,
+      avatar_url: profileAvatar,
+      anio_ingreso: profileAnio,
+      bio: profileBio
+    });
+    
+    setIsSavingProfile(false);
+    
+    if (error) {
+      setProfileStatus({ text: "Error al guardar: " + error.message, type: "error" });
+    } else {
+      setProfileStatus({ text: "¡Perfil actualizado con éxito!", type: "success" });
+      setTimeout(() => {
+        setShowSettingsModal(false);
+      }, 1500);
+    }
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 200 * 1024) {
+      setProfileStatus({ text: "La imagen es muy grande (máx 200KB)", type: "error" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileAvatar(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const closeMenu = () => {
     setShowProfilePopover(false);
@@ -409,46 +534,19 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               }}
               title={user.user_metadata?.full_name || 'Perfil'}
             >
-              {user.user_metadata?.avatar_url ? (
-                <img 
-                  src={user.user_metadata.avatar_url} 
-                  alt="Avatar" 
-                  style={{ 
-                    width: '38px', 
-                    height: '38px', 
-                    borderRadius: '50%', 
-                    objectFit: 'cover', 
-                    border: '2px solid var(--primary)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-                  onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-                />
-              ) : (
-                <div 
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #8b5cf6, #38bdf8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    fontSize: '1.1rem',
-                    border: '2px solid var(--primary)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    transition: 'all 0.2s',
-                    flexShrink: 0
-                  }}
-                  onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-                  onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-                >
-                  {(user.user_metadata?.full_name || 'U').charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div 
+                style={{ 
+                  borderRadius: '50%', 
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '38px', '1.1rem')}
+              </div>
             </button>
 
             {showProfilePopover && (
@@ -471,40 +569,42 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 animation: 'fadeUp 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {user.user_metadata?.avatar_url ? (
-                    <img 
-                      src={user.user_metadata.avatar_url} 
-                      alt="Avatar" 
-                      style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #8b5cf6, #38bdf8)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff',
-                      fontWeight: 'bold',
-                      fontSize: '1.1rem'
-                    }}>
-                      {(user.user_metadata?.full_name || 'U').charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '40px', '1.1rem')}
                   <div style={{ overflow: 'hidden', textAlign: 'left' }}>
                     <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
                       {user.user_metadata?.full_name || 'Alumno'}
                     </p>
-                    {user.user_metadata?.carrera && (
+                    {(user.user_metadata?.carrera || user.user_metadata?.universidad) && (
                       <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {user.user_metadata.carrera}
+                        {user.user_metadata.carrera || 'Estudiante'} {user.user_metadata.universidad ? `| ${user.user_metadata.universidad}` : ''}
                       </p>
                     )}
                   </div>
                 </div>
                 <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
+                <button 
+                  onClick={openSettingsModal} 
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.08)',
+                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                    color: 'var(--primary)',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    width: '100%',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseOver={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.15)'}
+                  onMouseOut={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.08)'}
+                >
+                  <Settings size={14} /> Configurar Perfil
+                </button>
                 <button 
                   onClick={signOut} 
                   style={{
@@ -517,7 +617,11 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                     fontSize: '0.85rem',
                     fontWeight: '600',
                     width: '100%',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
                   }}
                   onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.15)'}
                   onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.08)'}
@@ -529,6 +633,240 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           </div>
         )}
       </div>
+
+      {/* Profile Settings Modal */}
+      {showSettingsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)'
+        }}>
+          <div className="premium-modal" style={{ maxWidth: '480px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            <button 
+              onClick={() => setShowSettingsModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Settings size={20} color="var(--primary)" /> Configuración de Perfil
+            </h3>
+
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px', marginBottom: '15px' }}>
+                
+                {/* Avatar Picker */}
+                <div className="form-group-premium" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                  <label style={{ width: '100%', textAlign: 'left' }}>Foto de Perfil</label>
+                  <div style={{ position: 'relative' }}>
+                    {renderAvatar(profileAvatar, profileName || user?.user_metadata?.full_name, '80px', '2.2rem')}
+                    <label style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      background: 'var(--primary)',
+                      color: '#fff',
+                      borderRadius: '50%',
+                      padding: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                    }}>
+                      <Camera size={14} />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleAvatarUpload} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selecciona un degradado premium:</span>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      {presetGradients.map((grad, i) => (
+                        <div 
+                          key={i}
+                          onClick={() => setProfileAvatar(grad)}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            background: grad,
+                            cursor: 'pointer',
+                            border: profileAvatar === grad ? '2px solid #fff' : '2px solid transparent',
+                            boxShadow: profileAvatar === grad ? '0 0 0 2px var(--primary)' : '0 2px 4px rgba(0,0,0,0.1)',
+                            transform: profileAvatar === grad ? 'scale(1.1)' : 'none',
+                            transition: 'all 0.2s'
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>O ingresa una URL de imagen externa:</span>
+                      <input 
+                        type="text"
+                        className="premium-input"
+                        style={{ paddingLeft: '10px', fontSize: '0.8rem' }}
+                        placeholder="https://ejemplo.com/tu-foto.jpg"
+                        value={profileAvatar && !profileAvatar.startsWith('linear-gradient') && !profileAvatar.startsWith('data:image') ? profileAvatar : ''}
+                        onChange={(e) => setProfileAvatar(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nombre Completo */}
+                <div className="form-group-premium">
+                  <label>Nombre Completo</label>
+                  <input 
+                    type="text" 
+                    className="premium-input"
+                    style={{ paddingLeft: '15px' }}
+                    placeholder="Ej: Ismael Pérez"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                {/* Carrera */}
+                <div className="form-group-premium">
+                  <label>Carrera / Especialidad</label>
+                  <input 
+                    type="text" 
+                    className="premium-input"
+                    style={{ paddingLeft: '15px' }}
+                    placeholder="Ej: Ingeniería Civil Informática"
+                    value={profileCarrera}
+                    onChange={(e) => setProfileCarrera(e.target.value)}
+                  />
+                </div>
+
+                {/* Universidad */}
+                <div className="form-group-premium">
+                  <label>Universidad / Institución</label>
+                  <input 
+                    type="text" 
+                    className="premium-input"
+                    style={{ paddingLeft: '15px' }}
+                    placeholder="Ej: Universidad de Chile"
+                    value={profileUniversidad}
+                    onChange={(e) => setProfileUniversidad(e.target.value)}
+                  />
+                </div>
+
+                {/* Año de Ingreso / Semestre */}
+                <div className="form-group-premium">
+                  <label>Nivel de Estudios / Año</label>
+                  <select
+                    className="premium-input"
+                    style={{ paddingLeft: '15px', background: 'var(--bg)', color: 'var(--text-main)' }}
+                    value={profileAnio}
+                    onChange={(e) => setProfileAnio(e.target.value)}
+                  >
+                    <option value="1er Año">1er Año (Mechón)</option>
+                    <option value="2do Año">2do Año</option>
+                    <option value="3er Año">3er Año</option>
+                    <option value="4to Año">4to Año</option>
+                    <option value="5to Año">5to Año o más</option>
+                    <option value="Egresado / Graduado">Egresado / Graduado</option>
+                  </select>
+                </div>
+
+                {/* Biografía Académica */}
+                <div className="form-group-premium">
+                  <label>Biografía o Nota de Estudio (Opcional)</label>
+                  <textarea
+                    className="premium-input"
+                    style={{ padding: '10px 15px', minHeight: '60px', resize: 'vertical' }}
+                    placeholder="Escribe algo sobre ti o tus objetivos académicos..."
+                    value={profileBio}
+                    onChange={(e) => setProfileBio(e.target.value)}
+                  />
+                </div>
+
+                {/* Mensaje de Estado */}
+                {profileStatus && (
+                  <div style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '500',
+                    marginTop: '12px',
+                    textAlign: 'center',
+                    background: profileStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: profileStatus.type === 'success' ? '#10b981' : '#ef4444',
+                    border: profileStatus.type === 'success' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
+                  }}>
+                    {profileStatus.text}
+                  </div>
+                )}
+
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button 
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="btn-secondary"
+                  style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isSavingProfile}
+                  style={{ 
+                    flex: 1, 
+                    padding: '12px', 
+                    borderRadius: '10px', 
+                    fontWeight: 'bold', 
+                    cursor: 'pointer',
+                    background: 'var(--primary)',
+                    border: 'none',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {isSavingProfile ? 'Guardando...' : (
+                    <>
+                      <Check size={16} /> Guardar Cambios
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

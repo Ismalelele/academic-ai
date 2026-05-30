@@ -27,6 +27,23 @@ export function ChatProvider({ children }) {
       return;
     }
 
+    if (user.id.startsWith('user-local-')) {
+      const savedFolders = localStorage.getItem(`academic_folders_${user.id}`);
+      const savedConversations = localStorage.getItem(`academic_conversaciones_${user.id}`);
+      const savedSubjectData = localStorage.getItem(`academic_subject_data_${user.id}`);
+
+      if (savedFolders) setFoldersMap(JSON.parse(savedFolders));
+      if (savedConversations) setConversationsMap(JSON.parse(savedConversations));
+      if (savedSubjectData) {
+        setSubjectData(JSON.parse(savedSubjectData));
+      } else {
+        setSubjectData({
+          global: { documents: [], messages: [{ sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
+        });
+      }
+      return;
+    }
+
     const loadCloudData = async () => {
       try {
         // 1. Fetch Carpetas
