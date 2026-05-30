@@ -246,10 +246,10 @@ export default function Tareas() {
 
   return (
     <main className="main-content">
-      <header className="kanban-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+      <header className="kanban-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
         <div>
           <h1>Gestor de Evaluaciones</h1>
-          <p className="subtitle" style={{ color: 'var(--text-muted)', marginTop: '5px' }}>Planifica tus entregas y exámenes con IA</p>
+          <p className="subtitle">Planifica tus entregas y exámenes con IA</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           {selectedTaskIds.size > 0 && (

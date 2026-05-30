@@ -160,7 +160,10 @@ export default function Home() {
   return (
     <main className="main-content">
       <header>
-        <h1>Gestión Académica VII</h1>
+        <div>
+          <h1>Gestión Académica VII</h1>
+          <p className="subtitle">Tu panel de control académico inteligente</p>
+        </div>
         <div className="alert-time-widget" style={{
           display: 'flex', 
           alignItems: 'center', 

@@ -426,10 +426,15 @@ export const GroupChatProvider = ({ children }) => {
         id_miembro: `memb-${Date.now()}`,
         id_grupo: newGroup.id_grupo,
         user_id: user.id,
-        user_name: user.user_metadata?.full_name?.split(' ')[0] || 'Mi Usuario',
+        user_name: user.user_metadata?.full_name || 'Mi Usuario',
         user_email: user.email,
         estado: 'aceptado',
-        notificaciones_activas: true
+        notificaciones_activas: true,
+        user_avatar: user.user_metadata?.avatar_url || null,
+        user_carrera: user.user_metadata?.carrera || null,
+        user_universidad: user.user_metadata?.universidad || null,
+        user_anio: user.user_metadata?.anio_ingreso || null,
+        user_bio: user.user_metadata?.bio || null
       };
 
       localStorage.setItem(`academic_groups_${user.id}`, JSON.stringify([...localGroups, newGroup]));
@@ -459,10 +464,15 @@ export const GroupChatProvider = ({ children }) => {
           .insert([{
             id_grupo: gData.id_grupo,
             user_id: user.id,
-            user_name: user.user_metadata?.full_name?.split(' ')[0] || 'Creador',
+            user_name: user.user_metadata?.full_name || 'Creador',
             user_email: user.email,
             estado: 'aceptado',
-            notificaciones_activas: true
+            notificaciones_activas: true,
+            user_avatar: user.user_metadata?.avatar_url || null,
+            user_carrera: user.user_metadata?.carrera || null,
+            user_universidad: user.user_metadata?.universidad || null,
+            user_anio: user.user_metadata?.anio_ingreso || null,
+            user_bio: user.user_metadata?.bio || null
           }]);
 
         if (mErr) throw mErr;
@@ -495,10 +505,15 @@ export const GroupChatProvider = ({ children }) => {
           .insert([{
             id_grupo: gData.id_grupo,
             user_id: user.id,
-            user_name: user.user_metadata?.full_name?.split(' ')[0] || 'Usuario',
+            user_name: user.user_metadata?.full_name || 'Usuario',
             user_email: user.email,
             estado: 'pendiente',
-            notificaciones_activas: true
+            notificaciones_activas: true,
+            user_avatar: user.user_metadata?.avatar_url || null,
+            user_carrera: user.user_metadata?.carrera || null,
+            user_universidad: user.user_metadata?.universidad || null,
+            user_anio: user.user_metadata?.anio_ingreso || null,
+            user_bio: user.user_metadata?.bio || null
           }]);
 
         if (mErr) {
@@ -555,10 +570,15 @@ export const GroupChatProvider = ({ children }) => {
       id_miembro: `memb-${Date.now()}`,
       id_grupo: targetGroup.id_grupo,
       user_id: user.id,
-      user_name: user.user_metadata?.full_name?.split(' ')[0] || 'Mi Usuario',
+      user_name: user.user_metadata?.full_name || 'Mi Usuario',
       user_email: user.email,
       estado: 'pendiente',
-      notificaciones_activas: true
+      notificaciones_activas: true,
+      user_avatar: user.user_metadata?.avatar_url || null,
+      user_carrera: user.user_metadata?.carrera || null,
+      user_universidad: user.user_metadata?.universidad || null,
+      user_anio: user.user_metadata?.anio_ingreso || null,
+      user_bio: user.user_metadata?.bio || null
     };
 
     localStorage.setItem(`academic_members_${user.id}`, JSON.stringify([...localMembers, newMember]));
@@ -695,6 +715,29 @@ export const GroupChatProvider = ({ children }) => {
     const email = `${selectedName.toLowerCase().replace(' ', '.')}@universidad.cl`;
     const randId = `mock-${Math.floor(Math.random() * 10000)}`;
 
+    const careers = ['Medicina', 'Ingeniería Civil Informática', 'Derecho', 'Arquitectura', 'Diseño Gráfico', 'Psicología', 'Kinesiología'];
+    const universities = ['Universidad de Chile', 'Pontificia Universidad Católica', 'Universidad de Santiago', 'Universidad de Concepción'];
+    const years = ['1er Año', '2do Año', '3er Año', '4to Año', '5to Año'];
+    const bios = [
+      '¡Hola! Busco compañeros para repasar materia y preparar las pruebas semanales.',
+      'Hola, soy bien activo y me gusta compartir resúmenes en PDF.',
+      'Quiero colaborar resolviendo guías de ejercicios.',
+      'Hola! Busco grupo para repasar y aclarar dudas difíciles.'
+    ];
+    const presets = [
+      'linear-gradient(135deg, #ec4899, #f43f5e)',
+      'linear-gradient(135deg, #10b981, #059669)',
+      'linear-gradient(135deg, #f59e0b, #eab308)',
+      'linear-gradient(135deg, #ef4444, #f97316)',
+      'linear-gradient(135deg, #6366f1, #a855f7)'
+    ];
+
+    const randomCareer = careers[Math.floor(Math.random() * careers.length)];
+    const randomUni = universities[Math.floor(Math.random() * universities.length)];
+    const randomYear = years[Math.floor(Math.random() * years.length)];
+    const randomBio = bios[Math.floor(Math.random() * bios.length)];
+    const randomAvatar = presets[Math.floor(Math.random() * presets.length)];
+
     const targetGroup = groups.find(g => g.id_grupo === groupId);
     if (!targetGroup) return;
 
@@ -711,7 +754,12 @@ export const GroupChatProvider = ({ children }) => {
         user_name: selectedName,
         user_email: email,
         estado: 'pendiente',
-        notificaciones_activas: true
+        notificaciones_activas: true,
+        user_avatar: randomAvatar,
+        user_carrera: randomCareer,
+        user_universidad: randomUni,
+        user_anio: randomYear,
+        user_bio: randomBio
       };
 
       localStorage.setItem(`academic_members_${user.id}`, JSON.stringify([...localMembers, newRequest]));
@@ -729,7 +777,12 @@ export const GroupChatProvider = ({ children }) => {
         user_name: selectedName,
         user_email: email,
         estado: 'pendiente',
-        notificaciones_activas: true
+        notificaciones_activas: true,
+        user_avatar: randomAvatar,
+        user_carrera: randomCareer,
+        user_universidad: randomUni,
+        user_anio: randomYear,
+        user_bio: randomBio
       }]).then(({ error }) => {
         if (!error) {
           loadSupabaseData();

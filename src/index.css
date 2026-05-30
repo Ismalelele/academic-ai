@@ -326,6 +326,7 @@ header {
     position: relative;
     z-index: 1;
     animation: fadeUp 0.6s ease-out;
+    padding-top: 15px;
 }
 
 header h1 {
@@ -336,6 +337,13 @@ header h1 {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-weight: 500;
 }
 
 .btn-primary {

@@ -119,6 +119,11 @@ CREATE TABLE IF NOT EXISTS public.chat_miembros (
     estado TEXT NOT null DEFAULT 'pendiente', -- 'pendiente', 'aceptado'
     notificaciones_activas BOOLEAN DEFAULT true,
     fecha_union TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    user_avatar TEXT,
+    user_carrera TEXT,
+    user_universidad TEXT,
+    user_anio TEXT,
+    user_bio TEXT,
     CONSTRAINT unique_group_member UNIQUE (id_grupo, user_id)
 );
 

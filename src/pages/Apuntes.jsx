@@ -374,7 +374,10 @@ export default function Apuntes() {
     return (
       <main className="main-content">
         <header>
-          <h1>Mis Apuntes</h1>
+          <div>
+            <h1>Mis Apuntes</h1>
+            <p className="subtitle">Carga tu horario para habilitar tus cuadernos de apuntes</p>
+          </div>
         </header>
         <div style={{
           display: 'flex',
@@ -402,7 +405,7 @@ export default function Apuntes() {
   if (activeSubject) {
     return (
       <main className="main-content">
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <button 
               onClick={() => setActiveSubject(null)} 
@@ -894,8 +897,10 @@ export default function Apuntes() {
   return (
     <main className="main-content">
       <header>
-        <h1>Mis Cuadernos</h1>
-        <p className="subtitle" style={{ color: 'var(--text-muted)', marginTop: '5px' }}>Organiza tus apuntes y recursos inteligentes por asignatura</p>
+        <div>
+          <h1>Mis Cuadernos</h1>
+          <p className="subtitle" style={{ color: 'var(--text-muted)' }}>Organiza tus apuntes y recursos inteligentes por asignatura</p>
+        </div>
       </header>
 
       <div className="notebooks-grid">

@@ -45,6 +45,67 @@ export default function ChatsGrupos() {
   // UI States
   const [copiedCode, setCopiedCode] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [selectedMemberProfile, setSelectedMemberProfile] = useState(null);
+
+  const renderMemberAvatar = (avatarUrl, name, size = '36px', fontSize = '1rem') => {
+    const isGradient = avatarUrl && avatarUrl.startsWith('linear-gradient');
+    const hasAvatar = avatarUrl && !isGradient;
+
+    if (hasAvatar) {
+      return (
+        <img 
+          src={avatarUrl} 
+          alt="Avatar" 
+          style={{ 
+            width: size, 
+            height: size, 
+            borderRadius: '50%', 
+            objectFit: 'cover', 
+            border: '1.5px solid var(--primary)',
+            flexShrink: 0
+          }}
+        />
+      );
+    }
+
+    const gradient = isGradient ? avatarUrl : 'linear-gradient(135deg, #8b5cf6, #38bdf8)';
+    return (
+      <div 
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: gradient,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: fontSize,
+          border: '1.5px solid var(--primary)',
+          flexShrink: 0
+        }}
+      >
+        {(name || 'U').charAt(0).toUpperCase()}
+      </div>
+    );
+  };
+
+  const handleSenderClick = (msg) => {
+    const member = activeGroupMembers.find(m => 
+      (msg.user_id && m.user_id === msg.user_id) || 
+      (!msg.user_id && m.user_name === msg.user_name)
+    );
+    if (member) {
+      setSelectedMemberProfile(member);
+    } else {
+      setSelectedMemberProfile({
+        user_name: msg.user_name,
+        user_carrera: 'Miembro del Grupo',
+        user_email: `${msg.user_name.toLowerCase().replace(' ', '')}@academica.cl`
+      });
+    }
+  };
 
   // Library States
   const [groupSubTab, setGroupSubTab] = useState('chat'); // 'chat' | 'library'
@@ -210,13 +271,13 @@ export default function ChatsGrupos() {
   };
 
   return (
-    <main className="main-content">
-      <header style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <header style={{ marginBottom: '35px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <MessageSquare size={32} color="var(--primary)" /> Chats de Asignaturas
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+          <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
             Crea salas de estudio para tus asignaturas, comparte códigos de invitación y debate con tus compañeros.
           </p>
         </div>
@@ -238,7 +299,7 @@ export default function ChatsGrupos() {
         )}
       </header>
 
-      <div className="chats-view-layout">
+      <div className="chats-view-layout" style={{ flex: 1, minHeight: 0, height: 'auto' }}>
         {/* PANEL LATERAL DE GRUPOS Y SOLICITUDES */}
         <aside className="chats-sidebar">
           <div className="chats-sidebar-header">
@@ -419,7 +480,7 @@ export default function ChatsGrupos() {
                   </div>
                 </header>
 
-                {/* Sub Tab Selector (Mensajes / Biblioteca) */}
+                {/* Sub Tab Selector (Mensajes / Biblioteca / Integrantes) */}
                 <div className="group-tab-selector" style={{
                   display: 'flex',
                   borderBottom: '1px solid var(--border-color)',
@@ -465,6 +526,25 @@ export default function ChatsGrupos() {
                   >
                     <BookOpen size={15} /> Biblioteca
                   </button>
+                  <button 
+                    onClick={() => setGroupSubTab('members')}
+                    style={{
+                      padding: '12px 18px',
+                      background: 'none',
+                      border: 'none',
+                      color: groupSubTab === 'members' ? 'var(--primary)' : 'var(--text-muted)',
+                      borderBottom: groupSubTab === 'members' ? '3px solid var(--primary)' : '3px solid transparent',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.88rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: '0.2s'
+                    }}
+                  >
+                    <Users size={15} /> Integrantes ({activeGroupMembers.length})
+                  </button>
                 </div>
 
                 {groupSubTab === 'chat' ? (
@@ -493,7 +573,23 @@ export default function ChatsGrupos() {
                               key={msg.id_mensaje || i} 
                               className={`chats-message-wrapper ${isMe ? 'outgoing' : 'incoming'}`}
                             >
-                              {!isMe && <span className="chats-message-sender">{msg.user_name}</span>}
+                              {!isMe && (
+                                <span 
+                                  className="chats-message-sender"
+                                  onClick={() => handleSenderClick(msg)}
+                                  style={{ 
+                                    cursor: 'pointer', 
+                                    fontWeight: 'bold',
+                                    color: 'var(--primary)',
+                                    display: 'block',
+                                    marginBottom: '4px'
+                                  }}
+                                  onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                                  onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                                >
+                                  {msg.user_name}
+                                </span>
+                              )}
                               <div className="chats-message-bubble">
                                 {msg.texto}
                               </div>
@@ -524,7 +620,7 @@ export default function ChatsGrupos() {
                       </button>
                     </form>
                   </>
-                ) : (
+                ) : groupSubTab === 'library' ? (
                   /* Vista de Biblioteca */
                   <div className="chats-library-area" style={{
                     display: 'flex',
@@ -756,6 +852,82 @@ export default function ChatsGrupos() {
                         })}
                       </div>
                     )}
+                  </div>
+                ) : (
+                  /* Vista de Integrantes */
+                  <div className="chats-members-area" style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    overflow: 'hidden',
+                    background: 'rgba(0,0,0,0.05)',
+                    padding: '20px'
+                  }}>
+                    <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-main)', fontSize: '1rem', fontWeight: '800' }}>
+                      Integrantes del Grupo ({activeGroupMembers.length})
+                    </h4>
+                    
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                      gap: '15px',
+                      overflowY: 'auto',
+                      flex: 1,
+                      alignContent: 'start'
+                    }}>
+                      {activeGroupMembers.map((member) => (
+                        <div 
+                          key={member.id_miembro}
+                          onClick={() => setSelectedMemberProfile(member)}
+                          style={{
+                            background: 'var(--card-bg)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '12px',
+                            padding: '15px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: 'var(--shadow-sm)'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                            e.currentTarget.style.borderColor = 'var(--primary)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                          }}
+                        >
+                          {renderMemberAvatar(member.user_avatar, member.user_name, '44px', '1.2rem')}
+                          <div style={{ overflow: 'hidden', textAlign: 'left' }}>
+                            <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
+                              {member.user_name}
+                            </p>
+                            <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {member.user_carrera || 'Estudiante'}
+                            </p>
+                            {member.user_id === user?.id && (
+                              <span style={{
+                                display: 'inline-block',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                color: 'var(--primary)',
+                                fontSize: '0.65rem',
+                                fontWeight: 'bold',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                marginTop: '4px'
+                              }}>
+                                Tú
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -1224,6 +1396,105 @@ export default function ChatsGrupos() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Viewer Modal */}
+      {selectedMemberProfile && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)'
+        }}>
+          <div className="premium-modal" style={{ maxWidth: '440px', width: '90%', display: 'flex', flexDirection: 'column', position: 'relative', padding: '24px' }}>
+            <button 
+              onClick={() => setSelectedMemberProfile(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center', marginTop: '10px' }}>
+              {renderMemberAvatar(selectedMemberProfile.user_avatar, selectedMemberProfile.user_name, '90px', '2.5rem')}
+              
+              <div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: '800', margin: 0, color: 'var(--text-main)' }}>
+                  {selectedMemberProfile.user_name}
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '600' }}>
+                  {selectedMemberProfile.user_carrera || 'Estudiante'}
+                </p>
+                {selectedMemberProfile.user_universidad && (
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {selectedMemberProfile.user_universidad} {selectedMemberProfile.user_anio ? `(${selectedMemberProfile.user_anio})` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div style={{ height: '1px', background: 'var(--border-color)', margin: '20px 0' }}></div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>
+                  Correo Electrónico
+                </span>
+                <a 
+                  href={`mailto:${selectedMemberProfile.user_email}`}
+                  style={{ fontSize: '0.85rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {selectedMemberProfile.user_email}
+                </a>
+              </div>
+
+              {selectedMemberProfile.user_bio && (
+                <div>
+                  <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>
+                    Sobre Mí / Nota de Estudio
+                  </span>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: '1.5', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    {selectedMemberProfile.user_bio}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setSelectedMemberProfile(null)}
+              className="btn-primary"
+              style={{ 
+                marginTop: '24px', 
+                width: '100%', 
+                padding: '12px', 
+                borderRadius: '10px', 
+                fontWeight: 'bold', 
+                cursor: 'pointer',
+                background: 'var(--primary)',
+                border: 'none',
+                color: '#fff'
+              }}
+            >
+              Cerrar Perfil
+            </button>
           </div>
         </div>
       )}

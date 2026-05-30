@@ -23,7 +23,10 @@ export default function Horario() {
   return (
     <main className="main-content">
       <header>
-        <h1>Mi Horario Semanal</h1>
+        <div>
+          <h1>Mi Horario Semanal</h1>
+          <p className="subtitle">Sube tu horario y deja que la IA organice tu rutina diaria</p>
+        </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           {effectiveSchedule && (
             <>

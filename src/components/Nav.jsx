@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { 
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, 
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
@@ -635,7 +636,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       </div>
 
       {/* Profile Settings Modal */}
-      {showSettingsModal && (
+      {showSettingsModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -865,7 +866,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </nav>
   );

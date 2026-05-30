@@ -164,6 +164,25 @@ export const AuthProvider = ({ children }) => {
         };
         setUser(updatedUser);
         localStorage.setItem('sb-local-session-user', JSON.stringify(updatedUser));
+
+        // Sincronizar en memberships locales
+        try {
+          const localMembersKey = `academic_members_${user.id}`;
+          const localMembers = JSON.parse(localStorage.getItem(localMembersKey)) || [];
+          const updatedMembers = localMembers.map(m => m.user_id === user.id ? {
+            ...m,
+            user_name: newMetadata.full_name,
+            user_avatar: newMetadata.avatar_url,
+            user_carrera: newMetadata.carrera,
+            user_universidad: newMetadata.universidad,
+            user_anio: newMetadata.anio_ingreso,
+            user_bio: newMetadata.bio
+          } : m);
+          localStorage.setItem(localMembersKey, JSON.stringify(updatedMembers));
+        } catch (localErr) {
+          console.warn("Fallo al actualizar local memberships:", localErr);
+        }
+
         return { data: updatedUser, error: null };
       }
 
@@ -173,6 +192,23 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
       if (data?.user) {
         setUser(data.user);
+
+        // Sincronizar en chat_miembros en Supabase
+        try {
+          await supabase
+            .from('chat_miembros')
+            .update({
+              user_name: newMetadata.full_name,
+              user_avatar: newMetadata.avatar_url,
+              user_carrera: newMetadata.carrera,
+              user_universidad: newMetadata.universidad,
+              user_anio: newMetadata.anio_ingreso,
+              user_bio: newMetadata.bio
+            })
+            .eq('user_id', data.user.id);
+        } catch (cascadeErr) {
+          console.warn("Fallo al actualizar chat_miembros en cascada:", cascadeErr);
+        }
       }
       return { data: data?.user || null, error: null };
     } catch (error) {

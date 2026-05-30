@@ -239,7 +239,10 @@ export default function Calificaciones() {
     return (
       <main className="main-content">
         <header>
-          <h1>Mis Calificaciones</h1>
+          <div>
+            <h1>Mis Calificaciones</h1>
+            <p className="subtitle">Carga tu horario para habilitar las calificaciones por materia</p>
+          </div>
         </header>
         <div style={{
           display: 'flex',
@@ -265,11 +268,13 @@ export default function Calificaciones() {
 
   return (
     <main className="main-content">
-      <header>
-        <h1>Control de Calificaciones</h1>
-        <p className="subtitle" style={{ color: 'var(--text-muted)', marginTop: '5px' }}>
-          Calcula tus promedios, simula notas futuras y predice riesgos de reprobación (Escala 1.0 - 7.0)
-        </p>
+      <header style={{ marginBottom: '35px' }}>
+        <div>
+          <h1>Control de Calificaciones</h1>
+          <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
+            Calcula tus promedios, simula notas futuras y predice riesgos de reprobación (Escala 1.0 - 7.0)
+          </p>
+        </div>
       </header>
 
       <div className="grades-header-actions" style={{ marginBottom: '20px' }}>

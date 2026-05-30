@@ -229,12 +229,14 @@ export default function Analisis() {
   return (
     <main className="main-content">
       <header>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Sparkles size={32} color="var(--primary)" /> Análisis Crítico de Documentos
-        </h1>
-        <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
-          Sube tus archivos de estudio (PDF, Word, PPTX o Texto) para obtener una evaluación inmediata, resúmenes estructurados y quizzes de estudio interactivos.
-        </p>
+        <div>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Sparkles size={32} color="var(--primary)" /> Análisis Crítico de Documentos
+          </h1>
+          <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
+            Sube tus archivos de estudio (PDF, Word, PPTX o Texto) para obtener una evaluación inmediata, resúmenes estructurados y quizzes de estudio interactivos.
+          </p>
+        </div>
       </header>
 
       {/* ÁREA DE CARGA DE ARCHIVO */}
