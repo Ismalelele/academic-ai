@@ -126,7 +126,7 @@ export const TaskProvider = ({ children }) => {
           localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(formattedTasks));
         }
       } catch (error) {
-        console.warn("Fallo al conectar con Supabase para tareas. Usando respaldo local:", error);
+        console.warn("Fallo al conectar con Supabase para tareas. Usando respaldo local. Error:", error?.message || error, "Código:", error?.code || 'N/A');
         const savedTasks = localStorage.getItem(`academic_tasks_${user.id}`);
         if (savedTasks) {
           setTasks(JSON.parse(savedTasks));

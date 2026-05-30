@@ -112,7 +112,7 @@ export const ScheduleProvider = ({ children }) => {
           localStorage.removeItem(`academic_schedule_${user.id}`);
         }
       } catch (error) {
-        console.warn("Fallo al conectar con Supabase. Usando horario local de respaldo:", error);
+        console.warn("Fallo al conectar con Supabase. Usando horario local de respaldo. Error:", error?.message || error, "Código:", error?.code || 'N/A');
         const localSchedule = localStorage.getItem(`academic_schedule_${user.id}`);
         if (localSchedule) {
           setSchedule(JSON.parse(localSchedule));

@@ -44,7 +44,7 @@ export const NotificationProvider = ({ children }) => {
           localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(formatted));
         }
       } catch (error) {
-        console.warn("Fallo al conectar con Supabase para notificaciones. Usando respaldo local:", error);
+        console.warn("Fallo al conectar con Supabase para notificaciones. Usando respaldo local. Error:", error?.message || error, "Código:", error?.code || 'N/A');
         const saved = localStorage.getItem(`academic_notifications_${user.id}`);
         if (saved) {
           setNotifications(JSON.parse(saved));

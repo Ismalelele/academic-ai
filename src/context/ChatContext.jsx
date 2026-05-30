@@ -109,7 +109,7 @@ export function ChatProvider({ children }) {
         localStorage.setItem(`academic_subject_data_${user.id}`, JSON.stringify(newSubjectData));
 
       } catch (error) {
-        console.warn("Fallo al conectar con Supabase para apuntes/chats. Usando respaldo local:", error);
+        console.warn("Fallo al conectar con Supabase para apuntes/chats. Usando respaldo local. Error:", error?.message || error, "Código:", error?.code || 'N/A');
         const savedFolders = localStorage.getItem(`academic_folders_${user.id}`);
         const savedConversations = localStorage.getItem(`academic_conversaciones_${user.id}`);
         const savedSubjectData = localStorage.getItem(`academic_subject_data_${user.id}`);

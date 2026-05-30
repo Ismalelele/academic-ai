@@ -25,15 +25,34 @@ export const GroupChatProvider = ({ children }) => {
 
     const checkTables = async () => {
       try {
-        const { error } = await supabase.from('chat_grupos').select('id_grupo').limit(1);
-        if (error && (error.code === '42P01' || error.message.includes('does not exist'))) {
-          console.warn("Tablas de chat no detectadas en Supabase. Conmutando a modo local (localStorage).");
+        // Verificar que las 3 tablas de chat existen
+        const [r1, r2, r3] = await Promise.all([
+          supabase.from('chat_grupos').select('id_grupo').limit(1),
+          supabase.from('chat_miembros').select('id_miembro').limit(1),
+          supabase.from('chat_mensajes').select('id_mensaje').limit(1)
+        ]);
+
+        const tablesMissing = [r1, r2, r3].some(r => 
+          r.error && (r.error.code === '42P01' || r.error.message?.includes('does not exist'))
+        );
+
+        if (tablesMissing) {
+          console.warn("Tablas de chat no detectadas en Supabase:", 
+            r1.error ? 'chat_grupos: ' + r1.error.message : 'chat_grupos: OK',
+            r2.error ? 'chat_miembros: ' + r2.error.message : 'chat_miembros: OK',
+            r3.error ? 'chat_mensajes: ' + r3.error.message : 'chat_mensajes: OK'
+          );
           setIsFallbackMode(true);
         } else {
+          // Loguear errores no-fatales (RLS, permisos) pero no cambiar a fallback
+          [r1, r2, r3].forEach((r, i) => {
+            if (r.error) console.warn(`Tabla chat #${i} tiene error (no fatal):`, r.error);
+          });
+          console.log("✅ Tablas de chat detectadas en Supabase. Usando modo online.");
           setIsFallbackMode(false);
         }
       } catch (e) {
-        console.warn("Fallo de conexión. Usando respaldo de chat local.");
+        console.warn("Fallo de conexión con Supabase. Usando respaldo de chat local.", e);
         setIsFallbackMode(true);
       }
     };
@@ -243,31 +262,56 @@ export const GroupChatProvider = ({ children }) => {
   const loadSupabaseData = async () => {
     try {
       setLoading(true);
-      // 1. Obtener membresías y datos de grupos en los que participa el usuario
-      const { data: memberData, error: memberErr } = await supabase
-        .from('chat_miembros')
-        .select('*, chat_grupos(*)')
-        .eq('user_id', user.id);
+      
+      // 1. Obtener membresías del usuario
+      let memberData = [];
+      try {
+        const { data, error } = await supabase
+          .from('chat_miembros')
+          .select('*, chat_grupos(*)')
+          .eq('user_id', user.id);
+        if (error) {
+          console.error("Error en chat_miembros con JOIN:", error);
+          // Intentar sin el JOIN como fallback
+          const { data: plainData, error: plainErr } = await supabase
+            .from('chat_miembros')
+            .select('*')
+            .eq('user_id', user.id);
+          if (plainErr) throw plainErr;
+          memberData = plainData || [];
+        } else {
+          memberData = data || [];
+        }
+      } catch (e) {
+        console.error("Error total en chat_miembros:", e);
+        throw e;
+      }
 
-      if (memberErr) throw memberErr;
-
-      // Obtener también grupos creados por el usuario
-      const { data: createdData, error: createdErr } = await supabase
-        .from('chat_grupos')
-        .select('*')
-        .eq('creador_id', user.id);
-
-      if (createdErr) throw createdErr;
+      // 2. Obtener grupos creados por el usuario
+      let createdData = [];
+      try {
+        const { data, error } = await supabase
+          .from('chat_grupos')
+          .select('*')
+          .eq('creador_id', user.id);
+        if (error) throw error;
+        createdData = data || [];
+      } catch (e) {
+        console.error("Error en chat_grupos:", e);
+        throw e;
+      }
 
       // Unificar grupos
       const unifiedGroupsMap = {};
-      createdData?.forEach(g => {
+      createdData.forEach(g => {
         unifiedGroupsMap[g.id_grupo] = { ...g, membership: { estado: 'aceptado', notificaciones_activas: true } };
       });
-      memberData?.forEach(m => {
-        if (m.chat_grupos) {
-          unifiedGroupsMap[m.chat_grupos.id_grupo] = {
-            ...m.chat_grupos,
+      memberData.forEach(m => {
+        const grupo = m.chat_grupos || createdData.find(g => g.id_grupo === m.id_grupo);
+        if (grupo) {
+          const groupData = m.chat_grupos || grupo;
+          unifiedGroupsMap[groupData.id_grupo] = {
+            ...groupData,
             membership: { estado: m.estado, notificaciones_activas: m.notificaciones_activas }
           };
         }
@@ -276,46 +320,74 @@ export const GroupChatProvider = ({ children }) => {
       const userGroups = Object.values(unifiedGroupsMap);
       setGroups(userGroups);
 
-      // 2. Si hay un grupo activo, cargar sus mensajes y miembros
+      // 3. Si hay un grupo activo, cargar sus mensajes y miembros
       if (activeGroupId) {
-        const { data: msgData, error: msgErr } = await supabase
-          .from('chat_mensajes')
-          .select('*')
-          .eq('id_grupo', activeGroupId)
-          .order('fecha_envio', { ascending: true });
+        try {
+          const { data: msgData, error: msgErr } = await supabase
+            .from('chat_mensajes')
+            .select('*')
+            .eq('id_grupo', activeGroupId)
+            .order('fecha_envio', { ascending: true });
 
-        if (msgErr) throw msgErr;
-        setMessages(msgData || []);
+          if (msgErr) console.error("Error en chat_mensajes:", msgErr);
+          setMessages(msgData || []);
+        } catch (e) {
+          console.error("Error cargando mensajes:", e);
+          setMessages([]);
+        }
 
-        const { data: membersData, error: membersErr } = await supabase
-          .from('chat_miembros')
-          .select('*')
-          .eq('id_grupo', activeGroupId)
-          .eq('estado', 'aceptado');
+        try {
+          const { data: membersData, error: membersErr } = await supabase
+            .from('chat_miembros')
+            .select('*')
+            .eq('id_grupo', activeGroupId)
+            .eq('estado', 'aceptado');
 
-        if (membersErr) throw membersErr;
-        setActiveGroupMembers(membersData || []);
+          if (membersErr) console.error("Error en miembros activos:", membersErr);
+          setActiveGroupMembers(membersData || []);
+        } catch (e) {
+          console.error("Error cargando miembros:", e);
+          setActiveGroupMembers([]);
+        }
       }
 
-      // 3. Cargar solicitudes pendientes para los grupos del creador
-      const myCreatedIds = createdData?.map(g => g.id_grupo) || [];
+      // 4. Cargar solicitudes pendientes para los grupos del creador
+      const myCreatedIds = createdData.map(g => g.id_grupo);
       if (myCreatedIds.length > 0) {
-        const { data: pendData, error: pendErr } = await supabase
-          .from('chat_miembros')
-          .select('*, chat_grupos(titulo)')
-          .in('id_grupo', myCreatedIds)
-          .eq('estado', 'pendiente');
+        try {
+          const { data: pendData, error: pendErr } = await supabase
+            .from('chat_miembros')
+            .select('*, chat_grupos(titulo)')
+            .in('id_grupo', myCreatedIds)
+            .eq('estado', 'pendiente');
 
-        if (pendErr) throw pendErr;
-        setPendingRequests(pendData?.map(p => ({
-          ...p,
-          grupo_titulo: p.chat_grupos ? p.chat_grupos.titulo : 'Grupo'
-        })) || []);
+          if (pendErr) {
+            console.error("Error en solicitudes pendientes:", pendErr);
+            // Intentar sin JOIN
+            const { data: plainPend } = await supabase
+              .from('chat_miembros')
+              .select('*')
+              .in('id_grupo', myCreatedIds)
+              .eq('estado', 'pendiente');
+            setPendingRequests((plainPend || []).map(p => {
+              const g = createdData.find(gr => gr.id_grupo === p.id_grupo);
+              return { ...p, grupo_titulo: g ? g.titulo : 'Grupo' };
+            }));
+          } else {
+            setPendingRequests(pendData?.map(p => ({
+              ...p,
+              grupo_titulo: p.chat_grupos ? p.chat_grupos.titulo : 'Grupo'
+            })) || []);
+          }
+        } catch (e) {
+          console.error("Error en pendientes:", e);
+          setPendingRequests([]);
+        }
       } else {
         setPendingRequests([]);
       }
     } catch (e) {
-      console.error("Error cargando datos de Supabase. Cambiando a local.", e);
+      console.error("Error cargando datos de Supabase. Cambiando a local. Error:", e?.message || e, "Código:", e?.code || 'N/A');
       setIsFallbackMode(true);
     } finally {
       setLoading(false);
@@ -398,61 +470,17 @@ export const GroupChatProvider = ({ children }) => {
   // 2. Solicitar Unirse a Grupo por Código
   const joinGroup = async (inviteCode) => {
     const cleanedCode = inviteCode.trim().toUpperCase();
-    if (isFallbackMode) {
-      const localGroups = JSON.parse(localStorage.getItem(`academic_groups_${user.id}`)) || [];
-      const localMembers = JSON.parse(localStorage.getItem(`academic_members_${user.id}`)) || [];
 
-      const targetGroup = localGroups.find(g => g.codigo_invitacion === cleanedCode);
-      if (!targetGroup) {
-        throw new Error("El código de invitación no existe.");
-      }
+    // Siempre intentar Supabase primero para buscar grupos de OTROS usuarios
+    try {
+      const { data: gData, error: gErr } = await supabase
+        .from('chat_grupos')
+        .select('*')
+        .eq('codigo_invitacion', cleanedCode)
+        .maybeSingle();
 
-      // Verificar si ya pertenece o tiene solicitud
-      const alreadyMember = localMembers.find(m => m.id_grupo === targetGroup.id_grupo && m.user_id === user.id);
-      if (alreadyMember) {
-        if (alreadyMember.estado === 'aceptado') {
-          setActiveGroupId(targetGroup.id_grupo);
-          throw new Error("Ya eres miembro de este grupo.");
-        } else {
-          throw new Error("Tu solicitud de ingreso ya está pendiente de aprobación.");
-        }
-      }
-
-      const newMember = {
-        id_miembro: `memb-${Date.now()}`,
-        id_grupo: targetGroup.id_grupo,
-        user_id: user.id,
-        user_name: user.user_metadata?.full_name?.split(' ')[0] || 'Mi Usuario',
-        user_email: user.email,
-        estado: 'pendiente',
-        notificaciones_activas: true
-      };
-
-      localStorage.setItem(`academic_members_${user.id}`, JSON.stringify([...localMembers, newMember]));
-      loadLocalData();
-      return targetGroup;
-    } else {
-      try {
-        // Buscar el grupo por código — usar .maybeSingle() para evitar error PGRST116
-        // cuando RLS bloquea filas de otros usuarios
-        const { data: gData, error: gErr } = await supabase
-          .from('chat_grupos')
-          .select('*')
-          .eq('codigo_invitacion', cleanedCode)
-          .maybeSingle();
-
-        if (gErr) {
-          console.error("Error al buscar grupo por código:", gErr);
-          throw new Error("Error al buscar el grupo. Verifica tu conexión e intenta de nuevo.");
-        }
-
-        if (!gData) {
-          // Puede ser que el código no exista O que RLS bloquee la lectura
-          console.warn("Grupo no encontrado con código:", cleanedCode, "— Si el código es válido, puede ser un problema de permisos (RLS) en la tabla chat_grupos.");
-          throw new Error("El código de invitación no existe o no se pudo acceder. Si estás seguro de que el código es correcto, contacta al administrador.");
-        }
-
-        // Crear la membresía como pendiente
+      if (!gErr && gData) {
+        // Grupo encontrado en Supabase — intentar crear membresía
         const { error: mErr } = await supabase
           .from('chat_miembros')
           .insert([{
@@ -468,15 +496,65 @@ export const GroupChatProvider = ({ children }) => {
           if (mErr.code === '23505') {
             throw new Error("Ya eres miembro o tienes una solicitud pendiente para este grupo.");
           }
-          throw mErr;
+          console.error("Error al insertar miembro:", mErr);
+          throw new Error("Error al enviar la solicitud. Intenta de nuevo.");
         }
 
-        await loadSupabaseData();
+        // Recargar datos
+        try { await loadSupabaseData(); } catch (_) { /* ignorar si falla el reload */ }
         return gData;
-      } catch (e) {
-        throw new Error(e.message || "Error al solicitar unirse al grupo.");
+      }
+
+      if (!gErr && !gData) {
+        // La consulta fue exitosa pero no encontró nada → el código realmente no existe
+        throw new Error("El código de invitación no existe.");
+      }
+
+      // Si hubo un error de Supabase, loguear y caer al fallback local
+      console.warn("Error de Supabase al buscar grupo, intentando local:", gErr);
+    } catch (e) {
+      // Si el error es uno que ya lanzamos nosotros, re-lanzar
+      if (e.message === "Ya eres miembro o tienes una solicitud pendiente para este grupo." ||
+          e.message === "El código de invitación no existe." ||
+          e.message === "Error al enviar la solicitud. Intenta de nuevo.") {
+        throw e;
+      }
+      // Error de red/conexión — intentar fallback local
+      console.warn("Fallo de red en joinGroup, intentando localStorage:", e.message);
+    }
+
+    // Fallback: buscar en localStorage (solo funciona para grupos creados localmente)
+    const localGroups = JSON.parse(localStorage.getItem(`academic_groups_${user.id}`)) || [];
+    const localMembers = JSON.parse(localStorage.getItem(`academic_members_${user.id}`)) || [];
+
+    const targetGroup = localGroups.find(g => g.codigo_invitacion === cleanedCode);
+    if (!targetGroup) {
+      throw new Error("El código de invitación no existe.");
+    }
+
+    const alreadyMember = localMembers.find(m => m.id_grupo === targetGroup.id_grupo && m.user_id === user.id);
+    if (alreadyMember) {
+      if (alreadyMember.estado === 'aceptado') {
+        setActiveGroupId(targetGroup.id_grupo);
+        throw new Error("Ya eres miembro de este grupo.");
+      } else {
+        throw new Error("Tu solicitud de ingreso ya está pendiente de aprobación.");
       }
     }
+
+    const newMember = {
+      id_miembro: `memb-${Date.now()}`,
+      id_grupo: targetGroup.id_grupo,
+      user_id: user.id,
+      user_name: user.user_metadata?.full_name?.split(' ')[0] || 'Mi Usuario',
+      user_email: user.email,
+      estado: 'pendiente',
+      notificaciones_activas: true
+    };
+
+    localStorage.setItem(`academic_members_${user.id}`, JSON.stringify([...localMembers, newMember]));
+    loadLocalData();
+    return targetGroup;
   };
 
   // 3. Enviar Mensaje
