@@ -56,14 +56,17 @@ body.dark-mode {
     width: 6px;
     height: 6px;
 }
+
 ::-webkit-scrollbar-track {
     background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 10px;
     transition: background 0.3s ease;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: var(--primary);
 }
@@ -276,7 +279,8 @@ body {
 .main-content {
     flex-grow: 1;
     padding: 40px;
-    padding-bottom: 110px; /* Space for the bottom floating dock */
+    padding-bottom: 110px;
+    /* Space for the bottom floating dock */
     overflow-y: auto;
     background: var(--bg);
     position: relative;
@@ -457,7 +461,8 @@ body.dark-mode .time-column {
 }
 
 .grid-content {
-    height: 900px; /* 18 slots * 50px */
+    height: 900px;
+    /* 18 slots * 50px */
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     position: relative;
@@ -1078,7 +1083,8 @@ body.dark-mode .chat-footer input {
     }
 
     .sidebar .nav-links a span {
-        display: none; /* Hide labels to fit icons perfectly in mobile */
+        display: none;
+        /* Hide labels to fit icons perfectly in mobile */
     }
 
     .sidebar .theme-toggle {
@@ -1093,7 +1099,8 @@ body.dark-mode .chat-footer input {
 
     .main-content {
         padding: 20px;
-        padding-bottom: 90px; /* Margen inferior para no tapar contenido */
+        padding-bottom: 90px;
+        /* Margen inferior para no tapar contenido */
     }
 
     header {
@@ -1776,9 +1783,17 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     align-items: center;
     margin-bottom: 30px;
 }
+
 @media (max-width: 768px) {
-    .kanban-header { flex-direction: column; align-items: flex-start; gap: 15px; }
-    .kanban-add-form { width: 100%; }
+    .kanban-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .kanban-add-form {
+        width: 100%;
+    }
 }
 
 .kanban-add-form {
@@ -1790,6 +1805,7 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
 }
+
 .kanban-add-form input {
     background: transparent;
     border: none;
@@ -1810,8 +1826,11 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     overflow-x: auto;
     padding-bottom: 20px;
 }
+
 @media (max-width: 992px) {
-    .kanban-board { grid-template-columns: repeat(3, minmax(300px, 1fr)); }
+    .kanban-board {
+        grid-template-columns: repeat(3, minmax(300px, 1fr));
+    }
 }
 
 .kanban-column {
@@ -1825,6 +1844,7 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     overflow: hidden;
     transition: 0.3s;
 }
+
 .kanban-column.drag-over {
     background: rgba(14, 165, 233, 0.05);
     border-color: var(--primary);
@@ -1836,8 +1856,9 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(0,0,0,0.02);
+    background: rgba(0, 0, 0, 0.02);
 }
+
 .kanban-column-header h3 {
     font-size: 1.1rem;
     font-weight: 800;
@@ -1846,6 +1867,7 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     align-items: center;
     gap: 8px;
 }
+
 .task-count {
     background: var(--primary-light);
     color: var(--primary);
@@ -1876,24 +1898,30 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     box-shadow: var(--shadow-sm);
     position: relative;
 }
+
 .kanban-card.selected {
     border-color: #ef4444;
     background: rgba(239, 68, 68, 0.05);
 }
+
 .kanban-card:active {
     cursor: grabbing;
 }
+
 .kanban-card:hover {
     transform: translateY(-2px);
     border-color: var(--primary);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
+
 .kanban-card.selected:hover {
     border-color: #ef4444;
 }
+
 body.dark-mode .kanban-card:hover {
-    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
+
 .kanban-card.is-dragging {
     opacity: 0.5;
     transform: scale(0.95);
@@ -1912,6 +1940,7 @@ body.dark-mode .kanban-card:hover {
     align-items: flex-start;
     padding-top: 4px;
 }
+
 .kanban-card-checkbox input[type="checkbox"] {
     appearance: none;
     width: 18px;
@@ -1923,10 +1952,12 @@ body.dark-mode .kanban-card:hover {
     position: relative;
     transition: 0.2s;
 }
+
 .kanban-card-checkbox input[type="checkbox"]:checked {
     background: #ef4444;
     border-color: #ef4444;
 }
+
 .kanban-card-checkbox input[type="checkbox"]:checked::after {
     content: "✓";
     position: absolute;
@@ -1944,11 +1975,13 @@ body.dark-mode .kanban-card:hover {
     flex-direction: column;
     gap: 10px;
 }
+
 .kanban-card-tags {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
+
 .kanban-tag {
     font-size: 0.7rem;
     font-weight: 700;
@@ -1957,9 +1990,21 @@ body.dark-mode .kanban-card:hover {
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.kanban-tag.high { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-.kanban-tag.medium { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
-.kanban-tag.low { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+.kanban-tag.high {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.kanban-tag.medium {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.kanban-tag.low {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
 
 .btn-delete-task {
     background: none;
@@ -1972,10 +2017,12 @@ body.dark-mode .kanban-card:hover {
     display: flex;
     align-items: center;
 }
+
 .btn-delete-task:hover {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
 }
+
 .kanban-card-content p {
     font-size: 0.95rem;
     font-weight: 600;
@@ -1992,6 +2039,7 @@ body.dark-mode .kanban-card:hover {
     gap: 5px;
     border-top: 1px solid var(--border-color);
 }
+
 @media (max-width: 480px) {
     .kanban-add-task-form {
         flex-direction: column;
@@ -2010,6 +2058,7 @@ body.dark-mode .kanban-card:hover {
     outline: none;
     cursor: pointer;
 }
+
 @media (max-width: 480px) {
     .kanban-select {
         max-width: 100%;
@@ -2017,6 +2066,7 @@ body.dark-mode .kanban-card:hover {
         padding: 8px;
     }
 }
+
 .kanban-select option {
     background: var(--bg);
     color: var(--text-main);
@@ -2032,14 +2082,16 @@ body.dark-mode .kanban-card:hover {
     color: var(--text-main);
     outline: none;
 }
+
 @media (max-width: 480px) {
     .kanban-input-inline {
         padding: 8px;
-        background: rgba(0,0,0,0.05);
+        background: rgba(0, 0, 0, 0.05);
         border-radius: 8px;
     }
+
     body.dark-mode .kanban-input-inline {
-        background: rgba(255,255,255,0.05);
+        background: rgba(255, 255, 255, 0.05);
     }
 }
 
@@ -2051,6 +2103,7 @@ body.dark-mode .kanban-card:hover {
     align-items: center;
     justify-content: center;
 }
+
 @media (max-width: 480px) {
     .btn-add-inline {
         width: 100%;
@@ -2062,6 +2115,7 @@ body.dark-mode .kanban-card:hover {
 .mobile-move-actions {
     display: none;
 }
+
 @media (max-width: 768px) {
     .mobile-move-actions {
         display: flex;
@@ -2069,6 +2123,7 @@ body.dark-mode .kanban-card:hover {
         margin-top: 12px;
         width: 100%;
     }
+
     .mobile-move-actions button {
         flex: 1;
         padding: 10px;
@@ -2086,13 +2141,16 @@ body.dark-mode .kanban-card:hover {
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+
     .mobile-move-actions button:hover {
         background: var(--primary);
         color: white;
         transform: translateY(-2px);
     }
+
     .kanban-card-drag-handle {
-        display: none; /* Hide drag handle on mobile since we have buttons */
+        display: none;
+        /* Hide drag handle on mobile since we have buttons */
     }
 }
 
@@ -2107,11 +2165,13 @@ body.dark-mode .kanban-card:hover {
     border: 1px solid rgba(239, 68, 68, 0.2);
     animation: fadeIn 0.3s ease;
 }
+
 .selected-count {
     font-weight: 700;
     color: #ef4444;
     font-size: 0.95rem;
 }
+
 .btn-danger {
     background: #ef4444;
     color: white;
@@ -2125,6 +2185,7 @@ body.dark-mode .kanban-card:hover {
     gap: 8px;
     transition: 0.2s;
 }
+
 .btn-danger:hover {
     background: #dc2626;
     transform: translateY(-2px);
@@ -2132,8 +2193,15 @@ body.dark-mode .kanban-card:hover {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Toast Notification */
@@ -2150,7 +2218,7 @@ body.dark-mode .kanban-card:hover {
 .toast-notification {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
     backdrop-filter: var(--glass-blur);
     padding: 16px 24px;
     border-radius: 14px;
@@ -2166,9 +2234,17 @@ body.dark-mode .kanban-card:hover {
 
 
 @keyframes slideInRight {
-    from { transform: translateX(120%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
+
 /* Document List Actions */
 .doc-item {
     position: relative;
@@ -2194,12 +2270,12 @@ body.dark-mode .kanban-card:hover {
 }
 
 .btn-icon:hover {
-    background: rgba(0,0,0,0.05);
+    background: rgba(0, 0, 0, 0.05);
     color: var(--text-main);
 }
 
 body.dark-mode .btn-icon:hover {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .doc-dropdown-menu {
@@ -2238,11 +2314,11 @@ body.dark-mode .btn-icon:hover {
 }
 
 .doc-dropdown-menu button:hover {
-    background: rgba(0,0,0,0.05);
+    background: rgba(0, 0, 0, 0.05);
 }
 
 body.dark-mode .doc-dropdown-menu button:hover {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .doc-dropdown-menu button.text-danger {
@@ -2260,7 +2336,14 @@ body.dark-mode .doc-dropdown-menu button:hover {
     accent-color: var(--primary);
 }
 
-.markdown-body h1, .markdown-body h2, .markdown-body h3 { font-size: 1.1em; margin: 0.5rem 0 0.25rem; font-weight: 600; color: var(--primary); }
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+    font-size: 1.1em;
+    margin: 0.5rem 0 0.25rem;
+    font-weight: 600;
+    color: var(--primary);
+}
 
 .subject-selector select {
     width: 100%;
@@ -2273,9 +2356,11 @@ body.dark-mode .doc-dropdown-menu button:hover {
     font-weight: 500;
     outline: none;
 }
+
 .subject-selector select:focus {
     border-color: var(--primary);
 }
+
 .subject-selector option {
     background-color: var(--bg);
     color: var(--text-main);
@@ -2301,7 +2386,7 @@ body.dark-mode .doc-dropdown-menu button:hover {
 }
 
 .notification-bell:hover {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .notification-badge {
@@ -2321,8 +2406,10 @@ body.dark-mode .doc-dropdown-menu button:hover {
 .floating-notifications-container {
     position: fixed;
     bottom: 105px;
-    right: 100px; /* Sits to the left of the chatbot (30px offset + 56px width + 14px gap) */
-    z-index: 9999; /* Asegura que flote sobre todo */
+    right: 100px;
+    /* Sits to the left of the chatbot (30px offset + 56px width + 14px gap) */
+    z-index: 9999;
+    /* Asegura que flote sobre todo */
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -2376,9 +2463,11 @@ body.dark-mode .doc-dropdown-menu button:hover {
     0% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
     }
+
     70% {
         box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
     }
+
     100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
@@ -2395,7 +2484,8 @@ body.dark-mode .doc-dropdown-menu button:hover {
 
 .notification-panel {
     position: absolute;
-    bottom: 50px; /* Flota justo sobre el botón */
+    bottom: 50px;
+    /* Flota justo sobre el botón */
     right: 0;
     width: 360px;
     max-height: 480px;
@@ -2418,7 +2508,8 @@ body.dark-mode .notification-panel {
 @media (max-width: 768px) {
     .floating-notifications-container {
         bottom: 85px;
-        right: 90px; /* Sits to the left of chatbot (20px offset + 56px width + 14px gap) */
+        right: 90px;
+        /* Sits to the left of chatbot (20px offset + 56px width + 14px gap) */
         top: auto;
     }
 
@@ -2528,9 +2619,12 @@ body.dark-mode .notification-panel {
 }
 
 @keyframes tooltipFloat {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-6px);
     }
@@ -2638,6 +2732,7 @@ body.dark-mode .chatbot-window {
         opacity: 0;
         transform: translateY(10px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -2684,9 +2779,14 @@ body.dark-mode .chatbot-window {
 }
 
 @keyframes chatLoading {
-    0%, 80%, 100% { 
+
+    0%,
+    80%,
+    100% {
         transform: scale(0);
-    } 40% { 
+    }
+
+    40% {
         transform: scale(1.0);
     }
 }
@@ -2766,7 +2866,7 @@ body.dark-mode .chatbot-window {
     align-items: center;
     padding: 15px;
     border-bottom: 1px solid var(--border-color);
-    background: rgba(255,255,255,0.02);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .notification-header h3 {
@@ -2780,7 +2880,7 @@ body.dark-mode .chatbot-window {
 }
 
 .notification-empty {
-    padding: 30px;
+    padding: 31px;
     text-align: center;
     color: var(--text-muted);
     font-size: 0.9rem;
@@ -2799,7 +2899,7 @@ body.dark-mode .chatbot-window {
 }
 
 .notification-item:hover {
-    background: rgba(255,255,255,0.02);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .notification-icon {
@@ -3468,7 +3568,8 @@ body.dark-mode .grades-calculator {
     height: 48px;
     width: 48px;
     border-radius: 10px;
-    background: #8b008b; /* Magenta/Purple */
+    background: #8b008b;
+    /* Magenta/Purple */
     color: white;
     border: none;
     cursor: pointer;
@@ -3495,7 +3596,8 @@ body.dark-mode .grades-calculator {
 }
 
 .btn-exam {
-    background: #d147a3; /* Pink/Magenta like in screenshot */
+    background: #d147a3;
+    /* Pink/Magenta like in screenshot */
     color: white;
     border: none;
     padding: 12px 24px;
@@ -3541,7 +3643,8 @@ body.dark-mode .grades-calculator {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #0ea5e9; /* Sky blue like in screenshot */
+    background: #0ea5e9;
+    /* Sky blue like in screenshot */
     color: white;
     padding: 15px 20px;
     border-radius: 14px;
@@ -3667,7 +3770,8 @@ body.dark-mode .results-section {
 }
 
 .btn-generate-quiz {
-    background: linear-gradient(135deg, #a78bfa, #8b5cf6); /* Purple gradient */
+    background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+    /* Purple gradient */
     color: white;
     border: none;
     padding: 12px 18px;
@@ -4400,11 +4504,11 @@ body.dark-mode .chats-group-item.active {
     border-radius: 50%;
 }
 
-input:checked + .switch-slider {
+input:checked+.switch-slider {
     background-color: var(--primary);
 }
 
-input:checked + .switch-slider:before {
+input:checked+.switch-slider:before {
     transform: translateX(18px);
 }
 
@@ -4675,10 +4779,12 @@ body.dark-mode .chats-message-system {
         flex-direction: column;
         height: auto;
     }
+
     .chats-sidebar {
         width: 100%;
         height: 300px;
     }
+
     .chats-main-window {
         height: 450px;
     }
@@ -4701,6 +4807,7 @@ body.dark-mode .chats-message-system {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -4767,14 +4874,16 @@ body.dark-mode .chats-message-system {
     box-shadow: 0 6px 12px rgba(239, 68, 68, 0.3);
 }
 
-.tts-speed-control, .tts-voice-control {
+.tts-speed-control,
+.tts-voice-control {
     display: flex;
     flex-direction: column;
     gap: 6px;
     min-width: 140px;
 }
 
-.tts-speed-control label, .tts-voice-control label {
+.tts-speed-control label,
+.tts-voice-control label {
     font-size: 0.7rem;
     font-weight: 850;
     color: var(--text-muted);
@@ -4853,9 +4962,11 @@ body.dark-mode .btn-tts-download {
     0% {
         box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4);
     }
+
     70% {
         box-shadow: 0 0 0 6px rgba(14, 165, 233, 0);
     }
+
     100% {
         box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
     }
@@ -4867,9 +4978,11 @@ body.dark-mode .btn-tts-download {
         align-items: stretch;
         gap: 15px;
     }
+
     .tts-voice-control select {
         max-width: 100%;
     }
+
     .btn-tts-download {
         margin-left: 0;
         justify-content: center;
@@ -5169,7 +5282,8 @@ body.dark-mode .analysis-dropzone.has-file {
 }
 
 /* Quiz Wizard Analysis */
-.quiz-wizard-analysis, .quiz-results-analysis {
+.quiz-wizard-analysis,
+.quiz-results-analysis {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -5235,12 +5349,8 @@ body.dark-mode .analysis-dropzone.has-file {
     .analysis-main-grid {
         grid-template-columns: 1fr;
     }
+
     .analysis-score-card {
         width: 100%;
     }
 }
-
-
-
-
-
