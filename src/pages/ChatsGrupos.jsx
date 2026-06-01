@@ -721,6 +721,9 @@ export default function ChatsGrupos() {
                             const numQuestions = parts[3];
                             const docName = parts.slice(4).join(':');
 
+                            const isStarted = messages.some(m => m.texto === `VERSUS_STARTED:${gameId}`);
+                            const isFinished = messages.some(m => m.texto === `VERSUS_FINISHED:${gameId}`);
+
                             return (
                               <div 
                                 key={msg.id_mensaje || i} 
@@ -774,6 +777,7 @@ export default function ChatsGrupos() {
                                   </div>
 
                                   <button
+                                    disabled={isStarted || isFinished}
                                     onClick={() => {
                                       setVersusInvite({
                                         gameId,
@@ -789,16 +793,16 @@ export default function ChatsGrupos() {
                                       fontSize: '0.8rem',
                                       fontWeight: 'bold',
                                       borderRadius: '8px',
-                                      background: 'var(--primary)',
-                                      color: 'white',
+                                      background: (isStarted || isFinished) ? 'rgba(0,0,0,0.1)' : 'var(--primary)',
+                                      color: (isStarted || isFinished) ? 'var(--text-muted)' : 'white',
                                       border: 'none',
-                                      cursor: 'pointer',
+                                      cursor: (isStarted || isFinished) ? 'not-allowed' : 'pointer',
                                       textAlign: 'center',
                                       width: '100%',
                                       transition: 'all 0.2s'
                                     }}
                                   >
-                                    Unirse a la Batalla
+                                    {isFinished ? 'Partida Finalizada' : isStarted ? 'Partida en Curso' : 'Unirse a la Batalla'}
                                   </button>
                                 </div>
                                 <span className="chats-message-meta" style={{ marginTop: '4px' }}>
@@ -2790,7 +2794,32 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   const [isShared, setIsShared] = useState(false);
 
   const channelRef = useRef(null);
+  const generalChannelRef = useRef(null);
   const fileInputRef = useRef(null);
+  const playersRef = useRef(players);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
+
+  // General Channel subscription for Versus lobby creation/start/end events
+  useEffect(() => {
+    if (!supabase || !activeGroupId || isFallbackMode) return;
+
+    const genChan = supabase.channel(`versus_general:${activeGroupId}`, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    genChan.subscribe();
+    generalChannelRef.current = genChan;
+
+    return () => {
+      supabase.removeChannel(genChan);
+      generalChannelRef.current = null;
+    };
+  }, [activeGroupId, isFallbackMode]);
 
   // Sync state if invite is present
   useEffect(() => {
@@ -2930,6 +2959,13 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
           setTimer(20);
         }
       })
+      .on('broadcast', { event: 'show_results' }, ({ payload }) => {
+        if (!isHost) {
+          setPlayers(payload.players);
+          setGameState('question_results');
+          setTimer(5);
+        }
+      })
       .on('broadcast', { event: 'game_over' }, ({ payload }) => {
         if (!isHost) {
           if (payload.players) {
@@ -2949,7 +2985,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
     };
   }, [activeGameId, isHost, players, quizQuestions, gameState, isFallbackMode, activeGroupId, user, file, setVersusInvite]);
 
-  // Timer loop for countdown in playing state
+  // Timer loop for countdown in playing state (synchronized)
   useEffect(() => {
     if (gameState !== 'playing') return;
 
@@ -2957,8 +2993,20 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       setTimer(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          setGameState('question_results');
-          setTimer(5);
+          if (isHost) {
+            setGameState('question_results');
+            setTimer(5);
+            if (channelRef.current) {
+              channelRef.current.send({
+                type: 'broadcast',
+                event: 'show_results',
+                payload: {
+                  gameId: activeGameId,
+                  players: playersRef.current
+                }
+              });
+            }
+          }
           return 0;
         }
         return prev - 1;
@@ -2966,17 +3014,27 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState, currentQuestionIdx]);
+  }, [gameState, currentQuestionIdx, isHost, activeGameId]);
 
-  // Fast-forward to results if all players answered
+  // Fast-forward to results if all players answered (Host only, synchronized)
   useEffect(() => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || !isHost) return;
     const allAnswered = players.every(p => p.answered);
     if (allAnswered && players.length > 0) {
       setGameState('question_results');
       setTimer(5);
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'show_results',
+          payload: {
+            gameId: activeGameId,
+            players: players
+          }
+        });
+      }
     }
-  }, [players, gameState]);
+  }, [players, gameState, isHost, activeGameId]);
 
   // Results screen countdown loop
   useEffect(() => {
@@ -3014,6 +3072,18 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
                     gameId: activeGameId,
                     players
                   }
+                });
+              }
+              if (generalChannelRef.current) {
+                generalChannelRef.current.send({
+                  type: 'broadcast',
+                  event: 'game_over',
+                  payload: { gameId: activeGameId }
+                });
+              }
+              if (sendGroupMessage && activeGroupId) {
+                sendGroupMessage(activeGroupId, `VERSUS_FINISHED:${activeGameId}`).catch(err => {
+                  console.warn("Error al enviar VERSUS_FINISHED:", err);
                 });
               }
               setGameState('podium');
@@ -3175,22 +3245,17 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   const handleShareLobby = async () => {
     if (isShared) return;
 
-    if (supabase && activeGroupId && !isFallbackMode) {
-      const genChannel = supabase.channel(`versus_general:${activeGroupId}`);
-      genChannel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          genChannel.send({
-            type: 'broadcast',
-            event: 'versus_created',
-            payload: {
-              gameId: activeGameId,
-              creatorId: user?.id,
-              creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
-              numQuestions: quizQuestions.length,
-              documentName: file?.name || 'Apuntes',
-              quizQuestions: quizQuestions
-            }
-          });
+    if (generalChannelRef.current) {
+      generalChannelRef.current.send({
+        type: 'broadcast',
+        event: 'versus_created',
+        payload: {
+          gameId: activeGameId,
+          creatorId: user?.id,
+          creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
+          numQuestions: quizQuestions.length,
+          documentName: file?.name || 'Apuntes',
+          quizQuestions: quizQuestions
         }
       });
     }
@@ -3265,16 +3330,17 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       });
     }
 
-    if (supabase && activeGroupId && !isFallbackMode) {
-      const genChan = supabase.channel(`versus_general:${activeGroupId}`);
-      genChan.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          genChan.send({
-            type: 'broadcast',
-            event: 'game_started',
-            payload: { gameId: activeGameId }
-          });
-        }
+    if (generalChannelRef.current) {
+      generalChannelRef.current.send({
+        type: 'broadcast',
+        event: 'game_started',
+        payload: { gameId: activeGameId }
+      });
+    }
+
+    if (sendGroupMessage && activeGroupId) {
+      sendGroupMessage(activeGroupId, `VERSUS_STARTED:${activeGameId}`).catch(err => {
+        console.warn("Error al enviar VERSUS_STARTED:", err);
       });
     }
 
@@ -3330,6 +3396,20 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   };
 
   const resetVersusGame = () => {
+    if (isHost && activeGameId && sendGroupMessage && activeGroupId) {
+      sendGroupMessage(activeGroupId, `VERSUS_FINISHED:${activeGameId}`).catch(err => {
+        console.warn("Error al enviar VERSUS_FINISHED:", err);
+      });
+    }
+
+    if (generalChannelRef.current) {
+      generalChannelRef.current.send({
+        type: 'broadcast',
+        event: 'game_over',
+        payload: { gameId: activeGameId }
+      });
+    }
+
     setGameState('setup');
     setFile(null);
     setQuizQuestions([]);
@@ -3366,14 +3446,21 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         const creatorName = parts[2];
         const numQuestions = parts[3];
         const docName = parts.slice(4).join(':');
-        if (!activeLobbies.some(lobby => lobby.gameId === gameId)) {
-          activeLobbies.push({
-            gameId,
-            creatorName,
-            numQuestions: parseInt(numQuestions),
-            documentName: docName,
-            timestamp: msg.fecha_envio || new Date().toISOString()
-          });
+        
+        // Excluir si la partida ya inició o finalizó
+        const isLobbyStarted = messages.some(m => m.texto === `VERSUS_STARTED:${gameId}`);
+        const isLobbyFinished = messages.some(m => m.texto === `VERSUS_FINISHED:${gameId}`);
+        
+        if (!isLobbyStarted && !isLobbyFinished) {
+          if (!activeLobbies.some(lobby => lobby.gameId === gameId)) {
+            activeLobbies.push({
+              gameId,
+              creatorName,
+              numQuestions: parseInt(numQuestions),
+              documentName: docName,
+              timestamp: msg.fecha_envio || new Date().toISOString()
+            });
+          }
         }
       }
     });
