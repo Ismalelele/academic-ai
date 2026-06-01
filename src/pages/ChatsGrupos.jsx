@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   MessageSquare, Plus, Users, Send, Copy, Check, X, Bell, BellOff, 
   BookOpen, HelpCircle, ShieldAlert, Sparkles, Hash, ArrowRight,
@@ -1841,7 +1842,10 @@ const compressBoardImage = (file) => {
 const drawAll = (ctx, lines, shapes, backgroundImageEl) => {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   
-  ctx.fillStyle = '#1e293b'; 
+  const isDark = document.body.classList.contains('dark-mode');
+  const bgCol = isDark ? '#1e293b' : '#ffffff';
+
+  ctx.fillStyle = bgCol; 
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
   if (backgroundImageEl) {
@@ -1851,7 +1855,7 @@ const drawAll = (ctx, lines, shapes, backgroundImageEl) => {
   lines.forEach(line => {
     if (line.points.length < 2) return;
     ctx.beginPath();
-    ctx.strokeStyle = line.color;
+    ctx.strokeStyle = (line.color === 'eraser' || line.color === '#1e293b') ? bgCol : line.color;
     ctx.lineWidth = line.strokeWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -1864,7 +1868,7 @@ const drawAll = (ctx, lines, shapes, backgroundImageEl) => {
 
   shapes.forEach(shape => {
     ctx.beginPath();
-    ctx.strokeStyle = shape.color;
+    ctx.strokeStyle = (shape.color === 'eraser' || shape.color === '#1e293b') ? bgCol : shape.color;
     ctx.lineWidth = shape.strokeWidth;
     ctx.fillStyle = 'transparent';
     
@@ -1881,7 +1885,7 @@ const drawAll = (ctx, lines, shapes, backgroundImageEl) => {
       ctx.lineTo(shape.x1, shape.y1);
       ctx.stroke();
     } else if (shape.type === 'text') {
-      ctx.fillStyle = shape.color;
+      ctx.fillStyle = (shape.color === 'eraser' || shape.color === '#1e293b') ? bgCol : shape.color;
       ctx.font = '16px sans-serif';
       ctx.fillText(shape.text, shape.x0, shape.y0);
     }
@@ -1893,6 +1897,16 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
   const [color, setColor] = useState('#38bdf8'); 
   const [strokeWidth, setStrokeWidth] = useState(3);
   
+  const [isThemeDark, setIsThemeDark] = useState(() => document.body.classList.contains('dark-mode'));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsThemeDark(document.body.classList.contains('dark-mode'));
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
   const [lines, setLines] = useState([]);
   const [shapes, setShapes] = useState([]);
   const [stickies, setStickies] = useState([]);
@@ -1916,7 +1930,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
   const [draggingStickyId, setDraggingStickyId] = useState(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   
-  const colors = ['#38bdf8', '#8b5cf6', '#ec4899', '#22c55e', '#eab308', '#ffffff'];
+  const colors = ['#38bdf8', '#8b5cf6', '#ec4899', '#22c55e', '#eab308', isThemeDark ? '#ffffff' : '#0f172a'];
   
   useEffect(() => {
     loadBoard();
@@ -2099,7 +2113,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
 
   useEffect(() => {
     redraw();
-  }, [lines, shapes, bgImageSrc]);
+  }, [lines, shapes, bgImageSrc, isThemeDark]);
 
   const getCanvasCoords = (e) => {
     const canvas = canvasRef.current;
@@ -2132,7 +2146,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
           text: text.trim(),
           x0: x,
           y0: y,
-          color: tool === 'eraser' ? '#1e293b' : color,
+          color: tool === 'eraser' ? 'eraser' : color,
           strokeWidth
         };
         const updated = [...shapes, newShape];
@@ -2157,7 +2171,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
       
       redraw();
       ctx.beginPath();
-      ctx.strokeStyle = tool === 'eraser' ? '#1e293b' : color;
+      const activeBgCol = document.body.classList.contains('dark-mode') ? '#1e293b' : '#ffffff';
+      ctx.strokeStyle = tool === 'eraser' ? activeBgCol : color;
       ctx.lineWidth = tool === 'eraser' ? strokeWidth * 4 : strokeWidth;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -2197,7 +2212,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
       if (currentPoints.current.length > 1) {
         const newLine = {
           points: currentPoints.current,
-          color: tool === 'eraser' ? '#1e293b' : color,
+          color: tool === 'eraser' ? 'eraser' : color,
           strokeWidth: tool === 'eraser' ? strokeWidth * 4 : strokeWidth
         };
         const updated = [...lines, newLine];
@@ -2416,7 +2431,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
         padding: '20px',
         overflowY: 'auto',
         position: 'relative',
-        background: '#0f172a'
+        background: 'var(--bg)'
       }}>
         <div style={{
           display: 'flex',
@@ -2424,10 +2439,10 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
           gap: '12px',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(30, 41, 59, 0.7)',
+          background: 'var(--card-bg)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1.5px solid var(--border-color)',
           padding: '8px 15px',
           borderRadius: '12px',
           marginBottom: '15px',
@@ -2595,9 +2610,9 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
             height: '500px',
             borderRadius: '16px',
             overflow: 'hidden',
-            border: '2px solid rgba(255,255,255,0.06)',
+            border: '2px solid var(--border-color)',
             boxShadow: 'var(--shadow-xl)',
-            background: '#1e293b'
+            background: 'var(--card-bg)'
           }}
         >
           <canvas
@@ -4692,7 +4707,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       )}
 
       {/* 6. BATTLE HISTORY DETAIL MODAL */}
-      {selectedHistoryBattle && (
+      {selectedHistoryBattle && createPortal(
         <div 
           onClick={() => setSelectedHistoryBattle(null)}
           style={{
@@ -4875,11 +4890,11 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
               Cerrar Vista
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* MODAL HISTORIAL DE BATALLAS */}
-      {showHistoryModal && (
+      {showHistoryModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -5049,9 +5064,10 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
               )}
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        </div>,
+          document.body
+        )}
+      </div>
+    );
+  }
 
