@@ -230,8 +230,8 @@ export default function Analisis() {
     <main className="main-content">
       <header>
         <div>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Sparkles size={32} color="var(--primary)" /> Análisis Crítico de Documentos
+          <h1 className="page-title">
+            <Sparkles /> Análisis Crítico de Documentos
           </h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
             Sube tus archivos de estudio (PDF, Word, PPTX o Texto) para obtener una evaluación inmediata, resúmenes estructurados y quizzes de estudio interactivos.

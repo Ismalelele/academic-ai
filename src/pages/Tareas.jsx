@@ -248,7 +248,7 @@ export default function Tareas() {
     <main className="main-content">
       <header className="kanban-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
         <div>
-          <h1>Gestor de Evaluaciones</h1>
+          <h1 className="page-title">Gestor de Evaluaciones</h1>
           <p className="subtitle">Planifica tus entregas y exámenes con IA</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>

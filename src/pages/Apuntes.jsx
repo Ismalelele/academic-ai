@@ -375,7 +375,7 @@ export default function Apuntes() {
       <main className="main-content">
         <header>
           <div>
-            <h1>Mis Apuntes</h1>
+            <h1 className="page-title">Mis Apuntes</h1>
             <p className="subtitle">Carga tu horario para habilitar tus cuadernos de apuntes</p>
           </div>
         </header>
@@ -426,7 +426,7 @@ export default function Apuntes() {
               <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Cuaderno de {activeSubject}</h1>
+              <h1 className="page-title">Cuaderno de {activeSubject}</h1>
               <p className="subtitle" style={{ color: 'var(--text-muted)' }}>Toma tus apuntes y gestiona tu material de estudio</p>
             </div>
           </div>
@@ -898,7 +898,7 @@ export default function Apuntes() {
     <main className="main-content">
       <header>
         <div>
-          <h1>Mis Cuadernos</h1>
+          <h1 className="page-title">Mis Cuadernos</h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>Organiza tus apuntes y recursos inteligentes por asignatura</p>
         </div>
       </header>

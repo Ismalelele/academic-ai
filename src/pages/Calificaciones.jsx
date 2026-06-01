@@ -240,7 +240,7 @@ export default function Calificaciones() {
       <main className="main-content">
         <header>
           <div>
-            <h1>Mis Calificaciones</h1>
+            <h1 className="page-title">Mis Calificaciones</h1>
             <p className="subtitle">Carga tu horario para habilitar las calificaciones por materia</p>
           </div>
         </header>
@@ -270,7 +270,7 @@ export default function Calificaciones() {
     <main className="main-content">
       <header style={{ marginBottom: '35px' }}>
         <div>
-          <h1>Control de Calificaciones</h1>
+          <h1 className="page-title">Control de Calificaciones</h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
             Calcula tus promedios, simula notas futuras y predice riesgos de reprobación (Escala 1.0 - 7.0)
           </p>

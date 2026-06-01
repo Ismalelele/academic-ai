@@ -271,11 +271,11 @@ export default function ChatsGrupos() {
   };
 
   return (
-    <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <main className="main-content height-constrained-page">
       <header style={{ marginBottom: '35px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <MessageSquare size={32} color="var(--primary)" /> Chats de Asignaturas
+          <h1 className="page-title">
+            <MessageSquare /> Chats de Asignaturas
           </h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
             Crea salas de estudio para tus asignaturas, comparte códigos de invitación y debate con tus compañeros.
@@ -299,7 +299,7 @@ export default function ChatsGrupos() {
         )}
       </header>
 
-      <div className="chats-view-layout" style={{ flex: 1, minHeight: 0, height: 'auto' }}>
+      <div className="chats-view-layout">
         {/* PANEL LATERAL DE GRUPOS Y SOLICITUDES */}
         <aside className="chats-sidebar">
           <div className="chats-sidebar-header">

@@ -46,17 +46,17 @@ export default function Asistente() {
   }, [currentData.messages]);
 
   return (
-    <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <main className="main-content height-constrained-page">
       <header>
         <div>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Bot size={32} color="var(--primary)" /> Asistente de IA
+          <h1 className="page-title">
+            <Bot /> Asistente de IA
           </h1>
           <p className="subtitle">Pregunta a la IA sobre tus apuntes de estudio, resúmenes y documentos</p>
         </div>
       </header>
 
-      <div className="chat-layout" style={{ flex: 1, minHeight: 0, height: 'auto' }}>
+      <div className="chat-layout">
         {/* Sidebar Repositorio */}
         <aside className="chat-sidebar">
         <div className="sidebar-header">

@@ -1,41 +1,179 @@
-# AcademicAI 
+# AcademicAI
 
-AcademicAI es una plataforma web moderna de gestión académica diseñada para estudiantes. Combina herramientas tradicionales de organización (horarios, tareas) con Inteligencia Artificial avanzada (RAG) para ofrecer un asistente de estudio personalizado que responde preguntas basándose **exclusivamente en tus propios apuntes**.
 
-##  Características Principales
 
-*   **Asistente de IA (Motor RAG):** Sube tus documentos (PDF, Word, TXT) y hazle preguntas a la IA. El sistema extraerá el texto localmente y la IA (potenciada por Groq / Llama 3) te responderá usando únicamente la información de tus archivos.
-*   **Gestión Inteligente de Fuentes:** Puedes seleccionar, deseleccionar, renombrar y eliminar documentos del contexto de la IA en tiempo real para enfocar su lectura.
-*   **Dashboard Dinámico:** Un panel principal que lee tu reloj en tiempo real para mostrarte tu clase actual ("AHORA") y la siguiente ("PRÓXIMA"), calculando matemáticamente la posición en el tiempo.
-*   **Gestor de Horarios:** Interfaz visual para cargar y visualizar tu carga académica semanal de forma estructurada.
-*   **Diseño Moderno (Glassmorphism):** Una interfaz de usuario pulida, con soporte nativo para Modo Oscuro, tipografías modernas (Plus Jakarta Sans) y micro-animaciones fluidas.
+AcademicAI es una plataforma web moderna y premium de gestión académica diseñada para estudiantes. Combina herramientas tradicionales de organización (horarios, tareas) con Inteligencia Artificial avanzada (RAG) para ofrecer un asistente de estudio personalizado, simuladores predictivos y chats de curso con bibliotecas colaborativas.
 
-##  Tecnologías Utilizadas
 
-Este proyecto utiliza un stack moderno enfocado en la velocidad, el procesamiento híbrido (extracción en el navegador y almacenamiento estructurado) y la integración con Inteligencia Artificial de vanguardia.
 
-###  Frontend (Interfaz de Usuario)
-*   **React.js (v18):** Librería principal para construir la interfaz de usuario de forma modular y reactiva.
-*   **Vite:** Herramienta de construcción ultrarrápida (Bundler) para el entorno de desarrollo y empaquetado.
-*   **CSS3 Vanilla:** Estilos nativos utilizando variables CSS, flexbox, grid y un sistema de diseño propio basado en *Glassmorphism* (desenfoques y transparencias).
-*   **Lucide React:** Colección de iconos SVG limpios y modernos para toda la interfaz.
-*   **Marked / React Markdown:** Procesador de Markdown a HTML rápido y seguro, usado para renderizar las respuestas de la IA.
-*   **Vite Plugin PWA:** Configuración de la Progressive Web App para habilitar el funcionamiento offline y la visualización de notificaciones del sistema.
+## Características Principales
 
-###  Inteligencia Artificial y Procesamiento
-*   **Groq API (Cloud):** Motor de inferencia ultrarrápido utilizado como cerebro principal del asistente. Utiliza actualmente el modelo **Llama 3.1 (8B Instant)** de Meta.
-*   **Gemini API (Google):** Procesador multimodal de visión artificial (`gemini-2.5-flash`) utilizado en el módulo de digitalización de horarios para extraer la estructura tabular a partir de imágenes.
-*   **pdfjs-dist (Mozilla):** Extractor local de texto crudo a partir de documentos PDF cargados por el usuario.
-*   **mammoth.js:** Conversor local que extrae texto estructurado desde documentos Word (`.docx`).
 
-###  Almacenamiento y Backend (BaaS)
-*   **Supabase (BaaS):** Utilizado para la persistencia en la nube de los usuarios (autenticación JWT), tareas, horarios y documentos extraídos.
-*   **LocalStorage (Nativo del Navegador):** Usado para almacenar de forma persistente notas de apuntes locales, calificaciones por asignatura, y caché de recomendaciones y configuraciones de alertas.
 
-##  Funcionamiento del Asistente (RAG Ligero)
+* Asistente de IA (Motor RAG Híbrido)
 
-El sistema implementa una arquitectura de **Generación Aumentada por Recuperación (RAG)** híbrida:
-1. **Extracción en Cliente:** El navegador del usuario extrae el texto del documento (PDF/DOCX/TXT) localmente con `pdf.js` o `mammoth.js`.
-2. **Almacenamiento Sincronizado:** El texto extraído y el archivo original se guardan en Supabase (base de datos relacional y almacenamiento de objetos).
-3. **Contextualización:** Al realizar una consulta en el chat, el frontend obtiene el texto del repositorio seleccionado, lo concatena, limita su tamaño a 8000 caracteres para asegurar la compatibilidad con el límite de tokens, y lo inyecta directamente como contexto en el prompt enviado al LLM.
-4. **Generación con Llama 3.1:** Groq procesa la consulta utilizando el contexto inyectado de forma efímera (política de retención cero) y devuelve una respuesta estructurada libre de alucinaciones.
+  * *Contextualización Efímera:* Sube tus apuntes en formato PDF, Word o TXT. El frontend extrae el texto localmente y la IA (Groq / Llama 3.1) te responde basándose exclusivamente en tu material.
+
+  * *Gestión de Contexto:* Habilita, deshabilita o renombra archivos de forma interactiva en la barra lateral para afinar el foco de lectura del asistente.
+
+
+
+* Análisis Crítico de Documentos (Doc Critic & Quiz Wizard)
+
+  * *Extractor Multiformato:* Lee archivos .pdf, .docx, .txt y .pptx (PowerPoint) gracias a un extractor local personalizado basado en jjszip.
+
+  * *Evaluación Cualitativa:* Gráfico de anillo animado (semáforo de notas del 1 al 10) que indica la calidad académica del documento y enumera áreas de mejora.
+
+  * *Generador de Resúmenes:* Genera resúmenes ejecutivos cortos o completos listos para copiar con un solo clic.
+
+  * *Quizzes Interactivos:* Generación inteligente de cuestionarios paso a paso en formato JSON con retroalimentación inmediata por pregunta y puntaje final de comprensión.
+
+
+
+* Pronóstico Académico Predictivo (Subject Simulator)
+
+  * *Cálculo de Promedios Ponderados:* Administra las calificaciones de cada asignatura y simula las notas restantes necesarias para aprobar (nota 4.0) o eximirte (nota 5.0).
+
+  * *Semáforo de Riesgo Físico:* Widget interactivo de semáforo con luces brillantes tricolor que cambian según el riesgo de reprobación.
+
+  * *Predicciones con IA:* Utiliza Groq Llama-3.1 para analizar tus calificaciones actuales e históricas y recibir mentoría personalizada en Markdown.
+
+  * *Simulador de Examen:* Evalúa el impacto porcentual del examen final en el promedio definitivo.
+
+
+
+* Chats Grupales de Asignatura & Biblioteca Colaborativa
+
+  * *Canales y Códigos de Invitación:* Crea salas de estudio para tus ramos y comparte códigos únicos para que tus compañeros se unan.
+
+  * *Biblioteca del Grupo:* Comparte apuntes, resúmenes o fichas interactivas con tus compañeros. Los recursos pueden ser calificados mediante un sistema de votación por estrellas (1-5).
+
+  * *Fichas de Estudio (Flashcards):* Visor interactivo con animación 3D de volteo al hacer clic para estudiar de manera dinámica.
+
+  * *Perfiles de Integrantes:* Pestaña dedicada para ver la lista de miembros, sus carreras, universidades, biografías y avatares. Haz clic sobre el nombre de cualquier remitente en el chat para desplegar su ficha de perfil.
+
+
+
+* Resiliencia Offline (Local-First Mirroring)
+
+  * *Mitigación de Errores de Red:* La aplicación implementa bloques de control try-catch robustos en todas las llamadas externas para evitar alertas molestas y excepciones "Failed to fetch".
+
+  * *Espejo Local Automático:* Tus tareas, apuntes, notificaciones y conversaciones se replican optimistamente en localStorage, garantizando un funcionamiento fluido en modo sin conexión.
+
+  * *Sesiones Locales:* Inicio de sesión y registro de cuentas de forma transparente en modo local/offline ante caídas de red o bases de datos de Supabase inaccesibles.
+
+
+
+* UI de Dock de Navegación Inferior (Responsive Glassmorphism)
+
+  * *Dock Flotante Premium:* Menú inferior flotante estilo macOS/iOS con efecto de cristal esmerilado (backdrop-filter) y centrado suave.
+
+  * *Responsividad Inteligente:* En celulares, las etiquetas y el logotipo se ocultan de forma automática para optimizar espacio, transformándose en una barra de pestañas compacta (Spotify/Instagram style).
+
+  * *Chevrons de Desplazamiento:* Botones de navegación lateral en PC para desplazar la barra de tareas de forma cómoda.
+
+  * *Coordinación de Menús:* Las notificaciones y el chatbot de la app flotan alineados sobre la barra de navegación para evitar cualquier superposición visual.
+
+
+
+## Tecnologías Utilizadas
+
+
+
+Este proyecto implementa un stack moderno enfocado en la velocidad de ejecución y la privacidad (procesamiento del lado del cliente):
+
+
+
+### Frontend e Interfaz
+
+* React.js (v18): Estructura del sitio basada en componentes reutilizables.
+
+* Vite: Compilación y entorno de desarrollo de alta velocidad.
+
+* Vanilla CSS3: Sistema de diseño personalizado de Glassmorphism sin dependencias pesadas.
+
+* Lucide React: Iconos vectoriales modernos.
+
+* Marked: Parseador rápido para renderizar Markdown del asistente y pronósticos.
+
+* Vite Plugin PWA: Automatización de Service Workers para caché offline.
+
+
+
+### Inteligencia Artificial
+
+* Groq API / Llama 3.1 (8B Instant): Inferencia ultrarrápida para el Asistente de IA y predicción de calificaciones.
+
+* Gemini 2.5 Flash (Google Vision): Digitalización inteligente de horarios subidos como imagen o PDF.
+
+* pdfjs-dist (Mozilla): Extracción local de texto en PDF.
+
+* mammoth.js: Extractor local de texto en archivos Word.
+
+* jjszip: Parser de archivos PowerPoint (.pptx) para extraer texto de las diapositivas localmente.
+
+
+
+### Backend y Base de Datos
+
+* Supabase (BaaS): Autenticación JWT, tablas relacionales e inserciones de chats en tiempo real.
+
+* LocalStorage: Persistencia híbrida en el cliente para el espejo local-first.
+
+
+
+## Configuración del Entorno
+
+
+
+Para ejecutar la aplicación localmente, asegúrate de tener las siguientes variables de entorno en un archivo .env en la raíz del proyecto:
+
+
+
+```env
+
+VITE_SUPABASE_URL=tu_supabase_url
+
+VITE_SUPABASE_ANON_KEY=tu_supabase_anon_key
+
+VITE_GROQ_API_KEY=tu_groq_api_key
+
+VITE_GEMINI_API_KEY=tu_gemini_api_key
+
+```
+
+
+
+### Inicialización de Base de Datos
+
+Si estás configurando una base de datos de Supabase desde cero, copia el contenido de [supabase_schema.sql](file:///c:/Users/Isma/Desktop/academic-ai/supabase_schema.sql) y ejecútalo directamente en el SQL Editor de tu consola de Supabase.
+
+
+
+## Instalación y Despliegue Local
+
+
+
+1. Instalar Dependencias:
+
+   ```bash
+
+   npm install
+
+   ```
+
+2. Iniciar Servidor de Desarrollo:
+
+   ```bash
+
+   npm run dev
+
+   ```
+
+3. Compilar para Producción:
+
+   ```bash
+
+   npm run build
+
+   ```

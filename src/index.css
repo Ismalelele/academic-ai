@@ -346,6 +346,66 @@ header h1 {
     font-weight: 500;
 }
 
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(90deg, var(--text-main), var(--primary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    width: fit-content;
+}
+
+.page-title svg {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.7rem !important;
+        gap: 8px;
+    }
+    .page-title svg {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-title {
+        font-size: 1.35rem !important;
+        gap: 6px;
+    }
+    .page-title svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+@media (min-width: 901px) {
+    .main-content.height-constrained-page {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+    
+    .main-content.height-constrained-page .chat-layout,
+    .main-content.height-constrained-page .chats-view-layout,
+    .main-content.height-constrained-page .notes-workspace {
+        flex: 1;
+        min-height: 0;
+        height: auto !important;
+    }
+}
+
 .btn-primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
     color: white;
