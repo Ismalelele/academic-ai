@@ -714,6 +714,100 @@ export default function ChatsGrupos() {
                             );
                           }
 
+                          if (msg.texto && msg.texto.startsWith('VERSUS_LOBBY:')) {
+                            const parts = msg.texto.split(':');
+                            const gameId = parts[1];
+                            const creatorName = parts[2];
+                            const numQuestions = parts[3];
+                            const docName = parts.slice(4).join(':');
+
+                            return (
+                              <div 
+                                key={msg.id_mensaje || i} 
+                                style={{
+                                  alignSelf: isMe ? 'flex-end' : 'flex-start',
+                                  margin: '10px 0',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: isMe ? 'flex-end' : 'flex-start'
+                                }}
+                              >
+                                {!isMe && (
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px' }}>
+                                    {msg.user_name}
+                                  </span>
+                                )}
+                                <div style={{
+                                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))',
+                                  backdropFilter: 'blur(10px)',
+                                  border: '1.5px solid rgba(139, 92, 246, 0.3)',
+                                  borderRadius: '16px',
+                                  padding: '16px',
+                                  maxWidth: '300px',
+                                  boxShadow: 'var(--shadow-md)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '12px'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '50%',
+                                      background: 'var(--primary)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: 'white'
+                                    }}>
+                                      <Flame size={14} />
+                                    </div>
+                                    <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                                      ¡Competencia Versus!
+                                    </span>
+                                  </div>
+                                  
+                                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <p style={{ margin: 0 }}>Organiza: <strong>{creatorName}</strong></p>
+                                    <p style={{ margin: 0 }}>Tema: <strong>{docName}</strong></p>
+                                    <p style={{ margin: 0 }}>Preguntas: <strong>{numQuestions}</strong></p>
+                                  </div>
+
+                                  <button
+                                    onClick={() => {
+                                      setVersusInvite({
+                                        gameId,
+                                        creatorName,
+                                        documentName: docName,
+                                        numQuestions: parseInt(numQuestions),
+                                        quizQuestions: []
+                                      });
+                                      setGroupSubTab('versus');
+                                    }}
+                                    style={{
+                                      padding: '8px 12px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: 'bold',
+                                      borderRadius: '8px',
+                                      background: 'var(--primary)',
+                                      color: 'white',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      textAlign: 'center',
+                                      width: '100%',
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    Unirse a la Batalla
+                                  </button>
+                                </div>
+                                <span className="chats-message-meta" style={{ marginTop: '4px' }}>
+                                  {formatMessageTime(msg.fecha_envio)}
+                                </span>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div 
                               key={msg.id_mensaje || i} 
@@ -1085,6 +1179,7 @@ export default function ChatsGrupos() {
                     versusInvite={versusInvite}
                     setVersusInvite={setVersusInvite}
                     sendGroupMessage={sendGroupMessage}
+                    messages={messages}
                   />
                 ) : (
                   /* Vista de Pizarra */
@@ -2677,7 +2772,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
   );
 }
 
-export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, activeGroupMembers, versusInvite, setVersusInvite, sendGroupMessage }) {
+export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, activeGroupMembers, versusInvite, setVersusInvite, sendGroupMessage, messages }) {
   const [gameState, setGameState] = useState('setup'); // 'setup' | 'lobby' | 'playing' | 'question_results' | 'podium'
   const [file, setFile] = useState(null);
   const [fileParsing, setFileParsing] = useState(false);
@@ -3104,7 +3199,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       try {
         await sendGroupMessage(
           activeGroupId,
-          `📢 ¡He compartido una sala Versus de Contenido! Tema: "${file?.name || 'Apuntes'}" (${quizQuestions.length} preguntas). Únete en la pestaña de Versus.`
+          `VERSUS_LOBBY:${activeGameId}:${user?.user_metadata?.nombre || user?.email || 'Organizador'}:${quizQuestions.length}:${file?.name || 'Apuntes'}`
         );
       } catch (err) {
         console.warn("Error al enviar mensaje de Versus al chat:", err);
@@ -3249,6 +3344,42 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
     setIsShared(false);
   };
 
+  const handleJoinLobby = (lobby) => {
+    resetVersusGame();
+    setTimeout(() => {
+      setVersusInvite({
+        gameId: lobby.gameId,
+        creatorName: lobby.creatorName,
+        documentName: lobby.documentName,
+        numQuestions: lobby.numQuestions,
+        quizQuestions: []
+      });
+    }, 50);
+  };
+
+  const activeLobbies = [];
+  if (messages && Array.isArray(messages)) {
+    messages.forEach(msg => {
+      if (msg.texto && msg.texto.startsWith('VERSUS_LOBBY:')) {
+        const parts = msg.texto.split(':');
+        const gameId = parts[1];
+        const creatorName = parts[2];
+        const numQuestions = parts[3];
+        const docName = parts.slice(4).join(':');
+        if (!activeLobbies.some(lobby => lobby.gameId === gameId)) {
+          activeLobbies.push({
+            gameId,
+            creatorName,
+            numQuestions: parseInt(numQuestions),
+            documentName: docName,
+            timestamp: msg.fecha_envio || new Date().toISOString()
+          });
+        }
+      }
+    });
+    activeLobbies.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }
+
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const currentQ = quizQuestions[currentQuestionIdx];
 
@@ -3266,356 +3397,579 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       {/* 1. SETUP STATE */}
       {gameState === 'setup' && (
         <div style={{
-          maxWidth: '600px',
+          display: 'flex',
+          gap: '24px',
+          maxWidth: '1200px',
           width: '100%',
           margin: '0 auto',
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '16px',
-          padding: '30px',
-          boxShadow: 'var(--shadow-lg)',
-          boxSizing: 'border-box'
+          flexWrap: 'wrap',
+          alignItems: 'stretch'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
-            <div style={{
-              background: 'rgba(139, 92, 246, 0.1)',
-              borderRadius: '12px',
-              width: '45px',
-              height: '45px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--primary)',
-              flexShrink: 0
-            }}>
-              <Flame size={24} />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                Versus de Contenido IA
-              </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Compite en tiempo real con tus compañeros (o bots) respondiendo preguntas generadas a partir de tus apuntes.
-              </p>
-            </div>
-          </div>
-
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '20px 0' }} />
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: 'var(--text-muted)' }}>
-              1. Cargar Documento de Estudio (.pdf, .docx, .pptx, .txt)
-            </label>
-            
-            <div 
-              onClick={() => fileInputRef.current.click()}
-              style={{
-                border: '2px dashed var(--border-color)',
+          {/* COLUMNA IZQUIERDA: CREAR SALA */}
+          <div style={{
+            flex: '1 1 500px',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '30px',
+            boxShadow: 'var(--shadow-lg)',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
+              <div style={{
+                background: 'rgba(139, 92, 246, 0.1)',
                 borderRadius: '12px',
-                padding: '25px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: 'rgba(0, 0, 0, 0.02)'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.borderColor = 'var(--primary)';
-                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.02)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color)';
-                e.currentTarget.style.background = 'rgba(0,0,0,0.02)';
-              }}
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept=".pdf,.docx,.pptx,.txt" 
-                style={{ display: 'none' }} 
-              />
-              <Upload size={32} color="var(--primary)" style={{ opacity: 0.8, marginBottom: '10px' }} />
-              {file ? (
-                <div>
-                  <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                    {file.name}
-                  </p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {(file.size / 1024 / 1024).toFixed(2)} MB • Haz clic para cambiar archivo
-                  </p>
+                width: '45px',
+                height: '45px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary)',
+                flexShrink: 0
+              }}>
+                <Flame size={24} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  Versus de Contenido IA
+                </h2>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Compite en tiempo real respondiendo preguntas generadas a partir de tus apuntes.
+                </p>
+              </div>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '20px 0' }} />
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: 'var(--text-muted)' }}>
+                1. Cargar Documento de Estudio (.pdf, .docx, .pptx, .txt)
+              </label>
+              
+              <div 
+                onClick={() => fileInputRef.current.click()}
+                style={{
+                  border: '2px dashed var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '25px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: 'rgba(0, 0, 0, 0.02)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--primary)';
+                  e.currentTarget.style.background = 'rgba(139, 92, 246, 0.02)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                  e.currentTarget.style.background = 'rgba(0,0,0,0.02)';
+                }}
+              >
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept=".pdf,.docx,.pptx,.txt" 
+                  style={{ display: 'none' }} 
+                />
+                <Upload size={32} color="var(--primary)" style={{ opacity: 0.8, marginBottom: '10px' }} />
+                {file ? (
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                      {file.name}
+                    </p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {(file.size / 1024 / 1024).toFixed(2)} MB • Haz clic para cambiar archivo
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                      Arrastra o haz clic para subir tus apuntes
+                    </p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Formatos soportados: PDF, Word, PowerPoint o Texto
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '10px', color: 'var(--text-muted)' }}>
+                2. Cantidad de Preguntas
+              </label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {[5, 10, 15].map(num => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setNumQuestions(num)}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: numQuestions === num ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                      background: numQuestions === num ? 'rgba(139, 92, 246, 0.08)' : 'var(--card-bg)',
+                      color: numQuestions === num ? 'var(--primary)' : 'var(--text-main)',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {num} Preguntas
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'auto' }}>
+              {(fileParsing || isGenerating) ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '20px 0',
+                  gap: '15px'
+                }}>
+                  <Loader size={36} className="spinner" color="var(--primary)" />
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                      {statusMessage}
+                    </p>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Esto puede tardar unos segundos.</span>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
-                    Arrastra o haz clic para subir tus apuntes
-                  </p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Formatos soportados: PDF, Word, PowerPoint o Texto
-                  </p>
-                </div>
+                <button
+                  onClick={handleCreateLobby}
+                  disabled={!file}
+                  className="premium-btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    cursor: file ? 'pointer' : 'not-allowed',
+                    opacity: file ? 1 : 0.6
+                  }}
+                >
+                  Generar Sala Versus con IA
+                </button>
               )}
             </div>
           </div>
 
-          <div style={{ marginBottom: '25px' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '10px', color: 'var(--text-muted)' }}>
-              2. Cantidad de Preguntas
-            </label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {[5, 10, 15].map(num => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => setNumQuestions(num)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: numQuestions === num ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                    background: numQuestions === num ? 'rgba(139, 92, 246, 0.08)' : 'var(--card-bg)',
-                    color: numQuestions === num ? 'var(--primary)' : 'var(--text-main)',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {num} Preguntas
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {(fileParsing || isGenerating) ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '20px 0',
-              gap: '15px'
-            }}>
-              <Loader size={36} className="spinner" color="var(--primary)" />
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                  {statusMessage}
+          {/* COLUMNA DERECHA: SALAS ACTIVAS DISPONIBLES */}
+          <div style={{
+            flex: '1 1 400px',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '30px',
+            boxShadow: 'var(--shadow-lg)',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
+              <div style={{
+                background: 'rgba(234, 179, 8, 0.1)',
+                borderRadius: '12px',
+                width: '45px',
+                height: '45px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary)',
+                flexShrink: 0
+              }}>
+                <Trophy size={24} color="var(--primary)" />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  Salas Activas en el Chat
+                </h2>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Únete a una batalla creada por tus compañeros en este grupo.
                 </p>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Esto puede tardar unos segundos.</span>
               </div>
             </div>
-          ) : (
-            <button
-              onClick={handleCreateLobby}
-              disabled={!file}
-              className="premium-btn-primary"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                fontSize: '0.9rem',
-                fontWeight: 'bold',
-                cursor: file ? 'pointer' : 'not-allowed',
-                opacity: file ? 1 : 0.6
-              }}
-            >
-              Generar Sala Versus con IA
-            </button>
-          )}
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '20px 0' }} />
+
+            <div style={{ 
+              flex: 1, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '15px', 
+              maxHeight: '400px', 
+              overflowY: 'auto',
+              paddingRight: '5px' 
+            }}>
+              {activeLobbies.length === 0 ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  background: 'rgba(0, 0, 0, 0.01)',
+                  borderRadius: '12px',
+                  border: '1px dashed var(--border-color)',
+                  margin: 'auto 0'
+                }}>
+                  <Users size={32} style={{ opacity: 0.3, marginBottom: '10px' }} />
+                  <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                    No hay salas activas
+                  </p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.8 }}>
+                    Pídele a un compañero que cree y comparta una sala, o crea una tú mismo a la izquierda.
+                  </p>
+                </div>
+              ) : (
+                activeLobbies.map((lobby) => {
+                  const isCreatedByMe = lobby.creatorName === (user?.user_metadata?.nombre || user?.email);
+                  return (
+                    <div
+                      key={lobby.gameId}
+                      style={{
+                        background: 'rgba(139, 92, 246, 0.03)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        transition: 'all 0.2s',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--primary)';
+                        e.currentTarget.style.background = 'rgba(139, 92, 246, 0.06)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.background = 'rgba(139, 92, 246, 0.03)';
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '8px' }}>
+                          <span style={{
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            color: 'var(--text-main)',
+                            lineHeight: '1.3',
+                            textOverflow: 'ellipsis',
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}>
+                            {lobby.documentName}
+                          </span>
+                          <span style={{
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            color: '#10b981',
+                            fontSize: '0.65rem',
+                            fontWeight: 'bold',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            textTransform: 'uppercase',
+                            flexShrink: 0
+                          }}>
+                            Abierta
+                          </span>
+                        </div>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Creador: <strong>{lobby.creatorName} {isCreatedByMe && '(Tú)'}</strong>
+                        </p>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Preguntas: <strong>{lobby.numQuestions}</strong>
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleJoinLobby(lobby)}
+                        className="premium-btn-primary"
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.78rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          width: '100%'
+                        }}
+                      >
+                        <Flame size={14} /> Unirse a la Batalla
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* 2. LOBBY STATE */}
       {gameState === 'lobby' && (
-        <div style={{
-          maxWidth: '700px',
-          width: '100%',
-          margin: '0 auto',
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '16px',
-          padding: '25px',
-          boxShadow: 'var(--shadow-lg)',
-          boxSizing: 'border-box'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+        !isHost && quizQuestions.length === 0 ? (
+          <div style={{
+            maxWidth: '500px',
+            width: '100%',
+            margin: '40px auto',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '35px',
+            boxShadow: 'var(--shadow-lg)',
+            boxSizing: 'border-box',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px'
+          }}>
+            <Loader size={44} className="spinner" color="var(--primary)" />
             <div>
-              <span style={{
-                background: 'rgba(139, 92, 246, 0.1)',
-                color: 'var(--primary)',
-                fontSize: '0.7rem',
-                fontWeight: 'bold',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                textTransform: 'uppercase'
-              }}>
-                Lobby / Sala de Espera
-              </span>
-              <h2 style={{ margin: '8px 0 0 0', fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                Versus: {file?.name || versusInvite?.documentName || 'Estudio Grupal'}
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                Conectando con el organizador...
               </h2>
-              <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Tema: {activeGroup?.asignatura || 'Competencia de Conocimiento'} • {quizQuestions.length} Preguntas
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                Obteniendo el set de preguntas y sincronizando la sala de Versus. Asegúrate de que el creador esté activo en el Versus.
               </p>
             </div>
-            
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {isHost && (
+            <button
+              onClick={resetVersusGame}
+              style={{
+                marginTop: '10px',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'transparent',
+                color: 'var(--text-main)',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = 'red';
+                e.currentTarget.style.color = 'red';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.color = 'var(--text-main)';
+              }}
+            >
+              Cancelar y Salir
+            </button>
+          </div>
+        ) : (
+          <div style={{
+            maxWidth: '700px',
+            width: '100%',
+            margin: '0 auto',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '25px',
+            boxShadow: 'var(--shadow-lg)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+              <div>
+                <span style={{
+                  background: 'rgba(139, 92, 246, 0.1)',
+                  color: 'var(--primary)',
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  textTransform: 'uppercase'
+                }}>
+                  Lobby / Sala de Espera
+                </span>
+                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  Versus: {file?.name || versusInvite?.documentName || 'Estudio Grupal'}
+                </h2>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Tema: {activeGroup?.asignatura || 'Competencia de Conocimiento'} • {quizQuestions.length} Preguntas
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {isHost && (
+                  <button
+                    onClick={handleAddBot}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--card-bg)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Bot size={15} color="var(--primary)" /> Añadir Bot de IA
+                  </button>
+                )}
                 <button
-                  onClick={handleAddBot}
+                  onClick={resetVersusGame}
                   style={{
                     padding: '8px 14px',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--card-bg)',
-                    color: 'var(--text-main)',
+                    border: '1px solid #ef4444',
+                    background: 'transparent',
+                    color: '#ef4444',
                     fontSize: '0.8rem',
                     fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
+                    cursor: 'pointer'
                   }}
                 >
-                  <Bot size={15} color="var(--primary)" /> Añadir Bot de IA
+                  Salir
                 </button>
-              )}
-              <button
-                onClick={resetVersusGame}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid #ef4444',
-                  background: 'transparent',
-                  color: '#ef4444',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                Salir
-              </button>
+              </div>
             </div>
-          </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '15px 0' }} />
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '15px 0' }} />
 
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '0.88rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Users size={16} color="var(--primary)" /> Jugadores Conectados ({players.length})
-            </h3>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '0.88rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Users size={16} color="var(--primary)" /> Jugadores Conectados ({players.length})
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: '12px',
+                maxHeight: '220px',
+                overflowY: 'auto',
+                padding: '5px'
+              }}>
+                {players.map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: 'rgba(0,0,0,0.02)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}
+                  >
+                    <div style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      background: p.isBot ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                      fontSize: '0.75rem',
+                      flexShrink: 0
+                    }}>
+                      {p.isBot ? 'IA' : p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ overflow: 'hidden' }}>
+                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
+                        {p.name}
+                      </p>
+                      <p style={{ margin: '1px 0 0 0', fontSize: '0.65rem', color: p.isHost ? 'var(--primary)' : 'var(--text-muted)', fontWeight: p.isHost ? 'bold' : 'normal' }}>
+                        {p.isHost ? 'Organizador' : p.isBot ? 'Bot' : 'Jugador'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: '12px',
-              maxHeight: '220px',
-              overflowY: 'auto',
-              padding: '5px'
+              background: 'rgba(139, 92, 246, 0.04)',
+              border: '1px solid rgba(139, 92, 246, 0.1)',
+              borderRadius: '10px',
+              padding: '15px',
+              textAlign: 'center',
+              marginBottom: '20px'
             }}>
-              {players.map(p => (
-                <div
-                  key={p.id}
+              {isHost ? (
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                  {isShared 
+                    ? "¡Sala compartida! Espera a tus compañeros o agrega bots de IA y presiona 'Iniciar Batalla'." 
+                    : "Preguntas generadas. Haz clic en 'Compartir Sala' para notificar a tus compañeros en el chat."}
+                </p>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <Loader size={16} className="spinner" color="var(--primary)" />
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                    Esperando que el organizador inicie la competencia...
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {isHost && (
+              isShared ? (
+                <button
+                  onClick={handleStartGame}
+                  className="premium-btn-primary"
                   style={{
-                    background: 'rgba(0,0,0,0.02)',
-                    border: '1px solid var(--border-color)',
+                    width: '100%',
+                    padding: '12px',
                     borderRadius: '10px',
-                    padding: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: 'white',
+                    border: 'none'
                   }}
                 >
-                  <div style={{
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '50%',
-                    background: p.isBot ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                  Iniciar Batalla
+                </button>
+              ) : (
+                <button
+                  onClick={handleShareLobby}
+                  className="premium-btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    fontSize: '0.9rem',
                     fontWeight: 'bold',
-                    fontSize: '0.75rem',
-                    flexShrink: 0
-                  }}>
-                    {p.isBot ? 'IA' : p.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ overflow: 'hidden' }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
-                      {p.name}
-                    </p>
-                    <p style={{ margin: '1px 0 0 0', fontSize: '0.65rem', color: p.isHost ? 'var(--primary)' : 'var(--text-muted)', fontWeight: p.isHost ? 'bold' : 'normal' }}>
-                      {p.isHost ? 'Organizador' : p.isBot ? 'Bot' : 'Jugador'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{
-            background: 'rgba(139, 92, 246, 0.04)',
-            border: '1px solid rgba(139, 92, 246, 0.1)',
-            borderRadius: '10px',
-            padding: '15px',
-            textAlign: 'center',
-            marginBottom: '20px'
-          }}>
-            {isHost ? (
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                {isShared 
-                  ? "¡Sala compartida! Espera a tus compañeros o agrega bots de IA y presiona 'Iniciar Batalla'." 
-                  : "Preguntas generadas. Haz clic en 'Compartir Sala' para notificar a tus compañeros en el chat."}
-              </p>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <Loader size={16} className="spinner" color="var(--primary)" />
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                  Esperando que el organizador inicie la competencia...
-                </p>
-              </div>
+                    cursor: 'pointer',
+                    background: 'linear-gradient(135deg, var(--primary), #6d28d9)',
+                    color: 'white',
+                    border: 'none'
+                  }}
+                >
+                  Compartir Sala
+                </button>
+              )
             )}
           </div>
-
-          {isHost && (
-            isShared ? (
-              <button
-                onClick={handleStartGame}
-                className="premium-btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  color: 'white',
-                  border: 'none'
-                }}
-              >
-                Iniciar Batalla
-              </button>
-            ) : (
-              <button
-                onClick={handleShareLobby}
-                className="premium-btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  fontSize: '0.9rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  background: 'linear-gradient(135deg, var(--primary), #6d28d9)',
-                  color: 'white',
-                  border: 'none'
-                }}
-              >
-                Compartir Sala
-              </button>
-            )
-          )}
-        </div>
+        )
       )}
 
       {/* 3. PLAYING STATE */}
