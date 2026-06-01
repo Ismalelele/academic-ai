@@ -180,9 +180,7 @@ body {
     justify-content: flex-start;
     margin: 0;
     padding: 0 10px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overflow: visible; /* Allow submenus to pop out */
     flex-shrink: 1;
 }
 
@@ -194,9 +192,13 @@ body {
     list-style: none;
     display: flex;
     align-items: center;
+    position: relative; /* Anchor for submenus */
 }
 
-.sidebar .nav-links a {
+/* Nav links and dropdown triggers styling consistency */
+.sidebar .nav-links a,
+.sidebar .nav-links > li > a,
+.sidebar .nav-links > li > button.nav-dropdown-trigger {
     text-decoration: none;
     padding: 8px 14px;
     border-radius: 12px;
@@ -206,22 +208,134 @@ body {
     color: var(--text-muted);
     font-size: 0.95rem;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
     flex-shrink: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    outline: none;
 }
 
-.sidebar .nav-links a:hover {
+.sidebar .nav-links > li > a:hover,
+.sidebar .nav-links > li > button.nav-dropdown-trigger:hover,
+.sidebar .nav-links > li > button.nav-dropdown-trigger.open {
     background: rgba(14, 165, 233, 0.08);
     color: var(--primary);
     transform: translateY(-2px);
 }
 
-.sidebar .nav-links a.active {
-    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-    color: white;
+.sidebar .nav-links > li > a.active,
+.sidebar .nav-links > li > button.nav-dropdown-trigger.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+    color: white !important;
     box-shadow: 0 4px 15px rgba(14, 165, 233, 0.35);
     font-weight: 700;
+}
+
+/* Chevron Icon rotation and transition */
+.sidebar .nav-links button.nav-dropdown-trigger .chevron-icon {
+    margin-left: 4px;
+    opacity: 0.7;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar .nav-links button.nav-dropdown-trigger.open .chevron-icon {
+    transform: rotate(180deg);
+}
+
+.sidebar .nav-links button.nav-dropdown-trigger.active .chevron-icon {
+    opacity: 1;
+    color: white !important;
+}
+
+/* Floating Submenus (Expanding Upwards) */
+.nav-submenu {
+    position: absolute;
+    bottom: calc(100% + 16px); /* Float nicely above */
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--card-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 190px;
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+    animation: slideUpFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    list-style: none;
+    margin: 0;
+}
+
+/* Pointer arrow */
+.nav-submenu::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: var(--card-bg);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    z-index: -1;
+}
+
+.nav-submenu li {
+    width: 100%;
+    display: block;
+}
+
+.nav-submenu a {
+    width: 100%;
+    padding: 10px 14px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    color: var(--text-muted) !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.nav-submenu a:hover {
+    background: rgba(14, 165, 233, 0.08) !important;
+    color: var(--primary) !important;
+    padding-left: 18px !important; /* Premium slide-right feel on hover inside dropdown */
+}
+
+.nav-submenu a.active {
+    background: var(--primary-light) !important;
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+}
+
+/* Ensure text inside submenus is always visible, even on mobile */
+.nav-submenu span {
+    display: inline !important;
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 15px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
 }
 
 .sidebar .theme-toggle {
@@ -1144,15 +1258,20 @@ body.dark-mode .chat-footer input {
         padding: 0;
     }
 
-    .sidebar .nav-links a {
+    .sidebar .nav-links a,
+    .sidebar .nav-links button.nav-dropdown-trigger {
         padding: 8px;
         border-radius: 10px;
         gap: 0;
+        background: transparent;
+        border: none;
     }
 
-    .sidebar .nav-links a span {
-        display: none;
-        /* Hide labels to fit icons perfectly in mobile */
+    .sidebar .nav-links a span,
+    .sidebar .nav-links button.nav-dropdown-trigger span,
+    .sidebar .nav-links button.nav-dropdown-trigger .chevron-icon {
+        display: none !important;
+        /* Hide labels and chevrons to fit icons perfectly in mobile */
     }
 
     .sidebar .theme-toggle {

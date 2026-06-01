@@ -1,9 +1,9 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, 
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
-  ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic
+  ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
@@ -14,6 +14,10 @@ import { useTasks } from '../context/TaskContext';
 import { askDashboardGroq } from '../utils/aiProcessor';
 
 export default function Nav({ isDarkMode, toggleTheme }) {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  const [activeDropdown, setActiveDropdown] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [showProfilePopover, setShowProfilePopover] = useState(false);
@@ -27,6 +31,20 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const chatbotBodyRef = useRef();
   const profileRef = useRef();
   const navLinksRef = useRef();
+  const academicoRef = useRef();
+  const iaRef = useRef();
+  const comunidadRef = useRef();
+
+  const isAcademicoActive = ['/horario', '/clases', '/apuntes', '/calificaciones'].includes(currentPath);
+  const isIaActive = ['/asistente', '/analisis'].includes(currentPath);
+  const isComunidadActive = ['/chats'].includes(currentPath);
+
+  const handleDropdownToggle = (menuName) => {
+    setActiveDropdown(prev => prev === menuName ? null : menuName);
+    setShowNotifications(false);
+    setShowChatbot(false);
+    setShowProfilePopover(false);
+  };
 
   // Profile settings states
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -157,6 +175,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     setShowProfilePopover(false);
     setShowNotifications(false);
     setShowChatbot(false);
+    setActiveDropdown(null);
   };
 
   const scrollNav = (direction) => {
@@ -194,6 +213,13 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfilePopover(false);
+      }
+      if (
+        !academicoRef.current?.contains(event.target) &&
+        !iaRef.current?.contains(event.target) &&
+        !comunidadRef.current?.contains(event.target)
+      ) {
+        setActiveDropdown(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -292,78 +318,147 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       </div>
 
       {/* Navigation Scroll Wrap */}
-      <div style={{ display: 'flex', alignItems: 'center', flexGrow: 1, overflow: 'hidden', margin: '0 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexGrow: 1, overflow: 'visible', margin: '0 10px', position: 'relative' }}>
         
-        {/* Left Scroll Button */}
-        <button 
-          onClick={() => scrollNav('left')} 
-          className="nav-scroll-btn left"
-          title="Ver opciones anteriores"
-        >
-          <ChevronLeft size={16} />
-        </button>
-
         {/* Links Navigation */}
-        <ul className="nav-links" ref={navLinksRef}>
+        <ul className="nav-links" ref={navLinksRef} style={{ overflow: 'visible' }}>
+          {/* Dashboard */}
           <li>
             <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
               <LayoutDashboard size={18} /> <span>Dashboard</span>
             </NavLink>
           </li>
-          <li>
-            <NavLink to="/horario" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <Calendar size={18} /> <span>Horario</span>
-            </NavLink>
+
+          {/* Académico */}
+          <li className="nav-dropdown-container" ref={academicoRef} style={{ position: 'relative' }}>
+            <button 
+              className={`nav-dropdown-trigger ${isAcademicoActive ? 'active' : ''} ${activeDropdown === 'academico' ? 'open' : ''}`}
+              onClick={() => handleDropdownToggle('academico')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 14px',
+                borderRadius: '12px',
+                border: 'none',
+                fontSize: '0.95rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <GraduationCap size={18} /> <span>Académico</span>
+              <ChevronDown size={14} className="chevron-icon" />
+            </button>
+            {activeDropdown === 'academico' && (
+              <ul className="nav-submenu">
+                <li>
+                  <NavLink to="/horario" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                    <Calendar size={16} /> <span>Horario</span>
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                    <Mic size={16} /> <span>Clases Grabadas</span>
+                  </NavLink>
+                </li>
+                {effectiveSchedule && effectiveSchedule.length > 0 && (
+                  <>
+                    <li>
+                      <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                        <BookOpenText size={16} /> <span>Apuntes</span>
+                      </NavLink>
+                    </li>
+                    <li>
+                      <NavLink to="/calificaciones" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                        <GraduationCap size={16} /> <span>Notas</span>
+                      </NavLink>
+                    </li>
+                  </>
+                )}
+              </ul>
+            )}
           </li>
-          <li>
-            <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <Mic size={18} /> <span>Clases Grabadas</span>
-            </NavLink>
+
+          {/* IA */}
+          <li className="nav-dropdown-container" ref={iaRef} style={{ position: 'relative' }}>
+            <button 
+              className={`nav-dropdown-trigger ${isIaActive ? 'active' : ''} ${activeDropdown === 'ia' ? 'open' : ''}`}
+              onClick={() => handleDropdownToggle('ia')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 14px',
+                borderRadius: '12px',
+                border: 'none',
+                fontSize: '0.95rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Bot size={18} /> <span>IA</span>
+              <ChevronDown size={14} className="chevron-icon" />
+            </button>
+            {activeDropdown === 'ia' && (
+              <ul className="nav-submenu">
+                <li>
+                  <NavLink to="/asistente" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                    <MessageSquare size={16} /> <span>Asistente IA</span>
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/analisis" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                    <Sparkles size={16} /> <span>Análisis</span>
+                  </NavLink>
+                </li>
+              </ul>
+            )}
           </li>
-          {effectiveSchedule && effectiveSchedule.length > 0 && (
-            <>
-              <li>
-                <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                  <BookOpenText size={18} /> <span>Apuntes</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink to="/calificaciones" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                  <GraduationCap size={18} /> <span>Notas</span>
-                </NavLink>
-              </li>
-            </>
-          )}
-          <li>
-            <NavLink to="/asistente" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <MessageSquare size={18} /> <span>Asistente IA</span>
-            </NavLink>
+
+          {/* Comunidad */}
+          <li className="nav-dropdown-container" ref={comunidadRef} style={{ position: 'relative' }}>
+            <button 
+              className={`nav-dropdown-trigger ${isComunidadActive ? 'active' : ''} ${activeDropdown === 'comunidad' ? 'open' : ''}`}
+              onClick={() => handleDropdownToggle('comunidad')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 14px',
+                borderRadius: '12px',
+                border: 'none',
+                fontSize: '0.95rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <MessageCircle size={18} /> <span>Comunidad</span>
+              <ChevronDown size={14} className="chevron-icon" />
+            </button>
+            {activeDropdown === 'comunidad' && (
+              <ul className="nav-submenu">
+                <li>
+                  <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                    <MessageCircle size={16} /> <span>Chats</span>
+                  </NavLink>
+                </li>
+              </ul>
+            )}
           </li>
-          <li>
-            <NavLink to="/analisis" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <Sparkles size={18} /> <span>Análisis</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <MessageCircle size={18} /> <span>Chats</span>
-            </NavLink>
-          </li>
+
+          {/* Tareas */}
           <li>
             <NavLink to="/tareas" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
               <ListTodo size={18} /> <span>Tareas</span>
             </NavLink>
           </li>
         </ul>
-
-        {/* Right Scroll Button */}
-        <button 
-          onClick={() => scrollNav('right')} 
-          className="nav-scroll-btn right"
-          title="Ver más opciones"
-        >
-          <ChevronRight size={16} />
-        </button>
       </div>
 
       {/* Bottom Bar Actions (Right side) */}
