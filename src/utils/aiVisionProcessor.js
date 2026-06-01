@@ -188,3 +188,61 @@ Aclaraciones clave:
 
   throw lastError || new Error("No se pudo procesar la imagen del horario.");
 };
+
+export const analyzeWhiteboardImage = async (base64Image) => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("No se encontró la API Key de Gemini en el entorno.");
+  }
+
+  const base64Data = base64Image.split(',')[1] || base64Image;
+  const mimeType = base64Image.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || "image/png";
+
+  const prompt = `Eres un tutor académico de Inteligencia Artificial experto en interpretar pizarras de estudio, diagramas, esquemas y ejercicios resueltos.
+Analiza la captura de pantalla de la pizarra y genera un reporte estructurado en Markdown que contenga:
+1. Un resumen detallado de lo que se ilustra o se explica.
+2. Si hay ejercicios matemáticos, físicos o algoritmos, proporciona una explicación paso a paso de su procedimiento.
+3. Detecta posibles errores en el desarrollo de los ejercicios si los hubiera.
+4. Convierte los esquemas/dibujos en apuntes digitales estructurados y legibles.
+
+Responde de forma clara, directa y estructurada en formato Markdown.`;
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.4
+      }
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    console.error("Gemini Vision Whiteboard Error:", data);
+    throw new Error(`Error de API Gemini: ${data.error?.message || 'Desconocido'}`);
+  }
+
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error("No se recibió respuesta del análisis de pizarra de Gemini.");
+  }
+
+  return content;
+};
+

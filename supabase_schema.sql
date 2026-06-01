@@ -179,3 +179,29 @@ ALTER TABLE public.chat_miembros DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_mensajes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_library DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.library_ratings DISABLE ROW LEVEL SECURITY;
+
+-- 15. clases_grabadas
+CREATE TABLE IF NOT EXISTS public.clases_grabadas (
+    id_grabacion UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT null,
+    asignatura TEXT NOT null,
+    titulo TEXT NOT null,
+    transcripcion TEXT NOT null,
+    resumen TEXT,
+    conceptos_clave TEXT[],
+    preguntas_prueba JSONB,
+    flashcards JSONB,
+    fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- 16. pizarras_grupos
+CREATE TABLE IF NOT EXISTS public.pizarras_grupos (
+    id_pizarra UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_grupo UUID REFERENCES public.chat_grupos(id_grupo) ON DELETE CASCADE,
+    canvas_data TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+ALTER TABLE public.clases_grabadas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pizarras_grupos DISABLE ROW LEVEL SECURITY;
+

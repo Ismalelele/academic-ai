@@ -2,11 +2,20 @@ import { useState, useRef, useEffect } from 'react';
 import { 
   MessageSquare, Plus, Users, Send, Copy, Check, X, Bell, BellOff, 
   BookOpen, HelpCircle, ShieldAlert, Sparkles, Hash, ArrowRight,
-  Star, ChevronLeft, ChevronRight, Brain, PencilLine, Trash2, Loader
+  Star, ChevronLeft, ChevronRight, Brain, PencilLine, Trash2, Loader,
+  Flame, Trophy, Timer, Upload, Bot, UserCheck, Award, FileText, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { useGroupChat } from '../context/GroupChatContext';
 import { useAuth } from '../context/AuthContext';
 import { marked } from 'marked';
+import { supabase } from '../lib/supabase';
+import { analyzeWhiteboardImage } from '../utils/aiVisionProcessor';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+import { extractTextFromPptx } from '../utils/pptxParser';
+import { generateCustomQuiz } from '../utils/aiProcessor';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export default function ChatsGrupos() {
   const { user } = useAuth();
@@ -46,6 +55,7 @@ export default function ChatsGrupos() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedMemberProfile, setSelectedMemberProfile] = useState(null);
+  const [versusInvite, setVersusInvite] = useState(null);
 
   const renderMemberAvatar = (avatarUrl, name, size = '36px', fontSize = '1rem') => {
     const isGradient = avatarUrl && avatarUrl.startsWith('linear-gradient');
@@ -132,10 +142,36 @@ export default function ChatsGrupos() {
 
   const activeGroup = groups.find(g => g.id_grupo === activeGroupId);
 
-  // Reset subtab on group change
+  // Reset subtab on group change and subscribe to general versus invitations
   useEffect(() => {
     setGroupSubTab('chat');
-  }, [activeGroupId]);
+    setVersusInvite(null);
+
+    if (!supabase || !activeGroupId || isFallbackMode) return;
+
+    const channel = supabase.channel(`versus_general:${activeGroupId}`, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    channel
+      .on('broadcast', { event: 'versus_created' }, ({ payload }) => {
+        setVersusInvite(payload);
+      })
+      .on('broadcast', { event: 'game_started' }, () => {
+        // Clear general invitation when the game starts to lock entry
+        setVersusInvite(null);
+      })
+      .on('broadcast', { event: 'game_over' }, () => {
+        setVersusInvite(null);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeGroupId, isFallbackMode]);
 
   // Load library when tab changes or active group changes
   const loadLibrary = async () => {
@@ -219,6 +255,26 @@ export default function ChatsGrupos() {
     setCurrentCardIdx(0);
     setIsFlipped(false);
     setShowViewModal(true);
+  };
+
+  const handleSaveWhiteboardAnalysisAsNote = (analysisMarkdown) => {
+    if (!user || !activeGroup) return;
+    const noteTitle = `Análisis de Pizarra - ${activeGroup.titulo}`;
+    const subjectName = activeGroup.asignatura;
+    
+    const savedNotes = localStorage.getItem(`academic_notes_${user.id}_${subjectName}`);
+    const currentNotes = savedNotes ? JSON.parse(savedNotes) : [];
+    
+    const newNote = {
+      id: `note-${Date.now()}`,
+      title: noteTitle,
+      content: analysisMarkdown,
+      updatedAt: new Date().toISOString()
+    };
+    
+    const updatedNotes = [newNote, ...currentNotes];
+    localStorage.setItem(`academic_notes_${user.id}_${subjectName}`, JSON.stringify(updatedNotes));
+    alert(`¡El análisis ha sido guardado exitosamente como una nota en tu cuaderno de "${subjectName}"!`);
   };
 
   // Auto-scroll al fondo al recibir mensajes
@@ -545,7 +601,97 @@ export default function ChatsGrupos() {
                   >
                     <Users size={15} /> Integrantes ({activeGroupMembers.length})
                   </button>
+                  <button 
+                    onClick={() => setGroupSubTab('board')}
+                    style={{
+                      padding: '12px 18px',
+                      background: 'none',
+                      border: 'none',
+                      color: groupSubTab === 'board' ? 'var(--primary)' : 'var(--text-muted)',
+                      borderBottom: groupSubTab === 'board' ? '3px solid var(--primary)' : '3px solid transparent',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.88rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: '0.2s'
+                    }}
+                  >
+                    <PencilLine size={15} /> Pizarra (IA)
+                  </button>
+                  <button 
+                    onClick={() => setGroupSubTab('versus')}
+                    style={{
+                      padding: '12px 18px',
+                      background: 'none',
+                      border: 'none',
+                      color: groupSubTab === 'versus' ? 'var(--primary)' : 'var(--text-muted)',
+                      borderBottom: groupSubTab === 'versus' ? '3px solid var(--primary)' : '3px solid transparent',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.88rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: '0.2s'
+                    }}
+                  >
+                    <Flame size={15} /> Versus (IA)
+                  </button>
                 </div>
+
+                {versusInvite && groupSubTab !== 'versus' && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15))',
+                    backdropFilter: 'blur(10px)',
+                    borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
+                    padding: '12px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '15px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                      <div style={{
+                        background: 'var(--primary)',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        flexShrink: 0
+                      }}>
+                        <Flame size={16} />
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                          ¡Versus de Contenido Activo!
+                        </p>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Creado por <strong>{versusInvite.creatorName}</strong> ({versusInvite.numQuestions} preguntas, de "{versusInvite.documentName}")
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setGroupSubTab('versus')}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '0.8rem',
+                        borderRadius: '8px',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Unirse a la Sala
+                    </button>
+                  </div>
+                )}
 
                 {groupSubTab === 'chat' ? (
                   <>
@@ -853,7 +999,7 @@ export default function ChatsGrupos() {
                       </div>
                     )}
                   </div>
-                ) : (
+                ) : groupSubTab === 'members' ? (
                   /* Vista de Integrantes */
                   <div className="chats-members-area" style={{
                     display: 'flex',
@@ -929,6 +1075,25 @@ export default function ChatsGrupos() {
                       ))}
                     </div>
                   </div>
+                ) : groupSubTab === 'versus' ? (
+                  <GroupVersus
+                    activeGroupId={activeGroupId}
+                    activeGroup={activeGroup}
+                    user={user}
+                    isFallbackMode={isFallbackMode}
+                    activeGroupMembers={activeGroupMembers}
+                    versusInvite={versusInvite}
+                    setVersusInvite={setVersusInvite}
+                  />
+                ) : (
+                  /* Vista de Pizarra */
+                  <GroupWhiteboard 
+                    activeGroupId={activeGroupId}
+                    activeGroup={activeGroup}
+                    user={user}
+                    isFallbackMode={isFallbackMode}
+                    onSaveNote={handleSaveWhiteboardAnalysisAsNote}
+                  />
                 )}
               </>
             ) : (
@@ -1541,4 +1706,2347 @@ const StarRating = ({ avgRating, userRating, onRate }) => {
     </div>
   );
 };
+
+const compressBoardImage = (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 800;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    };
+  });
+};
+
+const drawAll = (ctx, lines, shapes, backgroundImageEl) => {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  
+  ctx.fillStyle = '#1e293b'; 
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+  if (backgroundImageEl) {
+    ctx.drawImage(backgroundImageEl, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  }
+
+  lines.forEach(line => {
+    if (line.points.length < 2) return;
+    ctx.beginPath();
+    ctx.strokeStyle = line.color;
+    ctx.lineWidth = line.strokeWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.moveTo(line.points[0].x, line.points[0].y);
+    for (let i = 1; i < line.points.length; i++) {
+      ctx.lineTo(line.points[i].x, line.points[i].y);
+    }
+    ctx.stroke();
+  });
+
+  shapes.forEach(shape => {
+    ctx.beginPath();
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = shape.strokeWidth;
+    ctx.fillStyle = 'transparent';
+    
+    if (shape.type === 'rect') {
+      const w = shape.x1 - shape.x0;
+      const h = shape.y1 - shape.y0;
+      ctx.strokeRect(shape.x0, shape.y0, w, h);
+    } else if (shape.type === 'circle') {
+      const radius = Math.sqrt(Math.pow(shape.x1 - shape.x0, 2) + Math.pow(shape.y1 - shape.y0, 2));
+      ctx.arc(shape.x0, shape.y0, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+    } else if (shape.type === 'line') {
+      ctx.moveTo(shape.x0, shape.y0);
+      ctx.lineTo(shape.x1, shape.y1);
+      ctx.stroke();
+    } else if (shape.type === 'text') {
+      ctx.fillStyle = shape.color;
+      ctx.font = '16px sans-serif';
+      ctx.fillText(shape.text, shape.x0, shape.y0);
+    }
+  });
+};
+
+export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGroup, onSaveNote }) {
+  const [tool, setTool] = useState('pencil'); 
+  const [color, setColor] = useState('#38bdf8'); 
+  const [strokeWidth, setStrokeWidth] = useState(3);
+  
+  const [lines, setLines] = useState([]);
+  const [shapes, setShapes] = useState([]);
+  const [stickies, setStickies] = useState([]);
+  
+  const [bgImageSrc, setBgImageSrc] = useState(null);
+  
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
+  const bgImgElement = useRef(null);
+  const isDrawingRef = useRef(false);
+  const currentPoints = useRef([]);
+  const startCoords = useRef({ x: 0, y: 0 });
+  const channelRef = useRef(null);
+  
+  const [draggingStickyId, setDraggingStickyId] = useState(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  
+  const colors = ['#38bdf8', '#8b5cf6', '#ec4899', '#22c55e', '#eab308', '#ffffff'];
+  
+  useEffect(() => {
+    loadBoard();
+  }, [activeGroupId]);
+  
+  const loadBoard = async () => {
+    setLines([]);
+    setShapes([]);
+    setStickies([]);
+    setBgImageSrc(null);
+    bgImgElement.current = null;
+    setAiAnalysis('');
+    setShowAiPanel(false);
+    
+    const localKey = `academic_board_${activeGroupId}`;
+    const localData = localStorage.getItem(localKey);
+    let boardState = null;
+    if (localData) {
+      boardState = JSON.parse(localData);
+      applyBoardState(boardState);
+    }
+    
+    if (supabase && activeGroupId && !isFallbackMode) {
+      try {
+        const { data, error } = await supabase
+          .from('pizarras_grupos')
+          .select('*')
+          .eq('id_grupo', activeGroupId)
+          .maybeSingle();
+          
+        if (!error && data && data.canvas_data) {
+          const parsed = JSON.parse(data.canvas_data);
+          applyBoardState(parsed);
+          localStorage.setItem(localKey, data.canvas_data);
+        }
+      } catch (err) {
+        console.warn("Fallo al cargar pizarra desde Supabase:", err);
+      }
+    }
+  };
+  
+  const applyBoardState = (state) => {
+    if (!state) return;
+    setLines(state.lines || []);
+    setShapes(state.shapes || []);
+    setStickies(state.stickies || []);
+    if (state.bgImageSrc) {
+      setBgImageSrc(state.bgImageSrc);
+      const img = new Image();
+      img.src = state.bgImageSrc;
+      img.onload = () => {
+        bgImgElement.current = img;
+        requestAnimationFrame(redraw);
+      };
+    } else {
+      setBgImageSrc(null);
+      bgImgElement.current = null;
+      requestAnimationFrame(redraw);
+    }
+  };
+  
+  const saveBoard = async (updatedLines, updatedShapes, updatedStickies, updatedBg) => {
+    const boardState = {
+      lines: updatedLines,
+      shapes: updatedShapes,
+      stickies: updatedStickies,
+      bgImageSrc: updatedBg
+    };
+    
+    const jsonStr = JSON.stringify(boardState);
+    localStorage.setItem(`academic_board_${activeGroupId}`, jsonStr);
+    
+    if (supabase && activeGroupId && !isFallbackMode) {
+      try {
+        const { data: existing } = await supabase
+          .from('pizarras_grupos')
+          .select('id_pizarra')
+          .eq('id_grupo', activeGroupId)
+          .maybeSingle();
+          
+        if (existing) {
+          await supabase
+            .from('pizarras_grupos')
+            .update({ canvas_data: jsonStr, updated_at: new Date().toISOString() })
+            .eq('id_grupo', activeGroupId);
+        } else {
+          await supabase
+            .from('pizarras_grupos')
+            .insert([{ id_grupo: activeGroupId, canvas_data: jsonStr }]);
+        }
+      } catch (err) {
+        console.warn("Error al guardar pizarra en Supabase:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!supabase || !activeGroupId || isFallbackMode) return;
+
+    const channel = supabase.channel(`pizarra:${activeGroupId}`, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    channel
+      .on('broadcast', { event: 'draw' }, ({ payload }) => {
+        if (payload.action === 'stroke') {
+          setLines(prev => {
+            const next = [...prev, payload.line];
+            redrawWithData(next, shapes, bgImgElement.current);
+            return next;
+          });
+        } else if (payload.action === 'shape') {
+          setShapes(prev => {
+            const next = [...prev, payload.shape];
+            redrawWithData(lines, next, bgImgElement.current);
+            return next;
+          });
+        } else if (payload.action === 'clear') {
+          setLines([]);
+          setShapes([]);
+          setStickies([]);
+          setBgImageSrc(null);
+          bgImgElement.current = null;
+          redrawWithData([], [], null);
+        } else if (payload.action === 'sync') {
+          setLines(payload.lines || []);
+          setShapes(payload.shapes || []);
+          setStickies(payload.stickies || []);
+          if (payload.bgImageSrc) {
+            const img = new Image();
+            img.src = payload.bgImageSrc;
+            img.onload = () => {
+              bgImgElement.current = img;
+              redrawWithData(payload.lines || [], payload.shapes || [], img);
+            };
+          } else {
+            bgImgElement.current = null;
+            redrawWithData(payload.lines || [], payload.shapes || [], null);
+          }
+        }
+      })
+      .on('broadcast', { event: 'sticky' }, ({ payload }) => {
+        if (payload.action === 'update') {
+          setStickies(payload.stickies);
+        }
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [activeGroupId, isFallbackMode, lines, shapes, stickies, bgImageSrc]);
+  
+  const broadcastDraw = (action, payloadData) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'draw',
+        payload: { action, ...payloadData }
+      });
+    }
+  };
+
+  const broadcastStickiesState = (updatedStickies) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'sticky',
+        payload: { action: 'update', stickies: updatedStickies }
+      });
+    }
+  };
+
+  const redrawWithData = (drawLines, drawShapes, bgImg) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    drawAll(ctx, drawLines, drawShapes, bgImg);
+  };
+
+  const redraw = () => {
+    redrawWithData(lines, shapes, bgImgElement.current);
+  };
+
+  useEffect(() => {
+    redraw();
+  }, [lines, shapes, bgImageSrc]);
+
+  const getCanvasCoords = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const x = ((clientX - rect.left) / rect.width) * canvas.width;
+    const y = ((clientY - rect.top) / rect.height) * canvas.height;
+    
+    return { x, y };
+  };
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    const { x, y } = getCanvasCoords(e);
+    isDrawingRef.current = true;
+    startCoords.current = { x, y };
+
+    if (tool === 'pencil' || tool === 'eraser') {
+      currentPoints.current = [{ x, y }];
+    } else if (tool === 'text') {
+      isDrawingRef.current = false;
+      const text = window.prompt("Ingresa el texto a escribir:");
+      if (text && text.trim()) {
+        const newShape = {
+          type: 'text',
+          text: text.trim(),
+          x0: x,
+          y0: y,
+          color: tool === 'eraser' ? '#1e293b' : color,
+          strokeWidth
+        };
+        const updated = [...shapes, newShape];
+        setShapes(updated);
+        broadcastDraw('shape', { shape: newShape });
+        saveBoard(lines, updated, stickies, bgImageSrc);
+      }
+    } else {
+      currentPoints.current = [];
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDrawingRef.current) return;
+    const { x, y } = getCanvasCoords(e);
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (tool === 'pencil' || tool === 'eraser') {
+      currentPoints.current.push({ x, y });
+      
+      redraw();
+      ctx.beginPath();
+      ctx.strokeStyle = tool === 'eraser' ? '#1e293b' : color;
+      ctx.lineWidth = tool === 'eraser' ? strokeWidth * 4 : strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.moveTo(currentPoints.current[0].x, currentPoints.current[0].y);
+      for (let i = 1; i < currentPoints.current.length; i++) {
+        ctx.lineTo(currentPoints.current[i].x, currentPoints.current[i].y);
+      }
+      ctx.stroke();
+    } else if (tool === 'rect' || tool === 'circle' || tool === 'line') {
+      redraw();
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = strokeWidth;
+      
+      if (tool === 'rect') {
+        const w = x - startCoords.current.x;
+        const h = y - startCoords.current.y;
+        ctx.strokeRect(startCoords.current.x, startCoords.current.y, w, h);
+      } else if (tool === 'circle') {
+        const radius = Math.sqrt(Math.pow(x - startCoords.current.x, 2) + Math.pow(y - startCoords.current.y, 2));
+        ctx.arc(startCoords.current.x, startCoords.current.y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+      } else if (tool === 'line') {
+        ctx.moveTo(startCoords.current.x, startCoords.current.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    }
+  };
+
+  const handleMouseUp = (e) => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    const { x, y } = getCanvasCoords(e);
+
+    if (tool === 'pencil' || tool === 'eraser') {
+      if (currentPoints.current.length > 1) {
+        const newLine = {
+          points: currentPoints.current,
+          color: tool === 'eraser' ? '#1e293b' : color,
+          strokeWidth: tool === 'eraser' ? strokeWidth * 4 : strokeWidth
+        };
+        const updated = [...lines, newLine];
+        setLines(updated);
+        broadcastDraw('stroke', { line: newLine });
+        saveBoard(updated, shapes, stickies, bgImageSrc);
+      }
+      currentPoints.current = [];
+    } else if (tool === 'rect' || tool === 'circle' || tool === 'line') {
+      const newShape = {
+        type: tool,
+        x0: startCoords.current.x,
+        y0: startCoords.current.y,
+        x1: x,
+        y1: y,
+        color: color,
+        strokeWidth
+      };
+      const updated = [...shapes, newShape];
+      setShapes(updated);
+      broadcastDraw('shape', { shape: newShape });
+      saveBoard(lines, updated, stickies, bgImageSrc);
+    }
+  };
+
+  const createStickyNote = () => {
+    const newSticky = {
+      id: `sticky-${Date.now()}`,
+      text: 'Nota adhesiva de estudio...',
+      x: 150 + Math.random() * 100,
+      y: 100 + Math.random() * 100,
+      color: '#fef08a'
+    };
+    const updated = [...stickies, newSticky];
+    setStickies(updated);
+    broadcastStickiesState(updated);
+    saveBoard(lines, shapes, updated, bgImageSrc);
+  };
+
+  const handleStickyTextChange = (id, newText) => {
+    const updated = stickies.map(s => s.id === id ? { ...s, text: newText } : s);
+    setStickies(updated);
+    broadcastStickiesState(updated);
+    saveBoard(lines, shapes, updated, bgImageSrc);
+  };
+
+  const handleStickyColorChange = (id, newColor) => {
+    const updated = stickies.map(s => s.id === id ? { ...s, color: newColor } : s);
+    setStickies(updated);
+    broadcastStickiesState(updated);
+    saveBoard(lines, shapes, updated, bgImageSrc);
+  };
+
+  const deleteStickyNote = (id) => {
+    const updated = stickies.filter(s => s.id !== id);
+    setStickies(updated);
+    broadcastStickiesState(updated);
+    saveBoard(lines, shapes, updated, bgImageSrc);
+  };
+
+  const handleStickyMouseDown = (e, id, curX, curY) => {
+    if (e.target.tagName.toLowerCase() === 'textarea' || e.target.closest('.sticky-controls')) return;
+    setDraggingStickyId(id);
+    const rect = containerRef.current.getBoundingClientRect();
+    dragOffset.current = {
+      x: e.clientX - rect.left - curX,
+      y: e.clientY - rect.top - curY
+    };
+  };
+
+  const handleContainerMouseMove = (e) => {
+    if (draggingStickyId) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left - dragOffset.current.x;
+      const y = e.clientY - rect.top - dragOffset.current.y;
+      
+      const newX = Math.max(0, Math.min(800 - 160, x));
+      const newY = Math.max(0, Math.min(500 - 140, y));
+
+      const updated = stickies.map(s => s.id === draggingStickyId ? { ...s, x: newX, y: newY } : s);
+      setStickies(updated);
+    }
+  };
+
+  const handleStickyMouseUp = () => {
+    if (draggingStickyId) {
+      setDraggingStickyId(null);
+      broadcastStickiesState(stickies);
+      saveBoard(lines, shapes, stickies, bgImageSrc);
+    }
+  };
+
+  const handleImageImportClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressedBase64 = await compressBoardImage(file);
+      setBgImageSrc(compressedBase64);
+      
+      const img = new Image();
+      img.src = compressedBase64;
+      img.onload = () => {
+        bgImgElement.current = img;
+        redraw();
+        saveBoard(lines, shapes, stickies, compressedBase64);
+        broadcastDraw('sync', { lines, shapes, stickies, bgImageSrc: compressedBase64 });
+      };
+    } catch (err) {
+      console.error("Error reading file:", err);
+      alert("Error al cargar la imagen de pizarra.");
+    }
+  };
+
+  const clearBoard = () => {
+    if (!window.confirm("¿Seguro que deseas borrar todo el contenido de la pizarra?")) return;
+    setLines([]);
+    setShapes([]);
+    setStickies([]);
+    setBgImageSrc(null);
+    bgImgElement.current = null;
+    redrawWithData([], [], null);
+    saveBoard([], [], [], null);
+    broadcastDraw('clear', {});
+  };
+
+  const handleAnalyzeBoard = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    setAnalyzing(true);
+    setShowAiPanel(true);
+    setAiAnalysis('');
+
+    try {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      drawAll(tempCtx, lines, shapes, bgImgElement.current);
+
+      stickies.forEach(sticky => {
+        tempCtx.fillStyle = sticky.color || '#fef08a';
+        tempCtx.shadowColor = 'rgba(0,0,0,0.3)';
+        tempCtx.shadowBlur = 8;
+        tempCtx.shadowOffsetX = 3;
+        tempCtx.shadowOffsetY = 3;
+        
+        const w = 150;
+        const h = 120;
+        tempCtx.fillRect(sticky.x, sticky.y, w, h);
+        
+        tempCtx.strokeStyle = 'rgba(0,0,0,0.1)';
+        tempCtx.lineWidth = 1;
+        tempCtx.strokeRect(sticky.x, sticky.y, w, h);
+
+        tempCtx.shadowBlur = 0;
+        tempCtx.shadowOffsetX = 0;
+        tempCtx.shadowOffsetY = 0;
+        tempCtx.fillStyle = '#0f172a';
+        tempCtx.font = 'bold 11px sans-serif';
+        
+        const words = sticky.text.split(' ');
+        let line = '';
+        let yCoord = sticky.y + 20;
+        const maxWidth = w - 20;
+        const lineHeight = 15;
+
+        for (let n = 0; n < words.length; n++) {
+          let testLine = line + words[n] + ' ';
+          let metrics = tempCtx.measureText(testLine);
+          if (metrics.width > maxWidth && n > 0) {
+            tempCtx.fillText(line, sticky.x + 10, yCoord);
+            line = words[n] + ' ';
+            yCoord += lineHeight;
+          } else {
+            line = testLine;
+          }
+        }
+        tempCtx.fillText(line, sticky.x + 10, yCoord);
+      });
+
+      const dataUrl = tempCanvas.toDataURL('image/png');
+      const analysisMarkdown = await analyzeWhiteboardImage(dataUrl);
+      setAiAnalysis(analysisMarkdown);
+    } catch (err) {
+      console.error(err);
+      setAiAnalysis(`❌ Error al analizar la pizarra: ${err.message || err}`);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleSaveNoteAction = () => {
+    if (aiAnalysis && onSaveNote) {
+      onSaveNote(aiAnalysis);
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: showAiPanel ? '1fr 340px' : '1fr',
+      height: '100%',
+      overflow: 'hidden',
+      position: 'relative'
+    }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '20px',
+        overflowY: 'auto',
+        position: 'relative',
+        background: '#0f172a'
+      }}>
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '12px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(30, 41, 59, 0.7)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '8px 15px',
+          borderRadius: '12px',
+          marginBottom: '15px',
+          zIndex: 100,
+          boxShadow: '0 8px 32px 0 rgba(0,0,0,0.37)'
+        }}>
+          <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '3px', borderRadius: '8px' }}>
+            {[
+              { id: 'pencil', label: 'Lápiz', icon: PencilLine },
+              { id: 'eraser', label: 'Borrador', icon: Trash2 },
+              { id: 'rect', label: 'Cuadrado', icon: () => <span style={{ width: '12px', height: '12px', border: '2px solid currentColor', display: 'inline-block' }}></span> },
+              { id: 'circle', label: 'Círculo', icon: () => <span style={{ width: '12px', height: '12px', border: '2px solid currentColor', borderRadius: '50%', display: 'inline-block' }}></span> },
+              { id: 'line', label: 'Línea', icon: () => <span style={{ width: '14px', height: '2px', background: 'currentColor', display: 'inline-block', transform: 'rotate(-45deg)' }}></span> },
+              { id: 'text', label: 'Texto', icon: () => <span style={{ fontWeight: '800', fontSize: '0.85rem' }}>T</span> }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTool(t.id)}
+                title={t.label}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: tool === t.id ? 'var(--primary)' : 'transparent',
+                  color: tool === t.id ? 'white' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  transition: '0.2s'
+                }}
+              >
+                {typeof t.icon === 'function' ? t.icon() : <t.icon size={16} />}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {colors.map(c => (
+              <button
+                key={c}
+                onClick={() => {
+                  setColor(c);
+                  if (tool === 'eraser') setTool('pencil');
+                }}
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: c,
+                  border: color === c && tool !== 'eraser' ? '2.5px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  transform: color === c && tool !== 'eraser' ? 'scale(1.2)' : 'scale(1)',
+                  transition: '0.15s'
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '10px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Grosor:</span>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              value={strokeWidth}
+              onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+              style={{ width: '60px', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-main)', width: '16px', fontWeight: 'bold' }}>{strokeWidth}</span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '10px' }}>
+            <button
+              className="btn-secondary"
+              onClick={createStickyNote}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(234, 179, 8, 0.1)',
+                border: '1px solid rgba(234, 179, 8, 0.2)',
+                color: '#fef08a'
+              }}
+            >
+              📝 +Nota
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={handleImageImportClick}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              🖼️ Fondo
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={clearBoard}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#f87171'
+              }}
+            >
+              🧹 Limpiar
+            </button>
+            <button
+              onClick={handleAnalyzeBoard}
+              disabled={analyzing}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              {analyzing ? <Loader size={12} className="spinner" /> : <Sparkles size={12} />} Analizar con IA
+            </button>
+          </div>
+          
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            style={{ display: 'none' }}
+          />
+        </div>
+
+        <div
+          ref={containerRef}
+          onMouseMove={handleContainerMouseMove}
+          onMouseUp={handleStickyMouseUp}
+          onMouseLeave={handleStickyMouseUp}
+          style={{
+            position: 'relative',
+            width: '800px',
+            height: '500px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            border: '2px solid rgba(255,255,255,0.06)',
+            boxShadow: 'var(--shadow-xl)',
+            background: '#1e293b'
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={800}
+            height={500}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleMouseDown}
+            onTouchMove={handleMouseMove}
+            onTouchEnd={handleMouseUp}
+            style={{
+              display: 'block',
+              cursor: tool === 'pencil' ? 'crosshair' : tool === 'eraser' ? 'cell' : 'default'
+            }}
+          />
+
+          {stickies.map((sticky) => (
+            <div
+              key={sticky.id}
+              onMouseDown={(e) => handleStickyMouseDown(e, sticky.id, sticky.x, sticky.y)}
+              style={{
+                position: 'absolute',
+                left: `${sticky.x}px`,
+                top: `${sticky.y}px`,
+                width: '150px',
+                background: sticky.color,
+                borderRadius: '8px',
+                padding: '8px 10px',
+                boxShadow: '5px 5px 15px rgba(0,0,0,0.3)',
+                border: '1px solid rgba(0,0,0,0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                cursor: draggingStickyId === sticky.id ? 'grabbing' : 'grab',
+                zIndex: draggingStickyId === sticky.id ? 1000 : 10,
+                boxSizing: 'border-box'
+              }}
+            >
+              <div className="sticky-controls" style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '6px',
+                borderBottom: '1px solid rgba(0,0,0,0.08)',
+                paddingBottom: '4px',
+                userSelect: 'none'
+              }}>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8'].map(col => (
+                    <button
+                      key={col}
+                      onClick={() => handleStickyColorChange(sticky.id, col)}
+                      style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: col,
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={() => deleteStickyNote(sticky.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontWeight: 'bold',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    padding: '0 3px'
+                  }}
+                  title="Eliminar nota"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <textarea
+                value={sticky.text}
+                onChange={(e) => handleStickyTextChange(sticky.id, e.target.value)}
+                placeholder="Anotar idea..."
+                style={{
+                  width: '100%',
+                  height: '70px',
+                  background: 'transparent',
+                  border: 'none',
+                  resize: 'none',
+                  fontSize: '0.8rem',
+                  fontFamily: 'inherit',
+                  color: '#0f172a',
+                  outline: 'none',
+                  fontWeight: '600',
+                  lineHeight: '1.3'
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showAiPanel && (
+        <div style={{
+          borderLeft: '1px solid var(--border-color)',
+          background: 'var(--card-bg)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '15px 20px',
+            borderBottom: '1px solid var(--border-color)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={18} color="var(--primary)" />
+              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 'bold' }}>Reporte de Pizarra IA</h3>
+            </div>
+            <button
+              onClick={() => setShowAiPanel(false)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px', fontSize: '0.85rem', lineHeight: '1.6' }}>
+            {analyzing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '15px', color: 'var(--text-muted)' }}>
+                <Loader size={36} className="spinner" color="var(--primary)" />
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontWeight: 'bold', margin: 0 }}>Analizando Pizarra...</p>
+                  <span style={{ fontSize: '0.75rem' }}>Gemini está interpretando tus dibujos y notas adhesivas.</span>
+                </div>
+              </div>
+            ) : aiAnalysis ? (
+              <div className="markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(aiAnalysis) }} />
+            ) : (
+              <p style={{ color: 'var(--text-muted)' }}>Haz clic en "Analizar con IA" para obtener un reporte estructurado.</p>
+            )}
+          </div>
+
+          {aiAnalysis && !analyzing && (
+            <div style={{
+              padding: '15px 20px',
+              borderTop: '1px solid var(--border-color)',
+              background: 'rgba(0,0,0,0.08)',
+              flexShrink: 0
+            }}>
+              <button
+                className="btn-primary"
+                onClick={handleSaveNoteAction}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '8px' }}
+              >
+                <Plus size={16} /> Guardar como Apunte
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, activeGroupMembers, versusInvite, setVersusInvite }) {
+  const [gameState, setGameState] = useState('setup'); // 'setup' | 'lobby' | 'playing' | 'question_results' | 'podium'
+  const [file, setFile] = useState(null);
+  const [fileParsing, setFileParsing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [numQuestions, setNumQuestions] = useState(5);
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [players, setPlayers] = useState([]);
+  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+  const [timer, setTimer] = useState(20);
+  const [myAnswerIdx, setMyAnswerIdx] = useState(-1);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [activeGameId, setActiveGameId] = useState(null);
+  const [statusMessage, setStatusMessage] = useState('');
+
+  const channelRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Sync state if invite is present
+  useEffect(() => {
+    if (versusInvite && !activeGameId && !isHost) {
+      setActiveGameId(versusInvite.gameId);
+      setQuizQuestions(versusInvite.quizQuestions);
+      setIsHost(false);
+      setGameState('lobby');
+      
+      const myPlayer = {
+        id: user?.id || 'player-' + Math.random().toString(36).substr(2, 5),
+        name: user?.user_metadata?.nombre || user?.email || 'Estudiante',
+        score: 0,
+        lastScoreChange: 0,
+        isBot: false,
+        isHost: false,
+        answered: false,
+        correct: false
+      };
+      
+      setPlayers([myPlayer]);
+
+      // Join the channel and send discover after subscription
+      setTimeout(() => {
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'player_joined',
+            payload: {
+              gameId: versusInvite.gameId,
+              player: myPlayer
+            }
+          });
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'game_discover',
+            payload: { gameId: versusInvite.gameId }
+          });
+        }
+      }, 500);
+    }
+  }, [versusInvite, activeGameId, isHost, user]);
+
+  // Supabase Broadcast Channel logic
+  useEffect(() => {
+    if (!supabase || !activeGroupId || isFallbackMode || !activeGameId) return;
+
+    const channel = supabase.channel(`versus_game:${activeGameId}`, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    channel
+      .on('broadcast', { event: 'game_discover' }, () => {
+        if (isHost) {
+          channel.send({
+            type: 'broadcast',
+            event: 'game_info',
+            payload: {
+              gameId: activeGameId,
+              creatorId: user?.id,
+              creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
+              numQuestions: quizQuestions.length,
+              documentName: file?.name || 'Contenido',
+              quizQuestions,
+              players,
+              status: gameState === 'lobby' ? 'lobby' : 'playing'
+            }
+          });
+        }
+      })
+      .on('broadcast', { event: 'game_info' }, ({ payload }) => {
+        if (!isHost) {
+          setQuizQuestions(payload.quizQuestions);
+          setPlayers(payload.players);
+          if (payload.status === 'playing' && gameState === 'lobby') {
+            setGameState('playing');
+            setTimer(20);
+          }
+        }
+      })
+      .on('broadcast', { event: 'player_joined' }, ({ payload }) => {
+        setPlayers(prev => {
+          if (prev.some(pl => pl.id === payload.player.id)) return prev;
+          const next = [...prev, payload.player];
+          if (isHost) {
+            channel.send({
+              type: 'broadcast',
+              event: 'game_info',
+              payload: {
+                gameId: activeGameId,
+                creatorId: user?.id,
+                creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
+                numQuestions: quizQuestions.length,
+                documentName: file?.name || 'Contenido',
+                quizQuestions,
+                players: next,
+                status: 'lobby'
+              }
+            });
+          }
+          return next;
+        });
+      })
+      .on('broadcast', { event: 'game_started' }, () => {
+        if (!isHost) {
+          setGameState('playing');
+          setCurrentQuestionIdx(0);
+          setTimer(20);
+          setMyAnswerIdx(-1);
+          setHasAnswered(false);
+          setPlayers(prev => prev.map(p => ({ ...p, score: 0, lastScoreChange: 0, answered: false, correct: false })));
+        }
+      })
+      .on('broadcast', { event: 'player_submitted' }, ({ payload }) => {
+        setPlayers(prev => prev.map(pl => {
+          if (pl.id === payload.playerId) {
+            return {
+              ...pl,
+              score: payload.score,
+              lastScoreChange: payload.lastScoreChange,
+              answered: true,
+              correct: payload.isCorrect
+            };
+          }
+          return pl;
+        }));
+      })
+      .on('broadcast', { event: 'next_question' }, ({ payload }) => {
+        if (!isHost) {
+          setCurrentQuestionIdx(payload.nextQuestionIdx);
+          setPlayers(prev => prev.map(p => ({ ...p, answered: false, correct: false, lastScoreChange: 0 })));
+          setMyAnswerIdx(-1);
+          setHasAnswered(false);
+          setGameState('playing');
+          setTimer(20);
+        }
+      })
+      .on('broadcast', { event: 'game_over' }, ({ payload }) => {
+        if (!isHost) {
+          if (payload.players) {
+            setPlayers(payload.players);
+          }
+          setGameState('podium');
+          setVersusInvite(null);
+        }
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [activeGameId, isHost, players, quizQuestions, gameState, isFallbackMode, activeGroupId, user, file, setVersusInvite]);
+
+  // Timer loop for countdown in playing state
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setGameState('question_results');
+          setTimer(5);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameState, currentQuestionIdx]);
+
+  // Fast-forward to results if all players answered
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+    const allAnswered = players.every(p => p.answered);
+    if (allAnswered && players.length > 0) {
+      setGameState('question_results');
+      setTimer(5);
+    }
+  }, [players, gameState]);
+
+  // Results screen countdown loop
+  useEffect(() => {
+    if (gameState !== 'question_results') return;
+
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          if (isHost) {
+            if (currentQuestionIdx < quizQuestions.length - 1) {
+              const nextIdx = currentQuestionIdx + 1;
+              if (channelRef.current) {
+                channelRef.current.send({
+                  type: 'broadcast',
+                  event: 'next_question',
+                  payload: {
+                    gameId: activeGameId,
+                    nextQuestionIdx: nextIdx
+                  }
+                });
+              }
+              setCurrentQuestionIdx(nextIdx);
+              setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, answered: false, correct: false, lastScoreChange: 0 })));
+              setMyAnswerIdx(-1);
+              setHasAnswered(false);
+              setGameState('playing');
+              setTimer(20);
+            } else {
+              if (channelRef.current) {
+                channelRef.current.send({
+                  type: 'broadcast',
+                  event: 'game_over',
+                  payload: {
+                    gameId: activeGameId,
+                    players
+                  }
+                });
+              }
+              setGameState('podium');
+              setVersusInvite(null);
+            }
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameState, currentQuestionIdx, isHost, quizQuestions, players, activeGameId, setVersusInvite]);
+
+  // Simulate bots responses
+  useEffect(() => {
+    if (!isHost || gameState !== 'playing') return;
+
+    const currentQ = quizQuestions[currentQuestionIdx];
+    if (!currentQ) return;
+
+    const botTimeouts = [];
+
+    players.forEach(p => {
+      if (p.isBot && !p.answered) {
+        let speedMin = 2, speedMax = 9, accuracy = 0.75;
+        if (p.name.includes('Mateo')) { speedMin = 1.5; speedMax = 4.5; accuracy = 0.65; }
+        else if (p.name.includes('Sofía')) { speedMin = 2.5; speedMax = 6.5; accuracy = 0.85; }
+        else if (p.name.includes('Valeria')) { speedMin = 2; speedMax = 5.5; accuracy = 0.80; }
+        else if (p.name.includes('Tomás')) { speedMin = 4; speedMax = 11; accuracy = 0.50; }
+        else if (p.name.includes('Camila')) { speedMin = 3; speedMax = 8; accuracy = 0.65; }
+
+        const delay = (Math.random() * (speedMax - speedMin) + speedMin) * 1000;
+
+        const t = setTimeout(() => {
+          const isCorrect = Math.random() < accuracy;
+          const timeRemaining = Math.max(1, 20 - (delay / 1000));
+          const scoreChange = isCorrect ? (500 + Math.round((timeRemaining / 20) * 500)) : 0;
+
+          setPlayers(prev => {
+            const next = prev.map(pl => {
+              if (pl.id === p.id) {
+                return {
+                  ...pl,
+                  score: pl.score + scoreChange,
+                  lastScoreChange: scoreChange,
+                  answered: true,
+                  correct: isCorrect
+                };
+              }
+              return pl;
+            });
+
+            if (channelRef.current) {
+              channelRef.current.send({
+                type: 'broadcast',
+                event: 'player_submitted',
+                payload: {
+                  gameId: activeGameId,
+                  playerId: p.id,
+                  score: p.score + scoreChange,
+                  isCorrect,
+                  lastScoreChange: scoreChange
+                }
+              });
+            }
+
+            return next;
+          });
+        }, delay);
+
+        botTimeouts.push(t);
+      }
+    });
+
+    return () => botTimeouts.forEach(clearTimeout);
+  }, [gameState, currentQuestionIdx, isHost, players, quizQuestions, activeGameId]);
+
+  const handleFileChange = (e) => {
+    const f = e.target.files[0];
+    if (f) setFile(f);
+  };
+
+  const handleCreateLobby = async () => {
+    if (!file) {
+      alert("Por favor selecciona un archivo.");
+      return;
+    }
+    setFileParsing(true);
+    setStatusMessage("Leyendo y extrayendo texto del documento localmente...");
+    
+    try {
+      let text = "";
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          text += textContent.items.map(item => item.str).join(' ') + '\n';
+        }
+      } else if (ext === 'docx') {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else if (ext === 'pptx') {
+        text = await extractTextFromPptx(file);
+      } else if (ext === 'txt') {
+        text = await file.text();
+      } else {
+        throw new Error("Formato no soportado. Sube PDF, DOCX, PPTX o TXT.");
+      }
+
+      const cleanText = text.trim();
+      if (!cleanText) {
+        throw new Error("El archivo no contiene texto legible.");
+      }
+
+      setFileParsing(false);
+      setIsGenerating(true);
+      setStatusMessage("Generando preguntas de competencia con IA Llama 3.1...");
+
+      const generated = await generateCustomQuiz(cleanText, numQuestions);
+      if (!generated || generated.length === 0) {
+        throw new Error("No se pudo generar el quiz con IA.");
+      }
+
+      setQuizQuestions(generated);
+      
+      const hostPlayer = {
+        id: user?.id || 'host-local',
+        name: user?.user_metadata?.nombre || user?.email || 'Organizador',
+        score: 0,
+        lastScoreChange: 0,
+        isBot: false,
+        isHost: true,
+        answered: false,
+        correct: false
+      };
+
+      setPlayers([hostPlayer]);
+      setIsHost(true);
+      const gId = 'game-' + Date.now();
+      setActiveGameId(gId);
+      setGameState('lobby');
+
+      if (supabase && activeGroupId && !isFallbackMode) {
+        const genChannel = supabase.channel(`versus_general:${activeGroupId}`);
+        genChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            genChannel.send({
+              type: 'broadcast',
+              event: 'versus_created',
+              payload: {
+                gameId: gId,
+                creatorId: user?.id,
+                creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
+                numQuestions: generated.length,
+                documentName: file.name,
+                quizQuestions: generated
+              }
+            });
+          }
+        });
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("Error al inicializar Versus: " + err.message);
+    } finally {
+      setFileParsing(false);
+      setIsGenerating(false);
+      setStatusMessage("");
+    }
+  };
+
+  const handleAddBot = () => {
+    const botNames = ['Sofía 🎓', 'Mateo ⚡', 'Valeria 🧠', 'Tomás ☕', 'Camila 🎨'];
+    const existingNames = players.filter(p => p.isBot).map(p => p.name);
+    const available = botNames.filter(name => !existingNames.includes(name));
+
+    if (available.length === 0) {
+      alert("Todos los bots de estudio ya están en la sala.");
+      return;
+    }
+
+    const newBot = {
+      id: 'bot-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      name: available[0],
+      score: 0,
+      lastScoreChange: 0,
+      isBot: true,
+      isHost: false,
+      answered: false,
+      correct: false
+    };
+
+    setPlayers(prev => {
+      const next = [...prev, newBot];
+      if (isHost && channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'game_info',
+          payload: {
+            gameId: activeGameId,
+            creatorId: user?.id,
+            creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
+            numQuestions: quizQuestions.length,
+            documentName: file?.name || 'Contenido',
+            quizQuestions,
+            players: next,
+            status: 'lobby'
+          }
+        });
+      }
+      return next;
+    });
+  };
+
+  const handleStartGame = () => {
+    if (players.length < 2 && !confirm("¿Quieres iniciar la partida tú solo con los bots de IA?")) {
+      return;
+    }
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'game_started',
+        payload: { gameId: activeGameId }
+      });
+    }
+
+    if (supabase && activeGroupId && !isFallbackMode) {
+      const genChan = supabase.channel(`versus_general:${activeGroupId}`);
+      genChan.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          genChan.send({
+            type: 'broadcast',
+            event: 'game_started',
+            payload: { gameId: activeGameId }
+          });
+        }
+      });
+    }
+
+    setGameState('playing');
+    setCurrentQuestionIdx(0);
+    setTimer(20);
+    setMyAnswerIdx(-1);
+    setHasAnswered(false);
+    setPlayers(prev => prev.map(p => ({ ...p, score: 0, lastScoreChange: 0, answered: false, correct: false })));
+  };
+
+  const handleSelectOption = (optionIdx) => {
+    if (hasAnswered || gameState !== 'playing') return;
+
+    setMyAnswerIdx(optionIdx);
+    setHasAnswered(true);
+
+    const currentQ = quizQuestions[currentQuestionIdx];
+    const isCorrect = optionIdx === currentQ.respuestaCorrecta;
+    const timeRemaining = timer;
+    const scoreChange = isCorrect ? (500 + Math.round((timeRemaining / 20) * 500)) : 0;
+
+    setPlayers(prev => {
+      const next = prev.map(p => {
+        if (p.id === user?.id) {
+          return {
+            ...p,
+            score: p.score + scoreChange,
+            lastScoreChange: scoreChange,
+            answered: true,
+            correct: isCorrect
+          };
+        }
+        return p;
+      });
+
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'player_submitted',
+          payload: {
+            gameId: activeGameId,
+            playerId: user?.id,
+            score: (players.find(pl => pl.id === user?.id)?.score || 0) + scoreChange,
+            isCorrect,
+            lastScoreChange: scoreChange
+          }
+        });
+      }
+
+      return next;
+    });
+  };
+
+  const resetVersusGame = () => {
+    setGameState('setup');
+    setFile(null);
+    setQuizQuestions([]);
+    setPlayers([]);
+    setCurrentQuestionIdx(0);
+    setTimer(20);
+    setMyAnswerIdx(-1);
+    setHasAnswered(false);
+    setIsHost(false);
+    setActiveGameId(null);
+    setVersusInvite(null);
+  };
+
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const currentQ = quizQuestions[currentQuestionIdx];
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      flex: 1,
+      height: '100%',
+      overflowY: 'auto',
+      background: 'rgba(0, 0, 0, 0.05)',
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}>
+      {/* 1. SETUP STATE */}
+      {gameState === 'setup' && (
+        <div style={{
+          maxWidth: '600px',
+          width: '100%',
+          margin: '0 auto',
+          background: 'var(--card-bg)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '30px',
+          boxShadow: 'var(--shadow-lg)',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
+            <div style={{
+              background: 'rgba(139, 92, 246, 0.1)',
+              borderRadius: '12px',
+              width: '45px',
+              height: '45px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--primary)',
+              flexShrink: 0
+            }}>
+              <Flame size={24} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                Versus de Contenido IA
+              </h2>
+              <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Compite en tiempo real con tus compañeros (o bots) respondiendo preguntas generadas a partir de tus apuntes.
+              </p>
+            </div>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '20px 0' }} />
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: 'var(--text-muted)' }}>
+              1. Cargar Documento de Estudio (.pdf, .docx, .pptx, .txt)
+            </label>
+            
+            <div 
+              onClick={() => fileInputRef.current.click()}
+              style={{
+                border: '2px dashed var(--border-color)',
+                borderRadius: '12px',
+                padding: '25px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: 'rgba(0, 0, 0, 0.02)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = 'var(--primary)';
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.02)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.background = 'rgba(0,0,0,0.02)';
+              }}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept=".pdf,.docx,.pptx,.txt" 
+                style={{ display: 'none' }} 
+              />
+              <Upload size={32} color="var(--primary)" style={{ opacity: 0.8, marginBottom: '10px' }} />
+              {file ? (
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                    {file.name}
+                  </p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {(file.size / 1024 / 1024).toFixed(2)} MB • Haz clic para cambiar archivo
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                    Arrastra o haz clic para subir tus apuntes
+                  </p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Formatos soportados: PDF, Word, PowerPoint o Texto
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '10px', color: 'var(--text-muted)' }}>
+              2. Cantidad de Preguntas
+            </label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {[5, 10, 15].map(num => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => setNumQuestions(num)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: numQuestions === num ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                    background: numQuestions === num ? 'rgba(139, 92, 246, 0.08)' : 'var(--card-bg)',
+                    color: numQuestions === num ? 'var(--primary)' : 'var(--text-main)',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {num} Preguntas
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(fileParsing || isGenerating) ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px 0',
+              gap: '15px'
+            }}>
+              <Loader size={36} className="spinner" color="var(--primary)" />
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                  {statusMessage}
+                </p>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Esto puede tardar unos segundos.</span>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleCreateLobby}
+              disabled={!file}
+              className="premium-btn-primary"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '10px',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                cursor: file ? 'pointer' : 'not-allowed',
+                opacity: file ? 1 : 0.6
+              }}
+            >
+              Generar Sala Versus con IA
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 2. LOBBY STATE */}
+      {gameState === 'lobby' && (
+        <div style={{
+          maxWidth: '700px',
+          width: '100%',
+          margin: '0 auto',
+          background: 'var(--card-bg)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '25px',
+          boxShadow: 'var(--shadow-lg)',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+            <div>
+              <span style={{
+                background: 'rgba(139, 92, 246, 0.1)',
+                color: 'var(--primary)',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                textTransform: 'uppercase'
+              }}>
+                Lobby / Sala de Espera
+              </span>
+              <h2 style={{ margin: '8px 0 0 0', fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                Versus: {file?.name || versusInvite?.documentName || 'Estudio Grupal'}
+              </h2>
+              <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Tema: {activeGroup?.asignatura || 'Competencia de Conocimiento'} • {quizQuestions.length} Preguntas
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {isHost && (
+                <button
+                  onClick={handleAddBot}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Bot size={15} color="var(--primary)" /> Añadir Bot de IA
+                </button>
+              )}
+              <button
+                onClick={resetVersusGame}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #ef4444',
+                  background: 'transparent',
+                  color: '#ef4444',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '15px 0' }} />
+
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '0.88rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Users size={16} color="var(--primary)" /> Jugadores Conectados ({players.length})
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: '12px',
+              maxHeight: '220px',
+              overflowY: 'auto',
+              padding: '5px'
+            }}>
+              {players.map(p => (
+                <div
+                  key={p.id}
+                  style={{
+                    background: 'rgba(0,0,0,0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    background: p.isBot ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '0.75rem',
+                    flexShrink: 0
+                  }}>
+                    {p.isBot ? 'IA' : p.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
+                      {p.name}
+                    </p>
+                    <p style={{ margin: '1px 0 0 0', fontSize: '0.65rem', color: p.isHost ? 'var(--primary)' : 'var(--text-muted)', fontWeight: p.isHost ? 'bold' : 'normal' }}>
+                      {p.isHost ? 'Organizador' : p.isBot ? 'Bot' : 'Jugador'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(139, 92, 246, 0.04)',
+            border: '1px solid rgba(139, 92, 246, 0.1)',
+            borderRadius: '10px',
+            padding: '15px',
+            textAlign: 'center',
+            marginBottom: '20px'
+          }}>
+            {isHost ? (
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                Eres el organizador. Comparte la pestaña con el grupo y presiona iniciar cuando todos se hayan unido.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <Loader size={16} className="spinner" color="var(--primary)" />
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                  Esperando que el organizador inicie la competencia...
+                </p>
+              </div>
+            )}
+          </div>
+
+          {isHost && (
+            <button
+              onClick={handleStartGame}
+              className="premium-btn-primary"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '10px',
+                fontSize: '0.9rem',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              Iniciar Versus
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 3. PLAYING STATE */}
+      {gameState === 'playing' && currentQ && (
+        <div style={{
+          maxWidth: '800px',
+          width: '100%',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--shadow-sm)',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+              Pregunta {currentQuestionIdx + 1} de {quizQuestions.length}
+            </span>
+            
+            <div style={{ flex: 1, height: '8px', background: 'rgba(0,0,0,0.08)', borderRadius: '4px', margin: '0 20px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${((currentQuestionIdx + 1) / quizQuestions.length) * 100}%`,
+                height: '100%',
+                background: 'var(--primary)',
+                borderRadius: '4px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: timer <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              color: timer <= 5 ? '#ef4444' : '#10b981',
+              fontWeight: 'bold',
+              fontSize: '0.85rem'
+            }}>
+              <Timer size={16} />
+              <span>{timer}s</span>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '30px 20px',
+            textAlign: 'center',
+            boxShadow: 'var(--shadow-md)'
+          }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: '1.25rem',
+              lineHeight: '1.4',
+              fontWeight: '800',
+              color: 'var(--text-main)'
+            }}>
+              {currentQ.pregunta}
+            </h1>
+          </div>
+
+          {hasAnswered && (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              borderRadius: '10px',
+              padding: '12px',
+              textAlign: 'center',
+              fontSize: '0.8rem',
+              fontWeight: 'bold',
+              color: '#10b981'
+            }}>
+              Respuesta enviada. Esperando a los demás jugadores... ({players.filter(p => p.answered).length} / {players.length} listos)
+            </div>
+          )}
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '15px'
+          }}>
+            {currentQ.opciones.map((opt, idx) => {
+              const optionColors = [
+                'linear-gradient(135deg, #ef4444, #dc2626)',
+                'linear-gradient(135deg, #3b82f6, #2563eb)',
+                'linear-gradient(135deg, #f59e0b, #d97706)',
+                'linear-gradient(135deg, #10b981, #059669)'
+              ];
+              const symbols = ['▲', '◆', '●', '■'];
+              const isSelected = myAnswerIdx === idx;
+
+              return (
+                <button
+                  key={idx}
+                  disabled={hasAnswered}
+                  onClick={() => handleSelectOption(idx)}
+                  style={{
+                    background: optionColors[idx],
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '20px 15px',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '0.95rem',
+                    cursor: hasAnswered ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    boxShadow: isSelected ? '0 0 15px rgba(255,255,255,0.4)' : 'var(--shadow-sm)',
+                    opacity: hasAnswered && !isSelected ? 0.6 : 1,
+                    transform: isSelected ? 'scale(1.02)' : 'none',
+                    transition: 'all 0.2s',
+                    boxSizing: 'border-box'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!hasAnswered) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!hasAnswered) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                    }
+                  }}
+                >
+                  <span style={{
+                    fontSize: '1.2rem',
+                    width: '30px',
+                    height: '30px',
+                    background: 'rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {symbols[idx]}
+                  </span>
+                  <span style={{ flex: 1, textOverflow: 'ellipsis', overflow: 'hidden' }}>{opt}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4. QUESTION RESULTS STATE */}
+      {gameState === 'question_results' && currentQ && (
+        <div style={{
+          maxWidth: '650px',
+          width: '100%',
+          margin: '0 auto',
+          background: 'var(--card-bg)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '25px',
+          boxShadow: 'var(--shadow-lg)',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            {myAnswerIdx === -1 ? (
+              <h2 style={{ margin: 0, color: '#ef4444', fontSize: '1.35rem', fontWeight: '800' }}>
+                ¡Se acabó el tiempo! ⏱️
+              </h2>
+            ) : myAnswerIdx === currentQ.respuestaCorrecta ? (
+              <h2 style={{ margin: 0, color: '#10b981', fontSize: '1.35rem', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <CheckCircle2 size={24} /> ¡Respuesta Correcta! 🎉
+              </h2>
+            ) : (
+              <h2 style={{ margin: 0, color: '#ef4444', fontSize: '1.35rem', fontWeight: '800' }}>
+                ¡Respuesta Incorrecta! 😢
+              </h2>
+            )}
+            <p style={{ margin: '5px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              {myAnswerIdx !== -1 && myAnswerIdx === currentQ.respuestaCorrecta
+                ? `Ganaste +${players.find(p => p.id === user?.id)?.lastScoreChange || 0} puntos.`
+                : 'Sigue intentándolo en la siguiente pregunta.'}
+            </p>
+          </div>
+
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            borderRadius: '12px',
+            padding: '15px 20px',
+            marginBottom: '20px'
+          }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+              Respuesta Correcta:
+            </span>
+            <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+              {currentQ.opciones[currentQ.respuestaCorrecta]}
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '0.88rem', fontWeight: 'bold', marginBottom: '10px', color: 'var(--text-main)' }}>
+              Tabla de Posiciones
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {sortedPlayers.map((p, idx) => {
+                const isMe = p.id === user?.id;
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: isMe ? 'rgba(139, 92, 246, 0.08)' : 'rgba(0,0,0,0.02)',
+                      border: isMe ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '10px 15px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-muted)', width: '20px' }}>
+                        #{idx + 1}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                        {p.name}
+                      </span>
+                      {p.answered && (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          background: p.correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                          color: p.correct ? '#10b981' : '#ef4444',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 'bold'
+                        }}>
+                          {p.correct ? 'Correcto' : 'Incorrecto'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {p.lastScoreChange > 0 && (
+                        <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold' }}>
+                          +{p.lastScoreChange}
+                        </span>
+                      )}
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                        {p.score} pts
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{
+            textAlign: 'center',
+            fontSize: '0.8rem',
+            color: 'var(--text-muted)',
+            padding: '10px',
+            borderTop: '1px solid var(--border-color)'
+          }}>
+            La siguiente pregunta comenzará en <strong style={{ color: 'var(--primary)' }}>{timer}s</strong>...
+          </div>
+        </div>
+      )}
+
+      {/* 5. PODIUM STATE */}
+      {gameState === 'podium' && (
+        <div style={{
+          maxWidth: '650px',
+          width: '100%',
+          margin: '0 auto',
+          background: 'var(--card-bg)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '30px',
+          boxShadow: 'var(--shadow-lg)',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+            <span style={{ fontSize: '2rem' }}>🏆</span>
+            <h2 style={{ margin: '8px 0 0 0', fontSize: '1.35rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              Resultados del Versus
+            </h2>
+            <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              ¡Felicitaciones a todos los participantes por poner a prueba su aprendizaje!
+            </p>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            gap: '15px',
+            height: '240px',
+            marginBottom: '30px',
+            paddingBottom: '10px',
+            borderBottom: '2px solid var(--border-color)'
+          }}>
+            {/* 2nd place */}
+            {sortedPlayers[1] && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                flex: 1,
+                maxWidth: '120px'
+              }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-main)', textAlign: 'center', marginBottom: '6px', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', whiteSpace: 'nowrap' }}>
+                  {sortedPlayers[1].name}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  {sortedPlayers[1].score} pts
+                </span>
+                <div style={{
+                  width: '100%',
+                  height: '110px',
+                  background: 'linear-gradient(to top, rgba(148, 163, 184, 0.4), rgba(148, 163, 184, 0.1))',
+                  border: '2px solid rgba(148, 163, 184, 0.5)',
+                  borderBottom: 'none',
+                  borderRadius: '10px 10px 0 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'slate',
+                  gap: '5px'
+                }}>
+                  <span style={{ fontSize: '1.25rem' }}>🥈</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>2do</span>
+                </div>
+              </div>
+            )}
+
+            {/* 1st place */}
+            {sortedPlayers[0] && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                flex: 1,
+                maxWidth: '140px'
+              }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary)', textAlign: 'center', marginBottom: '6px', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', whiteSpace: 'nowrap' }}>
+                  👑 {sortedPlayers[0].name}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 'bold', marginBottom: '8px' }}>
+                  {sortedPlayers[0].score} pts
+                </span>
+                <div style={{
+                  width: '100%',
+                  height: '150px',
+                  background: 'linear-gradient(to top, rgba(234, 179, 8, 0.4), rgba(234, 179, 8, 0.15))',
+                  border: '2px solid rgba(234, 179, 8, 0.6)',
+                  borderBottom: 'none',
+                  borderRadius: '10px 10px 0 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'gold',
+                  gap: '5px',
+                  boxShadow: '0 -4px 20px rgba(234, 179, 8, 0.25)',
+                  position: 'relative'
+                }}>
+                  <span style={{ fontSize: '1.75rem' }}>🥇</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)' }}>1er Lugar</span>
+                </div>
+              </div>
+            )}
+
+            {/* 3rd place */}
+            {sortedPlayers[2] && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                flex: 1,
+                maxWidth: '120px'
+              }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-main)', textAlign: 'center', marginBottom: '6px', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', whiteSpace: 'nowrap' }}>
+                  {sortedPlayers[2].name}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  {sortedPlayers[2].score} pts
+                </span>
+                <div style={{
+                  width: '100%',
+                  height: '80px',
+                  background: 'linear-gradient(to top, rgba(180, 83, 9, 0.4), rgba(180, 83, 9, 0.1))',
+                  border: '2px solid rgba(180, 83, 9, 0.5)',
+                  borderBottom: 'none',
+                  borderRadius: '10px 10px 0 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'brown',
+                  gap: '5px'
+                }}>
+                  <span style={{ fontSize: '1.25rem' }}>🥉</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>3ro</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: '25px' }}>
+            <h3 style={{ fontSize: '0.88rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-main)' }}>
+              Tabla Final
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+              {sortedPlayers.map((p, idx) => (
+                <div
+                  key={p.id}
+                  style={{
+                    background: 'rgba(0,0,0,0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '8px 15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                    #{idx + 1} {p.name} {p.isBot && '(IA)'}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                    {p.score} pts
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={resetVersusGame}
+            className="premium-btn-primary"
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '10px',
+              fontSize: '0.9rem',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            Volver al Menú Versus
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 

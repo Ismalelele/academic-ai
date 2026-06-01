@@ -521,3 +521,191 @@ Entrega tu respuesta estructurada en dos o tres párrafos cortos en formato Mark
   }
 };
 
+export const transcribeAudio = async (audioBlob) => {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("No se encontró la API Key de Groq en el entorno.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", audioBlob, "grabacion.webm");
+  formData.append("model", "whisper-large-v3-turbo");
+  formData.append("response_format", "json");
+
+  const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: formData
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    console.error("Error en Groq Whisper:", data);
+    throw new Error(data.error?.message || "Error al transcribir el audio.");
+  }
+
+  return data.text;
+};
+
+export const generateRecordingSummary = async (transcript) => {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("No se encontró la API Key de Groq en el entorno.");
+  }
+
+  const systemPrompt = `Analiza la siguiente transcripción de una clase universitaria y genera material de estudio.
+Debes responder estrictamente con un objeto JSON (sin bloques de código markdown, sin texto adicional antes o después) con el siguiente formato:
+{
+  "resumen": "Resumen estructurado de la clase en formato Markdown usando títulos y viñetas.",
+  "conceptosClave": ["Arreglo de conceptos clave discutidos"],
+  "preguntasPrueba": [
+    {
+      "pregunta": "Pregunta de opción múltiple relevante",
+      "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
+      "respuestaCorrecta": "Opción A (u otra opción exacta de la lista)",
+      "explicacion": "Explicación detallada de por qué es correcta"
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "Pregunta o término en el anverso",
+      "back": "Respuesta o definición corta en el reverso"
+    }
+  ]
+}
+
+Genera exactamente 4 o 5 preguntas de prueba y 4 o 5 flashcards.`;
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Transcripción de la clase:\n${transcript}` }
+      ],
+      temperature: 0.3,
+      response_format: { type: "json_object" }
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || "Error al generar los materiales de la clase.");
+  }
+
+  return JSON.parse(data.choices[0].message.content);
+};
+
+export const askTranscriptAI = async (transcript, question) => {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("No se encontró la API Key de Groq en el entorno.");
+  }
+
+  const systemPrompt = `Eres un asistente de estudio enfocado en una clase grabada en particular.
+Tu única fuente de conocimiento para responder es la transcripción proporcionada a continuación.
+Responde de forma clara y estructurada basándote exclusivamente en esta transcripción.
+Si lo solicitado no está mencionado en la clase, responde amablemente: "Ese tema no fue discutido durante esta clase grabada."
+
+--- INICIO DE LA TRANSCRIPCIÓN ---
+${transcript}
+--- FIN DE LA TRANSCRIPCIÓN ---`;
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: question }
+      ],
+      temperature: 0.3
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || "Error al procesar la pregunta.");
+  }
+
+  return data.choices[0].message.content;
+};
+
+export const generateCustomQuiz = async (documentText, numQuestions = 5) => {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
+
+  const MAX_CHARS = 8000;
+  let text = documentText;
+  if (text.length > MAX_CHARS) {
+    text = text.substring(0, MAX_CHARS) + "\n\n... [Texto truncado por límite de caracteres]";
+  }
+
+  const systemPrompt = `Eres un docente universitario experto en evaluaciones.
+Genera un quiz de evaluación interactivo de exactamente ${numQuestions} preguntas basadas exclusivamente en el texto del documento que se te proporciona.
+
+Reglas:
+- Genera exactamente ${numQuestions} preguntas de opción múltiple de alta calidad y relevancia.
+- Cada pregunta debe tener exactamente 4 opciones de respuesta coherentes.
+- Señala cuál es la respuesta correcta usando su índice (0 para la primera opción, 1 para la segunda, 2 para la tercera, y 3 para la cuarta).
+- Asegúrate de que las preguntas evalúen el aprendizaje conceptual real del documento.
+
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, NO uses markdown tipo \`\`\`json):
+{
+  "quiz": [
+    {
+      "id": 1,
+      "pregunta": "¿Qué define el concepto X?",
+      "opciones": [
+        "Opción A",
+        "Opción B",
+        "Opción C",
+        "Opción D"
+      ],
+      "respuestaCorrecta": 1
+    }
+  ]
+}`;
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Genera mi quiz interactivo de ${numQuestions} preguntas basado en este texto:\n\n${text}` }
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+
+    const content = data.choices[0].message.content;
+    const parsed = JSON.parse(content);
+    return parsed.quiz || [];
+  } catch (error) {
+    console.error("Error en generateCustomQuiz:", error);
+    throw error;
+  }
+};
+
+
