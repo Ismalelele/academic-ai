@@ -315,16 +315,16 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               <Calendar size={18} /> <span>Horario</span>
             </NavLink>
           </li>
+          <li>
+            <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+              <Mic size={18} /> <span>Clases Grabadas</span>
+            </NavLink>
+          </li>
           {effectiveSchedule && effectiveSchedule.length > 0 && (
             <>
               <li>
                 <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                   <BookOpenText size={18} /> <span>Apuntes</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                  <Mic size={18} /> <span>Clases Grabadas</span>
                 </NavLink>
               </li>
               <li>

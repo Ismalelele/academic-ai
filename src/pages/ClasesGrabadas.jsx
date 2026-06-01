@@ -13,6 +13,20 @@ export default function ClasesGrabadas() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
 
+  const [customSubjects, setCustomSubjects] = useState(() => {
+    const saved = localStorage.getItem(`academic_custom_subjects_${user?.id || 'local'}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`academic_custom_subjects_${user.id}`);
+      if (saved) {
+        setCustomSubjects(JSON.parse(saved));
+      }
+    }
+  }, [user]);
+
   const [activeSubject, setActiveSubject] = useState(null);
   const [recordings, setRecordings] = useState([]);
   const [selectedRecording, setSelectedRecording] = useState(null);
@@ -203,9 +217,24 @@ export default function ClasesGrabadas() {
     return `${m}:${s}`;
   };
 
-  const uniqueSubjects = effectiveSchedule 
-    ? Array.from(new Set(effectiveSchedule.map(c => c.title))) 
-    : [];
+  const uniqueSubjects = Array.from(new Set([
+    ...(effectiveSchedule ? effectiveSchedule.map(c => c.title) : []),
+    ...customSubjects,
+    ...(((!effectiveSchedule || effectiveSchedule.length === 0) && customSubjects.length === 0) ? ["General"] : [])
+  ]));
+
+  const handleAddCustomSubject = () => {
+    const name = window.prompt("Ingresa el nombre del nuevo cuaderno / asignatura:");
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (uniqueSubjects.includes(trimmed)) {
+      alert("Ya existe un cuaderno con ese nombre.");
+      return;
+    }
+    const updated = [...customSubjects, trimmed];
+    setCustomSubjects(updated);
+    localStorage.setItem(`academic_custom_subjects_${user?.id || 'local'}`, JSON.stringify(updated));
+  };
 
   const getColorType = (title) => {
     const types = ['cultura', 'tecnologias', 'ciber', 'proy-colab', 'formulacion', 'competencias', 'procesos', 'proy-noche'];
@@ -215,35 +244,6 @@ export default function ClasesGrabadas() {
     }
     return types[Math.abs(hash) % types.length];
   };
-
-  // 1. No Schedule configured view
-  if (!effectiveSchedule || effectiveSchedule.length === 0) {
-    return (
-      <main className="main-content">
-        <header>
-          <h1 className="page-title">Clases Grabadas</h1>
-        </header>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '60vh',
-          textAlign: 'center',
-          color: 'var(--text-muted)',
-          gap: '20px'
-        }}>
-          <Book size={64} style={{ color: 'var(--primary)', opacity: 0.8 }} />
-          <div>
-            <h3>Aún no has configurado tu horario</h3>
-            <p style={{ marginTop: '8px', maxWidth: '400px' }}>
-              Para poder organizar y transcribir tus clases, primero debes cargar o configurar tu horario en la sección de Horario.
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
 
   // 2. Recordings Workspace view (Active Subject)
   if (activeSubject) {
@@ -704,11 +704,18 @@ export default function ClasesGrabadas() {
   // 3. Grid of Notebooks view (mis cuadernos)
   return (
     <main className="main-content">
-      <header>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h1 className="page-title">Clases Grabadas</h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>Transcribe y analiza tus apuntes y grabaciones por asignatura</p>
         </div>
+        <button 
+          onClick={handleAddCustomSubject}
+          className="btn-primary"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
+        >
+          <Book size={16} /> Agregar Cuaderno
+        </button>
       </header>
 
       <div className="notebooks-grid">

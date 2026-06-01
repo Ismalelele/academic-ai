@@ -2793,6 +2793,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   const [statusMessage, setStatusMessage] = useState('');
   const [isShared, setIsShared] = useState(false);
   const [selectedHistoryBattle, setSelectedHistoryBattle] = useState(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const channelRef = useRef(null);
   const generalChannelRef = useRef(null);
@@ -3600,6 +3601,53 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
           margin: '0 auto',
           boxSizing: 'border-box'
         }}>
+          {/* Header Row with Title and History Button */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '15px 25px',
+            boxShadow: 'var(--shadow-md)',
+            flexWrap: 'wrap',
+            gap: '15px',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Flame size={22} color="var(--primary)" /> Versus de Contenido IA
+              </h2>
+              <p style={{ margin: '3px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Crea una sala subiendo un archivo o únete a las batallas activas de tus compañeros.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className="premium-btn-secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+                color: 'var(--primary)',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)'}
+            >
+              <Trophy size={16} /> Ver Historial de Batallas
+            </button>
+          </div>
+
           {/* columns row container */}
           <div style={{
             display: 'flex',
@@ -3926,135 +3974,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
             </div>
           </div>
 
-          {/* HISTORIAL DE BATALLAS RECIENTES */}
-          <div style={{
-            background: 'var(--card-bg)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '16px',
-            padding: '30px',
-            boxShadow: 'var(--shadow-lg)',
-            boxSizing: 'border-box',
-            width: '100%'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
-              <div style={{
-                background: 'rgba(139, 92, 246, 0.1)',
-                borderRadius: '12px',
-                width: '45px',
-                height: '45px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--primary)'
-              }}>
-                <Trophy size={24} />
-              </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                  Historial de Batallas del Grupo
-                </h2>
-                <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Revisa los resultados y las preguntas de los Versus completados por los miembros del grupo.
-                </p>
-              </div>
-            </div>
 
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '20px 0' }} />
-
-            {battleHistory.length === 0 ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '40px 20px',
-                background: 'rgba(0, 0, 0, 0.01)',
-                borderRadius: '12px',
-                border: '1px dashed var(--border-color)',
-                color: 'var(--text-muted)'
-              }}>
-                <Award size={36} style={{ opacity: 0.3, marginBottom: '10px' }} />
-                <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>No hay batallas registradas en el historial</p>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>¡Completa un Versus para ver tus resultados aquí!</p>
-              </div>
-            ) : (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                gap: '15px'
-              }}>
-                {battleHistory.map((history) => {
-                  const sorted = [...history.players].sort((a, b) => b.score - a.score);
-                  const winner = sorted[0];
-                  return (
-                    <div 
-                      key={history.gameId}
-                      style={{
-                        background: 'rgba(139, 92, 246, 0.02)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '12px',
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--primary)';
-                        e.currentTarget.style.background = 'rgba(139, 92, 246, 0.05)';
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--border-color)';
-                        e.currentTarget.style.background = 'rgba(139, 92, 246, 0.02)';
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '8px' }}>
-                          <span style={{
-                            fontSize: '0.85rem',
-                            fontWeight: 'bold',
-                            color: 'var(--text-main)',
-                            lineHeight: '1.3',
-                            textOverflow: 'ellipsis',
-                            overflow: 'hidden',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical'
-                          }}>
-                            {history.documentName}
-                          </span>
-                        </div>
-                        <p style={{ margin: '6px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          Organizador: <strong>{history.creatorName}</strong>
-                        </p>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          Fecha: <strong>{new Date(history.timestamp).toLocaleDateString()} {new Date(history.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong>
-                        </p>
-                        {winner && (
-                          <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 'bold' }}>
-                            🥇 Ganador: {winner.name} ({winner.score} pts)
-                          </p>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => setSelectedHistoryBattle(history)}
-                        className="premium-btn-primary"
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          fontSize: '0.78rem',
-                          fontWeight: 'bold',
-                          cursor: 'pointer',
-                          width: '100%'
-                        }}
-                      >
-                        Ver Historial y Respuestas
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
@@ -4954,6 +4874,180 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
             >
               Cerrar Vista
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL HISTORIAL DE BATALLAS */}
+      {showHistoryModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)',
+          boxSizing: 'border-box'
+        }}>
+          <div className="premium-modal" style={{
+            maxWidth: '850px',
+            width: '90%',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            padding: '30px'
+          }}>
+            <button 
+              onClick={() => setShowHistoryModal(false)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{
+                background: 'rgba(139, 92, 246, 0.1)',
+                borderRadius: '12px',
+                width: '45px',
+                height: '45px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary)'
+              }}>
+                <Trophy size={24} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  Historial de Batallas del Grupo
+                </h2>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Resultados históricos de los Versus completados en este grupo de estudio.
+                </p>
+              </div>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '15px 0' }} />
+
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              paddingRight: '5px',
+              minHeight: 0
+            }}>
+              {battleHistory.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px 20px',
+                  background: 'rgba(0, 0, 0, 0.01)',
+                  borderRadius: '12px',
+                  border: '1px dashed var(--border-color)',
+                  color: 'var(--text-muted)'
+                }}>
+                  <Award size={36} style={{ opacity: 0.3, marginBottom: '10px' }} />
+                  <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>No hay batallas registradas en el historial</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', opacity: 0.8 }}>¡Completa un Versus para ver tus resultados aquí!</p>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                  gap: '15px'
+                }}>
+                  {battleHistory.map((history) => {
+                    const sorted = [...history.players].sort((a, b) => b.score - a.score);
+                    const winner = sorted[0];
+                    return (
+                      <div 
+                        key={history.gameId}
+                        style={{
+                          background: 'rgba(139, 92, 246, 0.02)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                          e.currentTarget.style.background = 'rgba(139, 92, 246, 0.05)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
+                          e.currentTarget.style.background = 'rgba(139, 92, 246, 0.02)';
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '8px' }}>
+                            <span style={{
+                              fontSize: '0.85rem',
+                              fontWeight: 'bold',
+                              color: 'var(--text-main)',
+                              lineHeight: '1.3',
+                              textOverflow: 'ellipsis',
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical'
+                            }}>
+                              {history.documentName}
+                            </span>
+                          </div>
+                          <p style={{ margin: '6px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Organizador: <strong>{history.creatorName}</strong>
+                          </p>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Fecha: <strong>{new Date(history.timestamp).toLocaleDateString()}</strong>
+                          </p>
+                          {winner && (
+                            <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                              🥇 Ganador: {winner.name} ({winner.score} pts)
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setSelectedHistoryBattle(history);
+                            setShowHistoryModal(false);
+                          }}
+                          className="premium-btn-primary"
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            width: '100%'
+                          }}
+                        >
+                          Ver Historial y Respuestas
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
