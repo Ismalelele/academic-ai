@@ -1084,6 +1084,7 @@ export default function ChatsGrupos() {
                     activeGroupMembers={activeGroupMembers}
                     versusInvite={versusInvite}
                     setVersusInvite={setVersusInvite}
+                    sendGroupMessage={sendGroupMessage}
                   />
                 ) : (
                   /* Vista de Pizarra */
@@ -1925,24 +1926,15 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     channel
       .on('broadcast', { event: 'draw' }, ({ payload }) => {
         if (payload.action === 'stroke') {
-          setLines(prev => {
-            const next = [...prev, payload.line];
-            redrawWithData(next, shapes, bgImgElement.current);
-            return next;
-          });
+          setLines(prev => [...prev, payload.line]);
         } else if (payload.action === 'shape') {
-          setShapes(prev => {
-            const next = [...prev, payload.shape];
-            redrawWithData(lines, next, bgImgElement.current);
-            return next;
-          });
+          setShapes(prev => [...prev, payload.shape]);
         } else if (payload.action === 'clear') {
           setLines([]);
           setShapes([]);
           setStickies([]);
           setBgImageSrc(null);
           bgImgElement.current = null;
-          redrawWithData([], [], null);
         } else if (payload.action === 'sync') {
           setLines(payload.lines || []);
           setShapes(payload.shapes || []);
@@ -1952,11 +1944,11 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
             img.src = payload.bgImageSrc;
             img.onload = () => {
               bgImgElement.current = img;
-              redrawWithData(payload.lines || [], payload.shapes || [], img);
+              setBgImageSrc(payload.bgImageSrc);
             };
           } else {
             bgImgElement.current = null;
-            redrawWithData(payload.lines || [], payload.shapes || [], null);
+            setBgImageSrc(null);
           }
         }
       })
@@ -1973,7 +1965,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [activeGroupId, isFallbackMode, lines, shapes, stickies, bgImageSrc]);
+  }, [activeGroupId, isFallbackMode]);
   
   const broadcastDraw = (action, payloadData) => {
     if (channelRef.current) {
@@ -2685,7 +2677,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
   );
 }
 
-export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, activeGroupMembers, versusInvite, setVersusInvite }) {
+export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, activeGroupMembers, versusInvite, setVersusInvite, sendGroupMessage }) {
   const [gameState, setGameState] = useState('setup'); // 'setup' | 'lobby' | 'playing' | 'question_results' | 'podium'
   const [file, setFile] = useState(null);
   const [fileParsing, setFileParsing] = useState(false);
@@ -2700,6 +2692,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   const [isHost, setIsHost] = useState(false);
   const [activeGameId, setActiveGameId] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
+  const [isShared, setIsShared] = useState(false);
 
   const channelRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -3074,26 +3067,6 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       setActiveGameId(gId);
       setGameState('lobby');
 
-      if (supabase && activeGroupId && !isFallbackMode) {
-        const genChannel = supabase.channel(`versus_general:${activeGroupId}`);
-        genChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            genChannel.send({
-              type: 'broadcast',
-              event: 'versus_created',
-              payload: {
-                gameId: gId,
-                creatorId: user?.id,
-                creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
-                numQuestions: generated.length,
-                documentName: file.name,
-                quizQuestions: generated
-              }
-            });
-          }
-        });
-      }
-
     } catch (err) {
       console.error(err);
       alert("Error al inicializar Versus: " + err.message);
@@ -3102,6 +3075,43 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       setIsGenerating(false);
       setStatusMessage("");
     }
+  };
+
+  const handleShareLobby = async () => {
+    if (isShared) return;
+
+    if (supabase && activeGroupId && !isFallbackMode) {
+      const genChannel = supabase.channel(`versus_general:${activeGroupId}`);
+      genChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          genChannel.send({
+            type: 'broadcast',
+            event: 'versus_created',
+            payload: {
+              gameId: activeGameId,
+              creatorId: user?.id,
+              creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
+              numQuestions: quizQuestions.length,
+              documentName: file?.name || 'Apuntes',
+              quizQuestions: quizQuestions
+            }
+          });
+        }
+      });
+    }
+
+    if (sendGroupMessage && activeGroupId) {
+      try {
+        await sendGroupMessage(
+          activeGroupId,
+          `📢 ¡He compartido una sala Versus de Contenido! Tema: "${file?.name || 'Apuntes'}" (${quizQuestions.length} preguntas). Únete en la pestaña de Versus.`
+        );
+      } catch (err) {
+        console.warn("Error al enviar mensaje de Versus al chat:", err);
+      }
+    }
+
+    setIsShared(true);
   };
 
   const handleAddBot = () => {
@@ -3236,6 +3246,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
     setIsHost(false);
     setActiveGameId(null);
     setVersusInvite(null);
+    setIsShared(false);
   };
 
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
@@ -3551,7 +3562,9 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
           }}>
             {isHost ? (
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                Eres el organizador. Comparte la pestaña con el grupo y presiona iniciar cuando todos se hayan unido.
+                {isShared 
+                  ? "¡Sala compartida! Espera a tus compañeros o agrega bots de IA y presiona 'Iniciar Batalla'." 
+                  : "Preguntas generadas. Haz clic en 'Compartir Sala' para notificar a tus compañeros en el chat."}
               </p>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -3564,20 +3577,43 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
           </div>
 
           {isHost && (
-            <button
-              onClick={handleStartGame}
-              className="premium-btn-primary"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                fontSize: '0.9rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              Iniciar Versus
-            </button>
+            isShared ? (
+              <button
+                onClick={handleStartGame}
+                className="premium-btn-primary"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: 'white',
+                  border: 'none'
+                }}
+              >
+                Iniciar Batalla
+              </button>
+            ) : (
+              <button
+                onClick={handleShareLobby}
+                className="premium-btn-primary"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, var(--primary), #6d28d9)',
+                  color: 'white',
+                  border: 'none'
+                }}
+              >
+                Compartir Sala
+              </button>
+            )
           )}
         </div>
       )}
