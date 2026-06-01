@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { 
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, 
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
-  ChevronLeft, ChevronRight, Settings, Camera, User, Check
+  ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
@@ -320,6 +320,11 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               <li>
                 <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                   <BookOpenText size={18} /> <span>Apuntes</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                  <Mic size={18} /> <span>Clases Grabadas</span>
                 </NavLink>
               </li>
               <li>
