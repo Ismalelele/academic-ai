@@ -9,9 +9,71 @@ import {
   BookOpen, Brain, HelpCircle, Sparkles, Square, Play, Pause, Headphones
 } from 'lucide-react';
 
+// Helper functions for storing audio files in IndexedDB
+const openAudioDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('AcademicAudioDB', 1);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('audio')) {
+        db.createObjectStore('audio', { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+};
+
+const saveAudioBlob = async (id, blob) => {
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('audio', 'readwrite');
+      const store = transaction.objectStore('audio');
+      const request = store.put({ id, blob });
+      request.onsuccess = () => resolve();
+      request.onerror = (e) => reject(e.target.error);
+    });
+  } catch (err) {
+    console.error("Error saving audio to IndexedDB:", err);
+  }
+};
+
+const getAudioBlob = async (id) => {
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('audio', 'readonly');
+      const store = transaction.objectStore('audio');
+      const request = store.get(id);
+      request.onsuccess = (e) => resolve(e.target.result?.blob || null);
+      request.onerror = (e) => reject(e.target.error);
+    });
+  } catch (err) {
+    console.error("Error getting audio from IndexedDB:", err);
+    return null;
+  }
+};
+
+const deleteAudioBlob = async (id) => {
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('audio', 'readwrite');
+      const store = transaction.objectStore('audio');
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = (e) => reject(e.target.error);
+    });
+  } catch (err) {
+    console.error("Error deleting audio from IndexedDB:", err);
+  }
+};
+
 export default function ClasesGrabadas() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
+  const [audioSrc, setAudioSrc] = useState(null);
 
   const [customSubjects, setCustomSubjects] = useState(() => {
     const saved = localStorage.getItem(`academic_custom_subjects_${user?.id || 'local'}`);
@@ -52,6 +114,27 @@ export default function ClasesGrabadas() {
       loadRecordings();
     }
   }, [user, activeSubject]);
+
+  useEffect(() => {
+    let objectUrl = null;
+    if (selectedRecording) {
+      getAudioBlob(selectedRecording.id_grabacion).then(blob => {
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setAudioSrc(objectUrl);
+        } else {
+          setAudioSrc(null);
+        }
+      });
+    } else {
+      setAudioSrc(null);
+    }
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [selectedRecording]);
 
   const loadRecordings = async () => {
     // 1. Cargar desde localStorage
@@ -146,6 +229,8 @@ export default function ClasesGrabadas() {
         fecha_creacion: new Date().toISOString()
       };
 
+      await saveAudioBlob(newRecording.id_grabacion, audioBlob);
+
       if (supabase && user && user.id && !user.id.startsWith('user-local-')) {
         try {
           const { error } = await supabase.from('clases_grabadas').insert([newRecording]);
@@ -173,6 +258,8 @@ export default function ClasesGrabadas() {
   const handleDeleteRecording = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm("¿Estás seguro de que deseas eliminar esta grabación y todo su material de estudio?")) return;
+
+    await deleteAudioBlob(id);
 
     if (supabase && user && user.id && !user.id.startsWith('user-local-')) {
       try {
@@ -371,6 +458,49 @@ export default function ClasesGrabadas() {
                     </p>
                   </div>
                 </div>
+
+                {/* Reproductor de Audio Banner */}
+                {audioSrc && (
+                  <div style={{
+                    padding: '12px 20px',
+                    background: 'rgba(139, 92, 246, 0.04)',
+                    borderBottom: '1px solid var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '15px',
+                    flexShrink: 0
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '15px',
+                      background: 'var(--card-bg)',
+                      border: '1.5px solid var(--primary)',
+                      borderRadius: '40px',
+                      padding: '8px 24px',
+                      width: '100%',
+                      maxWidth: '650px',
+                      boxShadow: '0 8px 24px rgba(139, 92, 246, 0.12)',
+                      boxSizing: 'border-box'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', flexShrink: 0 }}>
+                        <Headphones size={20} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reproductor</span>
+                      </div>
+                      <audio 
+                        controls 
+                        src={audioSrc} 
+                        style={{ 
+                          height: '46px', 
+                          outline: 'none',
+                          flexGrow: 1,
+                          width: '100%'
+                        }} 
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', gap: '5px', padding: '10px 20px', background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-color)', flexShrink: 0, overflowX: 'auto' }}>
                   {[

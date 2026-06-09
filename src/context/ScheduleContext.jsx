@@ -378,6 +378,88 @@ export const ScheduleProvider = ({ children }) => {
     }
   };
 
+  const saveFullSchedule = async (newSchedule) => {
+    if (!user) return false;
+    
+    // Format visual coordinates for every block in the new schedule
+    const formattedSchedule = newSchedule.map(cls => {
+      const { top, height } = calculateVisuals(cls.startH, cls.startM, cls.endH, cls.endM);
+      return {
+        ...cls,
+        id: cls.id || 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        top,
+        height
+      };
+    });
+
+    if (user.id.startsWith('user-local-')) {
+      setSchedule(formattedSchedule);
+      localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(formattedSchedule));
+      return true;
+    }
+
+    try {
+      // 1. Delete old schedules in database
+      await supabase.from('horarios').delete().eq('user_id', user.id);
+
+      // 2. Create a new schedule entry
+      const { data: newHorario, error: insertHorarioError } = await supabase
+        .from('horarios')
+        .insert([{ user_id: user.id }])
+        .select()
+        .single();
+
+      if (insertHorarioError) throw insertHorarioError;
+
+      // 3. Insert class blocks
+      if (formattedSchedule.length > 0) {
+        const bloquesToInsert = formattedSchedule.map(cls => ({
+          id_horario: newHorario.id_horario,
+          dia_semana: cls.day,
+          hora_inicio: `${cls.startH.toString().padStart(2, '0')}:${cls.startM.toString().padStart(2, '0')}`,
+          hora_fin: `${cls.endH.toString().padStart(2, '0')}:${cls.endM.toString().padStart(2, '0')}`,
+          asignatura: cls.title,
+          tipo_color: cls.type || 'linear-gradient(135deg, #8b5cf6, #38bdf8)'
+        }));
+
+        const { data: insertedBloques, error: insertBloquesError } = await supabase
+          .from('bloques_clases')
+          .insert(bloquesToInsert)
+          .select();
+
+        if (insertBloquesError) throw insertBloquesError;
+
+        // 4. Update local state using blocks from the DB (so they have real id_bloque)
+        const dbSchedule = insertedBloques.map((bloque) => {
+          const [startH, startM] = bloque.hora_inicio.split(':').map(Number);
+          const [endH, endM] = bloque.hora_fin.split(':').map(Number);
+          const { top, height } = calculateVisuals(startH, startM, endH, endM);
+          
+          return {
+            id: bloque.id_bloque,
+            title: bloque.asignatura,
+            day: bloque.dia_semana,
+            startH, startM, endH, endM,
+            top, height,
+            type: bloque.tipo_color
+          };
+        });
+
+        setSchedule(dbSchedule);
+        localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(dbSchedule));
+      } else {
+        setSchedule([]);
+        localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify([]));
+      }
+      return true;
+    } catch (error) {
+      console.warn("Fallo al guardar el horario en Supabase, guardando en local como respaldo:", error);
+      setSchedule(formattedSchedule);
+      localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(formattedSchedule));
+      return true;
+    }
+  };
+
   const clearSchedule = async () => {
     if (user) {
       localStorage.removeItem(`academic_schedule_${user.id}`);
@@ -543,9 +625,11 @@ export const ScheduleProvider = ({ children }) => {
       isProcessing, 
       uploadAndProcessImage, 
       clearSchedule,
+      saveFullSchedule,
       generateStudyRoutine,
       reportClassSuspension,
-      removeClassSuspension
+      removeClassSuspension,
+      getColorType
     }}>
       {children}
     </ScheduleContext.Provider>

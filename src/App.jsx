@@ -10,6 +10,7 @@ import Calificaciones from './pages/Calificaciones';
 import ChatsGrupos from './pages/ChatsGrupos';
 import Analisis from './pages/Analisis';
 import ClasesGrabadas from './pages/ClasesGrabadas';
+
 import { ScheduleProvider } from './context/ScheduleContext';
 import { ChatProvider } from './context/ChatContext';
 import { AuthProvider } from './context/AuthContext';
@@ -59,6 +60,7 @@ function App() {
                             <Route path="/chats" element={<ChatsGrupos />} />
                             <Route path="/analisis" element={<Analisis />} />
                             <Route path="/clases" element={<ClasesGrabadas />} />
+
                           </Routes>
                         </div>
                       </ProtectedRoute>

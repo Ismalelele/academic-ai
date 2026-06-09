@@ -9,6 +9,11 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!user) {
+    const params = new URLSearchParams(window.location.search);
+    const eventParam = params.get('event');
+    if (eventParam) {
+      sessionStorage.setItem('pending_event_uri', eventParam);
+    }
     return <Navigate to="/" replace />;
   }
 

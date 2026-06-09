@@ -1038,6 +1038,123 @@ export const GroupChatProvider = ({ children }) => {
       }
     }
   };
+  const deleteGroup = async (groupId) => {
+    const group = groups.find(g => g.id_grupo === groupId);
+    if (!group) return false;
+    const isCreator = group.creador_id === user.id;
+
+    if (isFallbackMode) {
+      const localGroups = JSON.parse(localStorage.getItem(`academic_groups_${user.id}`)) || [];
+      const localMembers = JSON.parse(localStorage.getItem(`academic_members_${user.id}`)) || [];
+      const localMessages = JSON.parse(localStorage.getItem(`academic_messages_${user.id}`)) || [];
+      const localLibrary = JSON.parse(localStorage.getItem(`academic_library_${user.id}`)) || [];
+
+      const otherMembers = localMembers.filter(m => m.id_grupo === groupId && m.estado === 'aceptado' && m.user_id !== user.id);
+
+      if (isCreator && otherMembers.length > 0) {
+        // Ceder el rol de creador al miembro más antiguo
+        const sorted = [...otherMembers].sort((a, b) => new Date(a.fecha_union || 0) - new Date(b.fecha_union || 0));
+        const newCreator = sorted[0];
+
+        const updatedGroups = localGroups.map(g => {
+          if (g.id_grupo === groupId) {
+            return { ...g, creador_id: newCreator.user_id };
+          }
+          return g;
+        });
+        localStorage.setItem(`academic_groups_${user.id}`, JSON.stringify(updatedGroups));
+
+        const updatedMembers = localMembers.filter(m => !(m.id_grupo === groupId && m.user_id === user.id));
+        localStorage.setItem(`academic_members_${user.id}`, JSON.stringify(updatedMembers));
+      } else {
+        if (isCreator || otherMembers.length === 0) {
+          // Borrar grupo completo
+          const updatedGroups = localGroups.filter(g => g.id_grupo !== groupId);
+          const updatedMembers = localMembers.filter(m => m.id_grupo !== groupId);
+          const updatedMessages = localMessages.filter(m => m.id_grupo !== groupId);
+          const updatedLibrary = localLibrary.filter(item => item.group_id !== groupId);
+
+          localStorage.setItem(`academic_groups_${user.id}`, JSON.stringify(updatedGroups));
+          localStorage.setItem(`academic_members_${user.id}`, JSON.stringify(updatedMembers));
+          localStorage.setItem(`academic_messages_${user.id}`, JSON.stringify(updatedMessages));
+          localStorage.setItem(`academic_library_${user.id}`, JSON.stringify(updatedLibrary));
+        } else {
+          // Solo salirse
+          const updatedMembers = localMembers.filter(m => !(m.id_grupo === groupId && m.user_id === user.id));
+          localStorage.setItem(`academic_members_${user.id}`, JSON.stringify(updatedMembers));
+        }
+      }
+
+      loadLocalData();
+      if (activeGroupId === groupId) {
+        setActiveGroupId(null);
+      }
+      return true;
+    } else {
+      try {
+        const { data: members, error: mErr } = await supabase
+          .from('chat_miembros')
+          .select('*')
+          .eq('id_grupo', groupId)
+          .eq('estado', 'aceptado');
+
+        if (mErr) throw mErr;
+
+        const otherMembers = (members || []).filter(m => m.user_id !== user.id);
+
+        if (isCreator && otherMembers.length > 0) {
+          // Ceder el rol de creador al miembro más antiguo
+          const sorted = [...otherMembers].sort((a, b) => new Date(a.fecha_union || 0) - new Date(b.fecha_union || 0));
+          const newCreator = sorted[0];
+
+          const { error: updateErr } = await supabase
+            .from('chat_grupos')
+            .update({ creador_id: newCreator.user_id })
+            .eq('id_grupo', groupId);
+
+          if (updateErr) throw updateErr;
+
+          const { error: delMemberErr } = await supabase
+            .from('chat_miembros')
+            .delete()
+            .eq('id_grupo', groupId)
+            .eq('user_id', user.id);
+
+          if (delMemberErr) throw delMemberErr;
+        } else {
+          if (isCreator || otherMembers.length === 0) {
+            // Borrar todo en cascada
+            await supabase.from('chat_mensajes').delete().eq('id_grupo', groupId);
+            await supabase.from('chat_miembros').delete().eq('id_grupo', groupId);
+            try {
+              await supabase.from('group_library').delete().eq('group_id', groupId);
+            } catch(e) {
+              console.warn("Error deleting library items:", e);
+            }
+            const { error: gErr } = await supabase.from('chat_grupos').delete().eq('id_grupo', groupId);
+            if (gErr) throw gErr;
+          } else {
+            // Solo salirse
+            const { error: delMemberErr } = await supabase
+              .from('chat_miembros')
+              .delete()
+              .eq('id_grupo', groupId)
+              .eq('user_id', user.id);
+            if (delMemberErr) throw delMemberErr;
+          }
+        }
+
+        await loadSupabaseData();
+        if (activeGroupId === groupId) {
+          setActiveGroupId(null);
+        }
+        return true;
+      } catch (e) {
+        alert("Error al eliminar/salir del grupo: " + e.message);
+        return false;
+      }
+    }
+  };
 
   return (
     <GroupChatContext.Provider value={{
@@ -1059,9 +1176,11 @@ export const GroupChatProvider = ({ children }) => {
       simulateIncomingMessage,
       fetchLibraryItems,
       shareItemInLibrary,
-      rateLibraryItem
+      rateLibraryItem,
+      deleteGroup
     }}>
       {children}
     </GroupChatContext.Provider>
   );
 };
+

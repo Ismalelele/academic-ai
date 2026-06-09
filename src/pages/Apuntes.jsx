@@ -23,6 +23,10 @@ export default function Apuntes() {
   const [activeSubject, setActiveSubject] = useState(null);
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
+  const [editingNoteIdForTitle, setEditingNoteIdForTitle] = useState(null);
+  const [tempNoteTitle, setTempNoteTitle] = useState('');
+  const [ttsVolume, setTtsVolume] = useState(1.0);
+  const activeUtteranceRef = useRef(null);
   
   // Selection checklist for Quiz
   const [selectedQuizNoteIds, setSelectedQuizNoteIds] = useState([]);
@@ -127,6 +131,7 @@ export default function Apuntes() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(selectedNote.content);
+    activeUtteranceRef.current = utterance;
     
     if (selectedVoiceName) {
       const activeVoice = voices.find(v => v.name === selectedVoiceName);
@@ -134,21 +139,28 @@ export default function Apuntes() {
     }
 
     utterance.rate = ttsSpeed;
+    utterance.volume = ttsVolume;
 
     utterance.onstart = () => {
-      setTtsPlaying(true);
-      setTtsPaused(false);
+      if (activeUtteranceRef.current === utterance) {
+        setTtsPlaying(true);
+        setTtsPaused(false);
+      }
     };
 
     utterance.onend = () => {
-      setTtsPlaying(false);
-      setTtsPaused(false);
+      if (activeUtteranceRef.current === utterance) {
+        setTtsPlaying(false);
+        setTtsPaused(false);
+      }
     };
 
     utterance.onerror = (e) => {
       console.error("SpeechSynthesis error:", e);
-      setTtsPlaying(false);
-      setTtsPaused(false);
+      if (activeUtteranceRef.current === utterance) {
+        setTtsPlaying(false);
+        setTtsPaused(false);
+      }
     };
 
     window.speechSynthesis.speak(utterance);
@@ -170,6 +182,7 @@ export default function Apuntes() {
 
   const handleStopTts = () => {
     if ('speechSynthesis' in window) {
+      activeUtteranceRef.current = null;
       window.speechSynthesis.cancel();
       setTtsPlaying(false);
       setTtsPaused(false);
@@ -231,13 +244,37 @@ export default function Apuntes() {
   const handleCreateNote = () => {
     const newNote = {
       id: `note-${Date.now()}`,
-      title: 'Nueva Nota',
+      title: '',
       content: '',
       updatedAt: new Date().toISOString()
     };
     const updated = [newNote, ...notes];
     saveNotes(updated);
     setSelectedNote(newNote);
+    setEditingNoteIdForTitle(newNote.id);
+    setTempNoteTitle('');
+  };
+
+  const handleFinishNamingNote = (id) => {
+    if (!editingNoteIdForTitle) return;
+    setEditingNoteIdForTitle(null);
+    const trimmed = tempNoteTitle.trim();
+    const finalTitle = trimmed === '' ? 'nueva nota' : trimmed;
+    
+    const updatedNotes = notes.map(n => {
+      if (n.id === id) {
+        return { ...n, title: finalTitle, updatedAt: new Date().toISOString() };
+      }
+      return n;
+    });
+    saveNotes(updatedNotes);
+    
+    if (selectedNote && selectedNote.id === id) {
+      setSelectedNote(prev => {
+        if (!prev) return null;
+        return { ...prev, title: finalTitle };
+      });
+    }
   };
 
   const handleUpdateNote = (field, value) => {
@@ -493,8 +530,40 @@ export default function Apuntes() {
                           title="Seleccionar para Quiz"
                         />
                       </div>
-                      <div className="note-item-info" style={{ flexGrow: 1, minWidth: 0 }}>
-                        <div className="note-item-title">{note.title || 'Nueva Nota'}</div>
+                      <div className="note-item-info" style={{ flexGrow: 1, minWidth: 0 }} onClick={(e) => {
+                        if (editingNoteIdForTitle === note.id) {
+                          e.stopPropagation();
+                        }
+                      }}>
+                        {editingNoteIdForTitle === note.id ? (
+                          <input
+                            type="text"
+                            value={tempNoteTitle}
+                            onChange={(e) => setTempNoteTitle(e.target.value)}
+                            onBlur={() => handleFinishNamingNote(note.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.target.blur();
+                              }
+                            }}
+                            autoFocus
+                            style={{
+                              width: '100%',
+                              background: 'rgba(255,255,255,0.08)',
+                              border: '1.5px solid var(--primary)',
+                              borderRadius: '8px',
+                              color: 'var(--text-main)',
+                              fontSize: '0.85rem',
+                              fontWeight: 'bold',
+                              padding: '4px 8px',
+                              outline: 'none'
+                            }}
+                            placeholder="Nombrar nota..."
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div className="note-item-title">{note.title || 'nueva nota'}</div>
+                        )}
                         <div className="note-item-date">{formatDate(note.updatedAt)}</div>
                       </div>
                       <button 
@@ -587,12 +656,40 @@ export default function Apuntes() {
                             step="0.1" 
                             value={ttsSpeed}
                             onChange={(e) => {
-                              const newSpeed = parseFloat(e.target.value);
-                              setTtsSpeed(newSpeed);
+                              setTtsSpeed(parseFloat(e.target.value));
+                            }}
+                            onMouseUp={() => {
                               if (ttsPlaying && !ttsPaused) {
-                                setTimeout(() => {
-                                  handlePlayTts();
-                                }, 100);
+                                setTimeout(() => handlePlayTts(), 50);
+                              }
+                            }}
+                            onTouchEnd={() => {
+                              if (ttsPlaying && !ttsPaused) {
+                                setTimeout(() => handlePlayTts(), 50);
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div className="tts-volume-control">
+                          <label>Volumen: <strong>{Math.round(ttsVolume * 100)}%</strong></label>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="1" 
+                            step="0.1" 
+                            value={ttsVolume}
+                            onChange={(e) => {
+                              setTtsVolume(parseFloat(e.target.value));
+                            }}
+                            onMouseUp={() => {
+                              if (ttsPlaying && !ttsPaused) {
+                                setTimeout(() => handlePlayTts(), 50);
+                              }
+                            }}
+                            onTouchEnd={() => {
+                              if (ttsPlaying && !ttsPaused) {
+                                setTimeout(() => handlePlayTts(), 50);
                               }
                             }}
                           />

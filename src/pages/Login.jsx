@@ -20,6 +20,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
+    const pendingEvent = sessionStorage.getItem('pending_event_uri');
+    if (pendingEvent) {
+      return <Navigate to="/calendario" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

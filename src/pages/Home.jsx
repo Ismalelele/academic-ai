@@ -1,26 +1,119 @@
-import { RefreshCw, Plus, Activity, CheckCircle, Clock, BookOpen, Calendar, MapPin, ArrowRight, BellRing, Trash2 } from 'lucide-react';
+import { RefreshCw, Plus, Activity, CheckCircle, Clock, BookOpen, Calendar, MapPin, ArrowRight, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
+
+const parseGrade = (val) => {
+  if (!val) return 0;
+  const num = parseFloat(val);
+  if (isNaN(num)) return 0;
+  if (num >= 10 && num <= 70) {
+    return num / 10;
+  }
+  if (num >= 1 && num <= 7) {
+    return num;
+  }
+  return num / 10;
+};
+
+const parseManualAverage = (val) => {
+  if (!val) return null;
+  const num = parseFloat(val);
+  if (isNaN(num)) return null;
+  if (num >= 10 && num <= 70) {
+    return num / 10;
+  }
+  if (num >= 1 && num <= 7) {
+    return num;
+  }
+  return num / 10;
+};
+
+const formatNote = (val) => {
+  if (val === '') return '';
+  if (val === '0') return '0';
+  
+  let cleaned = val.replace(/[^0-9]/g, '');
+  while (cleaned.length > 2 && cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1);
+  }
+  if (cleaned.length > 2) {
+    cleaned = cleaned.substring(0, 2);
+  }
+  if (cleaned === '0') {
+    return '0';
+  }
+  while (cleaned.length < 2) {
+    cleaned = '0' + cleaned;
+  }
+  return cleaned;
+};
+
+const getNewCursorPos = (originalVal, rawNewVal, formattedVal, selectionStart) => {
+  if (selectionStart >= rawNewVal.length) {
+    return formattedVal.length;
+  }
+  if (rawNewVal.length < originalVal.length && selectionStart === rawNewVal.length) {
+    return formattedVal.length;
+  }
+  const digitsFromRight = rawNewVal.length - selectionStart;
+  const newPos = formattedVal.length - digitsFromRight;
+  return Math.max(0, newPos);
+};
 
 export default function Home() {
   const { user } = useAuth();
   const { tasks, addTask, updateTaskStatus, activityLog } = useTasks();
-  const { notifications, unreadCount, markAsRead, deleteNotification, dailyAlertTime, setDailyAlertTime } = useNotifications();
+  const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications();
   const [newTaskInput, setNewTaskInput] = useState('');
+
+  const [manualAverages, setManualAverages] = useState(() => {
+    if (!user) return {};
+    const saved = localStorage.getItem(`academic_manual_averages_${user.id}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const saveManualAverages = (updated) => {
+    setManualAverages(updated);
+    if (user) {
+      localStorage.setItem(`academic_manual_averages_${user.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const [activeCursor, setActiveCursor] = useState(null);
+
+  useEffect(() => {
+    if (activeCursor) {
+      const { field, position } = activeCursor;
+      const input = document.getElementById(`manual-input-${field}`);
+      if (input) {
+        input.setSelectionRange(position, position);
+      }
+      setActiveCursor(null);
+    }
+  }, [manualAverages, activeCursor]);
+
+  const handleAverageChange = (subject, value, e) => {
+    const originalVal = manualAverages[subject] || '';
+    const selectionStart = e ? e.target.selectionStart : value.length;
+    const formatted = formatNote(value);
+
+    if (e) {
+      const newPos = getNewCursorPos(originalVal, value, formatted, selectionStart);
+      setActiveCursor({ field: subject, position: newPos });
+    }
+
+    saveManualAverages({ ...manualAverages, [subject]: formatted });
+  };
 
   // Calcular métricas de calificaciones
   const getSubjectAverage = (subjectName) => {
     if (!user) return null;
-    const saved = localStorage.getItem(`academic_grades_${user.id}_${subjectName}`);
-    if (!saved) return null;
-    const rows = JSON.parse(saved);
-    const validRows = rows.filter(r => r.note !== '' && r.weight !== '' && !isNaN(parseFloat(r.note)) && !isNaN(parseFloat(r.weight)));
-    const totalWeight = validRows.reduce((sum, r) => sum + parseFloat(r.weight), 0);
-    const weightedSum = validRows.reduce((sum, r) => sum + (parseFloat(r.note) * parseFloat(r.weight)), 0);
-    return totalWeight > 0 ? (weightedSum / totalWeight) : null;
+    const rawVal = manualAverages[subjectName];
+    return parseManualAverage(rawVal);
   };
 
   // Consideramos "completadas" a las tareas en estado "done"
@@ -59,6 +152,25 @@ export default function Home() {
   const { effectiveSchedule, studyBlocks } = useSchedule();
 
   const subjects = effectiveSchedule ? Array.from(new Set(effectiveSchedule.map(c => c.title))) : [];
+
+  // Calculate total count of detailed grades in the system
+  const getTotalDetailedGradesCount = () => {
+    if (!user || !subjects || subjects.length === 0) return 0;
+    let count = 0;
+    subjects.forEach(subjectName => {
+      const saved = localStorage.getItem(`academic_grades_${user.id}_${subjectName}`);
+      if (saved) {
+        const rows = JSON.parse(saved);
+        rows.forEach(r => {
+          if (r.note && r.weight && !isNaN(parseFloat(r.note)) && !isNaN(parseFloat(r.weight))) {
+            count++;
+          }
+        });
+      }
+    });
+    return count;
+  };
+  const totalDetailedGradesCount = getTotalDetailedGradesCount();
   let subjectAverages = [];
   subjects.forEach(sub => {
     const avg = getSubjectAverage(sub);
@@ -156,46 +268,87 @@ export default function Home() {
     }
   }
 
+  // Concentric Rings calculation
+  const p1 = tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
+  const p2 = 72; // study goal rate (18h of 25h)
+  const p3 = quizStats.avg > 0 ? quizStats.avg : 50;
+
+  const r1 = 70;
+  const c1 = 2 * Math.PI * r1;
+  const offset1 = c1 - (p1 / 100) * c1;
+
+  const r2 = 50;
+  const c2 = 2 * Math.PI * r2;
+  const offset2 = c2 - (p2 / 100) * c2;
+
+  const r3 = 30;
+  const c3 = 2 * Math.PI * r3;
+  const offset3 = c3 - (p3 / 100) * c3;
+
+  // Fetch manually added grades across subjects to show latest 3
+  const getLatestGrades = () => {
+    if (!user || !subjects || subjects.length === 0) return [];
+    const allGrades = [];
+    subjects.forEach(subjectName => {
+      const saved = localStorage.getItem(`academic_grades_${user.id}_${subjectName}`);
+      if (saved) {
+        const rows = JSON.parse(saved);
+        rows.forEach(r => {
+          const noteVal = parseGrade(r.note);
+          if (r.note && r.weight && !isNaN(noteVal) && noteVal >= 1.0 && noteVal <= 7.0 && !isNaN(parseFloat(r.weight))) {
+            allGrades.push({
+              subject: subjectName,
+              note: noteVal,
+              weight: parseFloat(r.weight),
+              timestamp: isNaN(parseInt(r.id)) || parseInt(r.id) < 1000000000000 ? 0 : parseInt(r.id)
+            });
+          }
+        });
+      }
+    });
+    allGrades.sort((a, b) => b.timestamp - a.timestamp);
+    return allGrades.slice(0, 3);
+  };
+
+  // Study hours line chart trend calculations
+  const studyHoursData = [
+    { day: 'Lun', hours: 4 },
+    { day: 'Mar', hours: 8 },
+    { day: 'Mié', hours: 6 },
+    { day: 'Jue', hours: 14 },
+    { day: 'Vie', hours: 8 },
+    { day: 'Sáb', hours: 10 },
+    { day: 'Dom', hours: 5 }
+  ];
+
+  const maxHours = 20;
+  const svgWidth = 500;
+  const svgHeight = 200;
+  const paddingX = 40;
+  const paddingY = 30;
+  const chartWidth = svgWidth - paddingX * 2;
+  const chartHeight = svgHeight - paddingY * 2;
+
+  const points = studyHoursData.map((d, i) => {
+    const x = paddingX + i * (chartWidth / (studyHoursData.length - 1));
+    const y = svgHeight - paddingY - (d.hours / maxHours) * chartHeight;
+    return { x, y, day: d.day, hours: d.hours };
+  });
+
+  const linePath = points.reduce((acc, p, i) => {
+    return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
+  }, '');
+
+  const areaPath = points.length > 0 
+    ? `${linePath} L ${points[points.length - 1].x} ${svgHeight - paddingY} L ${points[0].x} ${svgHeight - paddingY} Z`
+    : '';
 
   return (
     <main className="main-content">
       <header>
         <div>
-          <h1 className="page-title">Gestión Académica VII</h1>
+          <h1 className="page-title">Gestión Académica</h1>
           <p className="subtitle">Tu panel de control académico inteligente</p>
-        </div>
-        <div className="alert-time-widget" style={{
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '15px', 
-          background: 'var(--bg)', 
-          padding: '8px 16px', 
-          borderRadius: '12px',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <BellRing size={14} /> Alarma Automática
-            </span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Notificar tareas urgentes a las:</span>
-          </div>
-          <input 
-            type="time" 
-            value={dailyAlertTime} 
-            onChange={(e) => setDailyAlertTime(e.target.value)} 
-            style={{ 
-              padding: '6px 10px', 
-              borderRadius: '8px', 
-              border: '2px solid var(--primary)', 
-              background: 'transparent', 
-              color: 'var(--text-main)', 
-              fontFamily: 'inherit',
-              fontWeight: 'bold',
-              fontSize: '1.1rem',
-              cursor: 'pointer'
-            }} 
-            title="Configurar hora de alerta automática"
-          />
         </div>
       </header>
 
@@ -256,56 +409,260 @@ export default function Home() {
             )}
           </div>
 
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon"><Activity size={28} /></div>
-              <div className="stat-info">
-                <h3>{tasks.length}</h3>
-                <p>Tareas históricas</p>
+          {/* KPIs Grid */}
+          <div className="kpis-grid">
+            {/* KPI 1: Study hours line chart */}
+            <div className="kpi-card chart-card">
+              <div className="kpi-card-header">
+                <div>
+                  <h3>Horas de estudio</h3>
+                  <p className="kpi-subtitle">Tendencia semanal de estudio</p>
+                </div>
+                <span className="kpi-main-val">18h</span>
+              </div>
+              <div className="kpi-chart-wrapper">
+                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} width="100%" height="100%" style={{ overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Grid Lines */}
+                  {[0, 0.5, 1].map((ratio, index) => {
+                    const y = paddingY + ratio * chartHeight;
+                    const value = Math.round(maxHours * (1 - ratio));
+                    return (
+                      <g key={index}>
+                        <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y} stroke="var(--text-main)" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.25" />
+                        <text x={paddingX - 10} y={y + 4} textAnchor="end" fill="var(--text-main)" fontSize="11" fontWeight="700">{value}h</text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Area under the line */}
+                  <path d={areaPath} fill="url(#chartGradient)" />
+
+                  {/* Line path */}
+                  <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                  {/* Points on the line */}
+                  {points.map((p, i) => (
+                    <g key={i}>
+                      <circle cx={p.x} cy={p.y} r="5.5" fill="var(--card-bg)" stroke="var(--primary)" strokeWidth="3" />
+                      {/* Hours value text on top of the dot */}
+                      <text x={p.x} y={p.y - 12} textAnchor="middle" fill="var(--primary)" fontSize="11" fontWeight="800">
+                        {p.hours}h
+                      </text>
+                      {/* Day label */}
+                      <text x={p.x} y={svgHeight - 8} textAnchor="middle" fill="var(--text-main)" fontSize="11" fontWeight="700">
+                        {p.day}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon"><CheckCircle size={28} /></div>
-              <div className="stat-info">
-                <h3>{completedTasksCount}</h3>
-                <p>Tareas completadas</p>
+
+            {/* KPI 2: Tareas históricas */}
+            <div className="kpi-card counter-card" style={{ justifyContent: 'center', gap: '15px' }}>
+              <div className="kpi-card-header-simple">
+                <h3>Tareas históricas</h3>
+              </div>
+              <div className="counter-val-container" style={{ margin: '10px 0' }}>
+                <span className="counter-val">{tasks.length}</span>
+                <p className="counter-desc">Tareas totales registradas</p>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon"><Clock size={28} /></div>
-              <div className="stat-info">
-                <h3>18h</h3>
-                <p>Horas de estudio</p>
+
+            {/* KPI 3: Concentric rings */}
+            <div className="kpi-card rings-card">
+              <div className="kpi-card-header">
+                <div>
+                  <h3>Tareas completadas</h3>
+                  <p className="kpi-subtitle">Meta diaria: 7 d</p>
+                </div>
               </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon"><BookOpen size={28} /></div>
-              <div className="stat-info">
-                <h3>{overallAverage !== null ? overallAverage.toFixed(1) : '—'}</h3>
-                <p>Promedio General</p>
+              <div className="rings-layout">
+                <div className="rings-chart-wrapper">
+                  <svg width="130" height="130" viewBox="0 0 200 200" style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
+                    {/* Background rings */}
+                    <circle cx="100" cy="100" r={r1} fill="none" stroke="var(--border-color)" strokeWidth="14" opacity="0.25" />
+                    <circle cx="100" cy="100" r={r2} fill="none" stroke="var(--border-color)" strokeWidth="14" opacity="0.25" />
+                    <circle cx="100" cy="100" r={r3} fill="none" stroke="var(--border-color)" strokeWidth="14" opacity="0.25" />
+
+                    {/* Progress rings */}
+                    {/* Outer: Tasks */}
+                    <circle 
+                      cx="100" 
+                      cy="100" 
+                      r={r1} 
+                      fill="none" 
+                      stroke="#22c55e" 
+                      strokeWidth="14" 
+                      strokeLinecap="round"
+                      strokeDasharray={c1}
+                      strokeDashoffset={offset1}
+                      style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+                    />
+                    {/* Middle: Study */}
+                    <circle 
+                      cx="100" 
+                      cy="100" 
+                      r={r2} 
+                      fill="none" 
+                      stroke="#06b6d4" 
+                      strokeWidth="14" 
+                      strokeLinecap="round"
+                      strokeDasharray={c2}
+                      strokeDashoffset={offset2}
+                      style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+                    />
+                    {/* Inner: Quizzes */}
+                    <circle 
+                      cx="100" 
+                      cy="100" 
+                      r={r3} 
+                      fill="none" 
+                      stroke="#f59e0b" 
+                      strokeWidth="14" 
+                      strokeLinecap="round"
+                      strokeDasharray={c3}
+                      strokeDashoffset={offset3}
+                      style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+                    />
+                  </svg>
+                </div>
+                <div className="rings-legend">
+                  <div className="legend-item green">
+                    <span className="dot"></span>
+                    <span className="label">Tareas:</span>
+                    <span className="val">{completedTasksCount}/{tasks.length} ({Math.round(p1)}%)</span>
+                  </div>
+                  <div className="legend-item cyan">
+                    <span className="dot"></span>
+                    <span className="label">Estudio:</span>
+                    <span className="val">18h/25h ({Math.round(p2)}%)</span>
+                  </div>
+                  <div className="legend-item orange">
+                    <span className="dot"></span>
+                    <span className="label">Quizzes:</span>
+                    <span className="val">{quizStats.count} hecho{quizStats.count !== 1 ? 's' : ''} ({Math.round(p3)}%)</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="recent-activity">
-             <h3>Actividad Reciente</h3>
-             
-             {(!activityLog || activityLog.length === 0) ? (
-               <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '10px' }}>No hay actividad reciente.</div>
-             ) : (
-               activityLog.slice(0, 5).map(log => {
-                 const timeAgo = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                 return (
-                   <div key={log.id} className="activity-item">
-                      <div className="activity-dot" style={log.updated ? { backgroundColor: '#f59e0b', boxShadow: '0 0 8px rgba(245,158,11,0.4)' } : {}}></div>
-                      <div className="activity-text">
-                         <strong>{log.action}:</strong> {log.taskTitle} {log.updated ? <span style={{fontSize: '0.75rem', color: '#f59e0b'}}>(Actualizado)</span> : (log.count > 1 ? `(x${log.count})` : '')}
-                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '10px' }}>{timeAgo}</span>
+          {/* Bottom Row: Recent Activity & Grade Summary */}
+          <div className="dashboard-bottom-row">
+            <div className="recent-activity">
+              <h3>Actividad Reciente</h3>
+              
+              {(!activityLog || activityLog.length === 0) ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '10px' }}>No hay actividad reciente.</div>
+              ) : (
+                activityLog.slice(0, 5).map(log => {
+                  const timeAgo = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div key={log.id} className="activity-item">
+                       <div className="activity-dot" style={log.updated ? { backgroundColor: '#f59e0b', boxShadow: '0 0 8px rgba(245,158,11,0.4)' } : {}}></div>
+                       <div className="activity-text">
+                          <strong>{log.action}:</strong> {log.taskTitle} {log.updated ? <span style={{fontSize: '0.75rem', color: '#f59e0b'}}>(Actualizado)</span> : (log.count > 1 ? `(x${log.count})` : '')}
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '10px' }}>{timeAgo}</span>
+                       </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Promedio General & Calificaciones Card */}
+            <div className="grade-summary-card">
+              <div className="grade-summary-header">
+                <h3>Rendimiento Académico</h3>
+                <p className="kpi-subtitle">Resumen general, promedios manuales y últimas calificaciones</p>
+              </div>
+
+              <div className="grade-summary-layout" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', marginTop: '0px' }}>
+                {/* Columna Izquierda: Promedio General y Últimas Calificaciones */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div className="promedio-display" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div className="promedio-val-container">
+                      <span className="promedio-big-val">
+                        {overallAverage !== null ? overallAverage.toFixed(1).replace('.', ',') : '—'}
+                      </span>
+                      <span className="promedio-scale">de 7,0</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <span className={`status-badge ${overallAverage >= 5.0 ? 'green' : (overallAverage >= 4.0 ? 'orange' : (overallAverage ? 'red' : 'gray'))}`}>
+                        {academicStatus}
+                      </span>
+                      {totalDetailedGradesCount <= 1 && (
+                        <span style={{ fontSize: '0.78rem', color: '#fb923c', fontWeight: '800', lineHeight: '1.2' }}>
+                          ⚠️ Ingrese más notas para tener su promedio completo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="latest-grades-section" style={{ marginTop: '10px' }}>
+                    <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Últimas 3 Calificaciones</h4>
+                    {getLatestGrades().length === 0 ? (
+                      <div className="empty-grades-msg" style={{ fontSize: '0.8rem' }}>
+                        No hay notas registradas. Ingresa tus calificaciones en <strong>Académico &gt; Notas</strong>.
                       </div>
-                   </div>
-                 );
-               })
-             )}
+                    ) : (
+                      <div className="latest-grades-list">
+                        {getLatestGrades().map((grade, index) => (
+                          <div key={index} className="latest-grade-item">
+                            <span className="grade-subject">📚 {grade.subject}</span>
+                            <div className="grade-details-badge">
+                              <span className="grade-value">{grade.note.toFixed(1).replace('.', ',')}</span>
+                              <span className="grade-weight">({grade.weight}%)</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Columna Derecha: Apartado de Promedios por Ramo (Ingreso Manual) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Mis Promedios por Ramo</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px' }}>
+                    {subjects.map((sub, index) => (
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--text-main)', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sub}>
+                          📚 {sub}
+                        </span>
+                        <input
+                          id={`manual-input-${sub}`}
+                          type="text"
+                          value={manualAverages[sub] || ''}
+                          onChange={(e) => handleAverageChange(sub, e.target.value, e)}
+                          placeholder="Nota (Ej: 60)"
+                          style={{
+                            width: '85px',
+                            padding: '6px 8px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.15)',
+                            color: 'var(--text-main)',
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            textAlign: 'center',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -375,42 +732,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Widget 2: Resumen Académico */}
-          <div className="dashboard-widget-card">
-            <div className="dashboard-widget-header">
-              <BookOpen size={20} color="var(--primary)" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Rendimiento Académico</h3>
-            </div>
-            <div className="dashboard-widget-content">
-              <div className="dashboard-widget-metric" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(0, 0, 0, 0.02)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)' }}>PROMEDIO GENERAL</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: '850', color: overallAverage >= 4.0 ? '#22c55e' : (overallAverage ? '#ef4444' : 'var(--text-muted)') }}>
-                  {overallAverage !== null ? overallAverage.toFixed(2) : '—'}
-                </span>
-              </div>
-              <div className="dashboard-widget-metric" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(0, 0, 0, 0.02)', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '8px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)' }}>ESTADO</span>
-                <span style={{ 
-                  fontSize: '0.85rem', 
-                  fontWeight: '800', 
-                  color: academicStatus === 'Exento de examen' ? '#22c55e' : (academicStatus.includes('examen') ? '#f59e0b' : (academicStatus === 'Sin calificaciones' ? 'var(--text-muted)' : '#ef4444')) 
-                }}>
-                  {academicStatus}
-                </span>
-              </div>
-              {subjectAverages.length > 0 && (
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Promedios por Ramo:</span>
-                  {subjectAverages.map((sa, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '4px 0', borderBottom: '1px dashed var(--border-color)' }}>
-                      <span style={{ fontWeight: '600' }}>{sa.subject}</span>
-                      <span style={{ fontWeight: '800', color: sa.average >= 4.0 ? '#22c55e' : '#ef4444' }}>{sa.average.toFixed(1)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+
 
           {/* Widget 3: Rendimiento de Quizzes */}
           <div className="dashboard-widget-card">
@@ -429,6 +751,23 @@ export default function Home() {
                   <div style={{ fontSize: '1.2rem', fontWeight: '850', color: quizStats.avg >= 60 ? '#22c55e' : (quizStats.avg > 0 ? '#ef4444' : 'var(--text-muted)') }}>
                     {quizStats.avg > 0 ? `${quizStats.avg.toFixed(0)}%` : '—'}
                   </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '15px', borderTop: '1px dashed var(--border-color)', paddingTop: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                <div style={{ fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  🧠 ¿Dónde hacer quizzes?
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <Link to="/apuntes" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
+                    📚 Mis Apuntes (Crear desde apuntes)
+                  </Link>
+                  <Link to="/analisis" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
+                    📄 Análisis (Sube tus archivos PDF/PPTX)
+                  </Link>
+                  <Link to="/chats" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
+                    💬 Chats de Asignaturas (Versus con compañeros)
+                  </Link>
                 </div>
               </div>
             </div>

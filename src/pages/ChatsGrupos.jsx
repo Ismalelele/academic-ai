@@ -39,12 +39,15 @@ export default function ChatsGrupos() {
     simulateIncomingMessage,
     fetchLibraryItems,
     shareItemInLibrary,
-    rateLibraryItem
+    rateLibraryItem,
+    deleteGroup
   } = useGroupChat();
 
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' o 'solicitudes'
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [customConfirm, setCustomConfirm] = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [customAlert, setCustomAlert] = useState({ open: false, title: '', message: '' });
 
   // Form states
   const [newGroupTitle, setNewGroupTitle] = useState('');
@@ -327,6 +330,42 @@ export default function ChatsGrupos() {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleDeleteGroupClick = () => {
+    if (!activeGroup) return;
+    const isCreator = activeGroup.creador_id === user.id;
+    
+    let title = isCreator ? "Eliminar / Salir del Grupo" : "Salir del Grupo";
+    let message = "";
+    if (isCreator) {
+      if (activeGroupMembers.length > 1) {
+        message = `¿Estás seguro de que deseas salir del grupo "${activeGroup.titulo}"? Al ser el creador, la propiedad del grupo se cederá automáticamente al miembro más antiguo.`;
+      } else {
+        message = `¿Estás seguro de que deseas eliminar el grupo "${activeGroup.titulo}"? Como eres el único miembro, esta acción lo borrará permanentemente con todos sus mensajes y biblioteca.`;
+      }
+    } else {
+      message = `¿Estás seguro de que deseas salir del grupo "${activeGroup.titulo}"?`;
+    }
+
+    setCustomConfirm({
+      open: true,
+      title: title,
+      message: message,
+      onConfirm: async () => {
+        setCustomConfirm(prev => ({ ...prev, open: false }));
+        const success = await deleteGroup(activeGroup.id_grupo);
+        if (success) {
+          setCustomAlert({
+            open: true,
+            title: "Acción Completada",
+            message: isCreator && activeGroupMembers.length <= 1 
+              ? "Grupo eliminado permanentemente." 
+              : "Has salido del grupo con éxito."
+          });
+        }
+      }
+    });
+  };
+
   return (
     <main className="main-content height-constrained-page">
       <header style={{ marginBottom: '35px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -507,7 +546,30 @@ export default function ChatsGrupos() {
                 {/* Header del Chat */}
                 <header className="chats-header">
                   <div className="chats-header-info">
-                    <h3>{activeGroup.titulo}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <h3>{activeGroup.titulo}</h3>
+                      <button
+                        onClick={handleDeleteGroupClick}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '6px',
+                          borderRadius: '8px',
+                          transition: 'all 0.2s',
+                          backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                        }}
+                        title={activeGroup.creador_id === user.id ? "Borrar grupo" : "Salir del grupo"}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                     <p>Asignatura: <strong>{activeGroup.asignatura}</strong></p>
                   </div>
                   <div className="chats-header-actions">
@@ -722,8 +784,8 @@ export default function ChatsGrupos() {
                             const numQuestions = parts[3];
                             const docName = parts.slice(4).join(':');
 
-                            const isStarted = messages.some(m => m.texto === `VERSUS_STARTED:${gameId}`);
-                            const isFinished = messages.some(m => m.texto === `VERSUS_FINISHED:${gameId}`);
+                            const isStarted = messages.some(m => m.texto && m.texto.trim() === `VERSUS_STARTED:${gameId}`);
+                            const isFinished = messages.some(m => m.texto && m.texto.trim() === `VERSUS_FINISHED:${gameId}`);
 
                             return (
                               <div 
@@ -775,13 +837,17 @@ export default function ChatsGrupos() {
                                     <p style={{ margin: 0 }}>Organiza: <strong>{creatorName}</strong></p>
                                     <p style={{ margin: 0 }}>Tema: <strong>{docName}</strong></p>
                                     <p style={{ margin: 0 }}>Preguntas: <strong>{numQuestions}</strong></p>
+                                    <p style={{ margin: 0 }}>Fecha: <strong>{new Date(msg.fecha_envio).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</strong></p>
+                                    <p style={{ margin: 0 }}>Hora: <strong>{new Date(msg.fecha_envio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong></p>
                                   </div>
 
                                   <button
-                                    disabled={isStarted || isFinished}
+                                    disabled={isFinished}
                                     onClick={() => {
+                                      if (isFinished) return;
                                       setVersusInvite({
                                         gameId,
+                                        creatorId: msg.user_id,
                                         creatorName,
                                         documentName: docName,
                                         numQuestions: parseInt(numQuestions),
@@ -794,16 +860,17 @@ export default function ChatsGrupos() {
                                       fontSize: '0.8rem',
                                       fontWeight: 'bold',
                                       borderRadius: '8px',
-                                      background: (isStarted || isFinished) ? 'rgba(0,0,0,0.1)' : 'var(--primary)',
-                                      color: (isStarted || isFinished) ? 'var(--text-muted)' : 'white',
-                                      border: 'none',
-                                      cursor: (isStarted || isFinished) ? 'not-allowed' : 'pointer',
+                                      background: isFinished ? 'rgba(255, 255, 255, 0.05)' : 'var(--primary)',
+                                      color: isFinished ? 'var(--text-muted)' : 'white',
+                                      border: isFinished ? '1px solid var(--border-color)' : 'none',
+                                      cursor: isFinished ? 'not-allowed' : 'pointer',
+                                      pointerEvents: isFinished ? 'none' : 'auto',
                                       textAlign: 'center',
                                       width: '100%',
                                       transition: 'all 0.2s'
                                     }}
                                   >
-                                    {isFinished ? 'Partida Finalizada' : isStarted ? 'Partida en Curso' : 'Unirse a la Batalla'}
+                                    {isFinished ? 'Partida Finalizada' : 'Unirse a la Batalla'}
                                   </button>
                                 </div>
                                 <span className="chats-message-meta" style={{ marginTop: '4px' }}>
@@ -1147,13 +1214,34 @@ export default function ChatsGrupos() {
                             e.currentTarget.style.borderColor = 'var(--border-color)';
                           }}
                         >
-                          {renderMemberAvatar(member.user_avatar, member.user_name, '44px', '1.2rem')}
-                          <div style={{ overflow: 'hidden', textAlign: 'left' }}>
-                            <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
-                              {member.user_name}
-                            </p>
+                           {renderMemberAvatar(
+                            member.user_id === user?.id ? (user?.user_metadata?.avatar_url || member.user_avatar) : member.user_avatar, 
+                            member.user_id === user?.id ? (user?.user_metadata?.full_name || member.user_name) : member.user_name, 
+                            '44px', 
+                            '1.2rem'
+                          )}
+                          <div style={{ overflow: 'hidden', textAlign: 'left', flexGrow: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)', maxWidth: '120px' }}>
+                                {member.user_id === user?.id ? (user?.user_metadata?.full_name || member.user_name) : member.user_name}
+                              </p>
+                              {activeGroup && member.user_id === activeGroup.creador_id && (
+                                <span style={{
+                                  display: 'inline-block',
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#f59e0b',
+                                  fontSize: '0.62rem',
+                                  fontWeight: 'bold',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)'
+                                }}>
+                                  Creador
+                                </span>
+                              )}
+                            </div>
                             <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              {member.user_carrera || 'Estudiante'}
+                              {member.user_id === user?.id ? (user?.user_metadata?.carrera || member.user_carrera) : (member.user_carrera || 'Estudiante')}
                             </p>
                             {member.user_id === user?.id && (
                               <span style={{
@@ -2787,6 +2875,54 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
           )}
         </div>
       )}
+
+      {/* 4. CUSTOM CONFIRM MODAL */}
+      {customConfirm.open && (
+        <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={() => setCustomConfirm(prev => ({ ...prev, open: false }))}>
+          <div className="premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%', padding: '24px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '24px', boxShadow: 'var(--shadow-md)', textAlign: 'center', backdropFilter: 'blur(20px)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px', color: '#f59e0b' }}>
+              <AlertCircle size={48} />
+            </div>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 800 }}>{customConfirm.title}</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5', fontWeight: 500 }}>{customConfirm.message}</p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => setCustomConfirm(prev => ({ ...prev, open: false }))} 
+                style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={customConfirm.onConfirm}
+                className="btn-primary"
+                style={{ padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, background: '#ef4444', border: 'none', color: 'white', boxShadow: 'none' }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. CUSTOM ALERT MODAL */}
+      {customAlert.open && (
+        <div className="modal-overlay" style={{ zIndex: 2100 }} onClick={() => setCustomAlert(prev => ({ ...prev, open: false }))}>
+          <div className="premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%', padding: '24px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '24px', boxShadow: 'var(--shadow-md)', textAlign: 'center', backdropFilter: 'blur(20px)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px', color: '#10b981' }}>
+              <CheckCircle2 size={48} />
+            </div>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 800 }}>{customAlert.title}</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5', fontWeight: 500 }}>{customAlert.message}</p>
+            <button 
+              onClick={() => setCustomAlert(prev => ({ ...prev, open: false }))}
+              className="btn-primary"
+              style={{ padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, width: '100%', display: 'block', margin: '0 auto' }}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2817,6 +2953,10 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   const currentQuestionIdxRef = useRef(currentQuestionIdx);
   const quizQuestionsRef = useRef(quizQuestions);
   const timerRef = useRef(timer);
+  const isHostRef = useRef(isHost);
+  const gameStateRef = useRef(gameState);
+  const userRef = useRef(user);
+  const fileRef = useRef(file);
 
   useEffect(() => {
     playersRef.current = players;
@@ -2833,6 +2973,22 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
   useEffect(() => {
     timerRef.current = timer;
   }, [timer]);
+
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    fileRef.current = file;
+  }, [file]);
 
   // General Channel subscription for Versus lobby creation/start/end events
   useEffect(() => {
@@ -2855,43 +3011,69 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
 
   // Sync state if invite is present
   useEffect(() => {
-    if (versusInvite && !activeGameId && !isHost) {
-      setActiveGameId(versusInvite.gameId);
-      setQuizQuestions(versusInvite.quizQuestions);
-      setIsHost(false);
-      setGameState('lobby');
-      
-      const myPlayer = {
-        id: user?.id || 'player-' + Math.random().toString(36).substr(2, 5),
-        name: user?.user_metadata?.nombre || user?.email || 'Estudiante',
-        score: 0,
-        lastScoreChange: 0,
-        isBot: false,
-        isHost: false,
-        answered: false,
-        correct: false
-      };
-      
-      setPlayers([myPlayer]);
+    if (versusInvite && !activeGameId) {
+      // Check if current user is the creator (re-entry)
+      const isUserCreator = versusInvite.creatorId === user?.id;
+      if (isUserCreator) {
+        // Restore questions from localStorage
+        const savedQuestions = localStorage.getItem(`versus_questions_${versusInvite.gameId}`);
+        const restoredQuestions = savedQuestions ? JSON.parse(savedQuestions) : versusInvite.quizQuestions || [];
+        
+        setActiveGameId(versusInvite.gameId);
+        setQuizQuestions(restoredQuestions);
+        setIsHost(true);
+        setGameState('lobby');
+        
+        const hostPlayer = {
+          id: user?.id || 'host-local',
+          name: user?.user_metadata?.nombre || user?.email || 'Organizador',
+          score: 0,
+          lastScoreChange: 0,
+          isBot: false,
+          isHost: true,
+          answered: false,
+          correct: false
+        };
+        
+        setPlayers([hostPlayer]);
+      } else if (!isHost) {
+        setActiveGameId(versusInvite.gameId);
+        setQuizQuestions(versusInvite.quizQuestions);
+        setIsHost(false);
+        setGameState('lobby');
+        
+        const myPlayer = {
+          id: user?.id || 'player-' + Math.random().toString(36).substr(2, 5),
+          name: user?.user_metadata?.nombre || user?.email || 'Estudiante',
+          score: 0,
+          lastScoreChange: 0,
+          isBot: false,
+          isHost: false,
+          answered: false,
+          correct: false
+        };
+        
+        setPlayers([myPlayer]);
 
-      // Join the channel and send discover after subscription
-      setTimeout(() => {
-        if (channelRef.current) {
-          channelRef.current.send({
-            type: 'broadcast',
-            event: 'player_joined',
-            payload: {
-              gameId: versusInvite.gameId,
-              player: myPlayer
-            }
-          });
-          channelRef.current.send({
-            type: 'broadcast',
-            event: 'game_discover',
-            payload: { gameId: versusInvite.gameId }
-          });
-        }
-      }, 500);
+        // Join the channel and send discover after subscription
+        setTimeout(() => {
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'player_joined',
+              payload: {
+                gameId: versusInvite.gameId,
+                player: myPlayer
+              }
+            });
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'game_discover',
+              payload: { gameId: versusInvite.gameId }
+            });
+          }
+        }, 500);
+      }
     }
   }, [versusInvite, activeGameId, isHost, user]);
 
@@ -2907,28 +3089,28 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
 
     channel
       .on('broadcast', { event: 'game_discover' }, () => {
-        if (isHost) {
+        if (isHostRef.current) {
           channel.send({
             type: 'broadcast',
             event: 'game_info',
             payload: {
               gameId: activeGameId,
-              creatorId: user?.id,
-              creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
-              numQuestions: quizQuestions.length,
-              documentName: file?.name || 'Contenido',
-              quizQuestions,
-              players,
-              status: gameState === 'lobby' ? 'lobby' : 'playing'
+              creatorId: userRef.current?.id,
+              creatorName: userRef.current?.user_metadata?.nombre || userRef.current?.email || 'Organizador',
+              numQuestions: quizQuestionsRef.current.length,
+              documentName: fileRef.current?.name || 'Contenido',
+              quizQuestions: quizQuestionsRef.current,
+              players: playersRef.current,
+              status: gameStateRef.current === 'lobby' ? 'lobby' : 'playing'
             }
           });
         }
       })
       .on('broadcast', { event: 'game_info' }, ({ payload }) => {
-        if (!isHost) {
+        if (!isHostRef.current) {
           setQuizQuestions(payload.quizQuestions);
           setPlayers(payload.players);
-          if (payload.status === 'playing' && gameState === 'lobby') {
+          if (payload.status === 'playing' && gameStateRef.current === 'lobby') {
             setGameState('playing');
             setTimer(15);
           }
@@ -2938,17 +3120,17 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         setPlayers(prev => {
           if (prev.some(pl => pl.id === payload.player.id)) return prev;
           const next = [...prev, payload.player];
-          if (isHost) {
+          if (isHostRef.current) {
             channel.send({
               type: 'broadcast',
               event: 'game_info',
               payload: {
                 gameId: activeGameId,
-                creatorId: user?.id,
-                creatorName: user?.user_metadata?.nombre || user?.email || 'Organizador',
-                numQuestions: quizQuestions.length,
-                documentName: file?.name || 'Contenido',
-                quizQuestions,
+                creatorId: userRef.current?.id,
+                creatorName: userRef.current?.user_metadata?.nombre || userRef.current?.email || 'Organizador',
+                numQuestions: quizQuestionsRef.current.length,
+                documentName: fileRef.current?.name || 'Contenido',
+                quizQuestions: quizQuestionsRef.current,
                 players: next,
                 status: 'lobby'
               }
@@ -2958,7 +3140,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         });
       })
       .on('broadcast', { event: 'game_started' }, () => {
-        if (!isHost) {
+        if (!isHostRef.current) {
           setGameState('playing');
           setCurrentQuestionIdx(0);
           setTimer(15);
@@ -2982,7 +3164,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         }));
       })
       .on('broadcast', { event: 'next_question' }, ({ payload }) => {
-        if (!isHost) {
+        if (!isHostRef.current) {
           setCurrentQuestionIdx(payload.nextQuestionIdx);
           setPlayers(prev => prev.map(p => ({ ...p, answered: false, correct: false, lastScoreChange: 0 })));
           setMyAnswerIdx(-1);
@@ -2992,25 +3174,25 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         }
       })
       .on('broadcast', { event: 'show_results' }, ({ payload }) => {
-        if (!isHost) {
+        if (!isHostRef.current) {
           setPlayers(payload.players);
           setGameState('question_results');
           setTimer(5);
         }
       })
       .on('broadcast', { event: 'timer_tick' }, ({ payload }) => {
-        if (!isHost) {
+        if (!isHostRef.current) {
           setTimer(payload.timer);
-          if (payload.gameState && payload.gameState !== gameState) {
+          if (payload.gameState && payload.gameState !== gameStateRef.current) {
             setGameState(payload.gameState);
           }
-          if (payload.currentQuestionIdx !== undefined && payload.currentQuestionIdx !== currentQuestionIdx) {
+          if (payload.currentQuestionIdx !== undefined && payload.currentQuestionIdx !== currentQuestionIdxRef.current) {
             setCurrentQuestionIdx(payload.currentQuestionIdx);
           }
         }
       })
       .on('broadcast', { event: 'game_over' }, ({ payload }) => {
-        if (!isHost) {
+        if (!isHostRef.current) {
           if (payload.players) {
             setPlayers(payload.players);
           }
@@ -3026,7 +3208,7 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [activeGameId, isHost, players, quizQuestions, gameState, isFallbackMode, activeGroupId, user, file, setVersusInvite]);
+  }, [activeGameId, isFallbackMode, activeGroupId, setVersusInvite]);
 
   // Host clean up on window unload
   useEffect(() => {
@@ -3323,6 +3505,9 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         throw new Error("No se pudo generar el quiz con IA.");
       }
 
+      const gId = 'game-' + Date.now();
+      localStorage.setItem(`versus_questions_${gId}`, JSON.stringify(generated));
+
       setQuizQuestions(generated);
       
       const hostPlayer = {
@@ -3338,7 +3523,6 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
 
       setPlayers([hostPlayer]);
       setIsHost(true);
-      const gId = 'game-' + Date.now();
       setActiveGameId(gId);
       setGameState('lobby');
 
@@ -3559,8 +3743,8 @@ export function GroupVersus({ activeGroupId, activeGroup, user, isFallbackMode, 
         const docName = parts.slice(4).join(':');
         
         // Excluir si la partida ya inició o finalizó
-        const isLobbyStarted = messages.some(m => m.texto === `VERSUS_STARTED:${gameId}`);
-        const isLobbyFinished = messages.some(m => m.texto === `VERSUS_FINISHED:${gameId}`);
+        const isLobbyStarted = messages.some(m => m.texto && m.texto.trim() === `VERSUS_STARTED:${gameId}`);
+        const isLobbyFinished = messages.some(m => m.texto && m.texto.trim() === `VERSUS_FINISHED:${gameId}`);
         
         if (!isLobbyStarted && !isLobbyFinished) {
           if (!activeLobbies.some(lobby => lobby.gameId === gameId)) {

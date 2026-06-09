@@ -1,3 +1,57 @@
+const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
+  let retries = 0;
+  while (true) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.status === 429) {
+        retries++;
+        if (retries > maxRetries) {
+          return response;
+        }
+        
+        let retryAfter = 0;
+        const headerVal = response.headers.get('retry-after');
+        if (headerVal) {
+          retryAfter = parseFloat(headerVal) * 1000;
+        } else {
+          try {
+            const clone = response.clone();
+            const body = await clone.json();
+            const errMsg = body?.error?.message || '';
+            const match = errMsg.match(/try again in ([0-9.]+)\s*s/i) || errMsg.match(/try again in ([0-9.]+)\s*ms/i);
+            if (match) {
+              const isMs = errMsg.toLowerCase().includes('ms');
+              retryAfter = parseFloat(match[1]) * (isMs ? 1 : 1000);
+            }
+          } catch (e) {
+            // Ignorar errores al parsear JSON
+          }
+        }
+        
+        if (!retryAfter || isNaN(retryAfter)) {
+          retryAfter = Math.pow(2, retries) * 1000;
+        }
+        
+        const waitMs = retryAfter + 500;
+        console.warn(`[Groq API] rate limit (429) detected. Retrying ${retries}/${maxRetries} in ${waitMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      retries++;
+      if (retries > maxRetries) {
+        throw error;
+      }
+      const waitMs = Math.pow(2, retries) * 1000;
+      console.warn(`[Groq API] fetch error. Retrying ${retries}/${maxRetries} in ${waitMs}ms...`, error);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+    }
+  }
+};
+
 export const askGroq = async (question, contextText, unselectedDocs = []) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   
@@ -10,25 +64,30 @@ export const askGroq = async (question, contextText, unselectedDocs = []) => {
     unselectedInfo = `\nEl usuario tiene otros documentos subidos pero los ha DESMARCADO. Nombres de documentos desmarcados: ${unselectedDocs.join(', ')}. Si la pregunta del usuario parece referirse a estos documentos, no inventes la respuesta. En su lugar, dile amablemente: "Parece que buscas información sobre ese tema, pero no puedo leer el documento correspondiente porque no está marcado en la lista. Por favor, marca la casilla de ese apunte e inténtalo de nuevo."`;
   }
 
+  // Truncate contextText to max 12,000 characters (approx 3,000 tokens)
+  let text = contextText || "";
+  if (text.length > 12000) {
+    text = text.substring(0, 12000) + "\n\n... [Texto truncado por límite de contexto de la IA]";
+  }
+
   const systemPrompt = `Eres un asistente académico experto. 
 Tu única fuente de conocimiento es el texto proporcionado a continuación. 
 Responde la pregunta del usuario utilizando EXCLUSIVAMENTE la información del texto proporcionado. 
 Si la respuesta no se encuentra en el texto proporcionado, debes responder: "No lo sé, los apuntes marcados actualmente no mencionan esto." No inventes información.${unselectedInfo}
 
 --- INICIO DEL DOCUMENTO ---
-${contextText}
+${text}
 --- FIN DEL DOCUMENTO ---`;
 
   try {
-    // Groq usa el mismo formato de API que OpenAI, lo que facilita la migración
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant', // Modelo actual y rápido de Meta en Groq
+        model: 'llama-3.1-8b-instant',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question }
@@ -41,6 +100,9 @@ ${contextText}
     
     if (!response.ok) {
         console.error("Groq Error:", data);
+        if (response.status === 429) {
+          return "⚠️ El servidor de Inteligencia Artificial (Groq) está saturado. Por favor, espera unos segundos e intenta enviar de nuevo su consulta.";
+        }
         return `❌ Error de Groq: ${data.error?.message || 'Error desconocido'}`;
     }
 
@@ -61,7 +123,7 @@ El contexto actual del usuario es: ${contextText}
 Usa este contexto para dar una recomendación. Sé directo, y si hay tareas pendientes, sugiere una tarea en específico por su nombre literal. Por ejemplo: "¿Por qué no priorizas la tarea X?". No uses frases cliché como "liberar espacio mental".`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -74,7 +136,12 @@ Usa este contexto para dar una recomendación. Sé directo, y si hay tareas pend
       })
     });
     const data = await response.json();
-    if (!response.ok) return "Error de IA.";
+    if (!response.ok) {
+      if (response.status === 429) {
+        return "⚠️ Servidor de IA saturado. Por favor, intenta de nuevo en unos segundos.";
+      }
+      return "Error de IA.";
+    }
     return data.choices[0].message.content;
   } catch (error) {
     return "Error de red.";
@@ -90,19 +157,19 @@ Recibirás:
 1. Bloques de tiempo libres
 2. Tareas y evaluaciones pendientes
 
-Genera una rutina de estudio optimizada.
+Rutina de estudio optimizada.
 
 Reglas obligatorias:
 - REGLA DE ORO DE LOS BLOQUES: CADA BLOQUE DE ESTUDIO QUE GENERES DEBE CORRESPONDER EXACTAMENTE A UNO DE LOS BLOQUES LIBRES PROPORCIONADOS. Debes copiar exactamente el "day", "startH", "startM", "endH" y "endM" de alguno de los bloques de la lista de Bloques libres. NO inventes horarios de inicio ni de fin que no estén presentados en los bloques libres.
 - REGLA DE ORO DE LAS TAREAS: USA ÚNICAMENTE LAS TAREAS PENDIENTES PROPORCIONADAS POR EL USUARIO. Si no hay tareas pendientes, devuelve la rutina vacía: {"rutina": []}. NO INVENTES ASIGNATURAS NI TAREAS.
 - NO GENERES BLOQUES DUPLICADOS O SUPERPUESTOS en el mismo día y hora.
-- Genera SOLO la cantidad de bloques necesarios según el tiempo estimado de la tarea (Ej: si la tarea dura 2h, genera máximo 3 bloques de 40 mins).
-- Prioriza tareas urgentes (evalúa por fecha límite y prioridad).
+- Genera SOLO la cantidad de bloques necesarios según el tiempo estimado de la tarea.
+- Prioriza tareas urgentes.
 - Mapea 'day' del 0 (Lunes) al 4 (Viernes).
 - No estudiar más de 2 horas seguidas.
 - Evita estudiar después de las 23:00.
 
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, NO uses formato markdown tipo \`\`\`json):
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {
   "rutina": [
     {
@@ -121,7 +188,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
   const userPrompt = `Bloques libres:\n${JSON.stringify(availableBlocks)}\n\nTareas pendientes:\n${JSON.stringify(pendingTasks)}`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -139,13 +206,17 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo en unos segundos.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
     const rutina = parsed.rutina || [];
 
-    // Post-procesamiento para eliminar bloques duplicados o superpuestos por alucinaciones de la IA
     const uniqueBlocks = [];
     const seenKeys = new Set();
     for (const b of rutina) {
@@ -176,13 +247,9 @@ export const generateToolSuggestions = async (subjects) => {
 Tu objetivo es recomendar metodologías de estudio específicas, herramientas de software especializadas y recursos digitales para dominar esta materia.
 
 Reglas:
-- Genera exactamente 4 categorías de herramientas/recursos o metodologías de estudio que sean de vital importancia y directamente aplicables a "${subjectName}" (ej: si es Matemáticas/Cálculo, sugiere graficadores y software de ecuaciones; si es Inglés, sugiere herramientas de pronunciación, tarjetas de vocabulario y lectura activa; si es Programación, editores y compiladores).
-- En cada categoría, sugiere 1 o 2 herramientas o técnicas concretas.
-- El valor de 'icono' debe ser uno de los siguientes strings: 'Brain', 'PencilLine', 'Code', 'Database', 'Rocket', 'Users', 'Share2', 'ShieldCheck'. Elige el que mejor se adapte a la categoría.
-- MUY IMPORTANTE: Todo el contenido debe ser 100% específico para "${subjectName}". No sugieras lenguajes de programación como Python ni bases de datos a menos que la asignatura esté directamente relacionada con desarrollo, computación o análisis de datos.
-- Explica detallada pero concisamente por qué y cómo usar cada herramienta/técnica en el contexto de "${subjectName}".
-
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, NO uses markdown tipo \`\`\`json):
+- Genera exactamente 4 categorías de herramientas/recursos o metodologías de estudio.
+- El valor de 'icono' debe ser uno de los siguientes strings: 'Brain', 'PencilLine', 'Code', 'Database', 'Rocket', 'Users', 'Share2', 'ShieldCheck'.
+- Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {
   "sugerencias": [
     {
@@ -199,7 +266,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
 }`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -217,7 +284,12 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
@@ -236,15 +308,19 @@ export const generateQuizFromNotes = async (notesText, subjectName) => {
     throw new Error("No hay apuntes seleccionados para generar el Quiz.");
   }
 
+  // Truncar notas a un máximo de 12,000 caracteres
+  let text = notesText || "";
+  if (text.length > 12000) {
+    text = text.substring(0, 12000) + "\n\n... [Texto de apuntes truncado por límite de la IA]";
+  }
+
   const systemPrompt = `Eres un docente universitario experto. Tu objetivo es generar un quiz de evaluación interactiva basado exclusivamente en los apuntes proporcionados por el estudiante para la asignatura: "${subjectName}".
 
 Reglas:
-- Genera exactamente 5 preguntas de opción múltiple de alta calidad y relevancia respecto al texto de los apuntes.
-- Cada pregunta debe tener exactamente 4 opciones de respuesta coherentes.
-- Señala cuál es la respuesta correcta usando su índice (0 para la primera opción, 1 para la segunda, 2 para la tercera, y 3 para la cuarta).
-- Asegúrate de que las preguntas pongan a prueba el entendimiento real del estudiante (ej: definiciones clave, relaciones conceptuales, lógica de programación, etc.).
+- Genera exactamente 5 preguntas de opción múltiple de alta calidad.
+- Señala cuál es la respuesta correcta usando su índice (0, 1, 2, o 3).
 
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, NO uses markdown tipo \`\`\`json):
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {
   "quiz": [
     {
@@ -261,10 +337,10 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
   ]
 }`;
 
-  const userPrompt = `Aquí están mis apuntes de ${subjectName}:\n---\n${notesText}\n---\nPor favor genera mi quiz interactivo de 5 preguntas sobre estos apuntes.`;
+  const userPrompt = `Aquí están mis apuntes de ${subjectName}:\n---\n${text}\n---\nPor favor genera mi quiz interactivo de 5 preguntas sobre estos apuntes.`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -282,7 +358,12 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
@@ -293,16 +374,10 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
   }
 };
 
-/**
- * Realiza un análisis crítico de un documento y lo evalúa del 1 al 10.
- * @param {string} documentText Texto extraído del documento.
- * @returns {Promise<object>} JSON con la nota, análisis crítico y áreas de mejora.
- */
 export const analyzeUploadedDocument = async (documentText) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
 
-  // Truncar texto si excede límite para evitar sobrecarga de la API
   const MAX_CHARS = 8000;
   let text = documentText;
   if (text.length > MAX_CHARS) {
@@ -310,22 +385,21 @@ export const analyzeUploadedDocument = async (documentText) => {
   }
 
   const systemPrompt = `Eres un evaluador académico experto e implacable.
-Tu tarea es realizar un análisis crítico y riguroso de la calidad, estructura, redacción y coherencia del texto proporcionado.
-Debes calificar el documento con una nota del 1 al 10 (donde 1 es extremadamente deficiente y 10 es perfecto, de nivel de publicación científica).
+Tu tarea es realizar un análisis crítico del texto proporcionado y calificarlo del 1 al 10.
 
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO uses formato markdown tipo \`\`\`json ni expliques nada adicional):
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {
   "score": [Número entero del 1 al 10],
-  "criticalAnalysis": "[Tu análisis crítico cualitativo en formato Markdown, señalando fortalezas, debilidades, rigor conceptual y claridad de ideas. Sé detallado y constructivo.]",
+  "criticalAnalysis": "[Análisis crítico cualitativo en formato Markdown]",
   "improvementAreas": [
-    "[Área de mejora 1 detallada]",
-    "[Área de mejora 2 detallada]",
-    "[Área de mejora 3 detallada]"
+    "[Área de mejora 1]",
+    "[Área de mejora 2]",
+    "[Área de mejora 3]"
   ]
 }`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -343,7 +417,12 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO uses formato mar
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     const content = data.choices[0].message.content;
     return JSON.parse(content);
@@ -353,12 +432,6 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO uses formato mar
   }
 };
 
-/**
- * Genera un resumen del documento, ya sea corto o completo.
- * @param {string} documentText Texto extraído del documento.
- * @param {string} summaryType Tipo de resumen: 'short' o 'complete'.
- * @returns {Promise<string>} Texto del resumen en formato Markdown.
- */
 export const generateDocumentSummary = async (documentText, summaryType) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
@@ -371,13 +444,11 @@ export const generateDocumentSummary = async (documentText, summaryType) => {
 
   const isShort = summaryType === 'short';
   const systemPrompt = isShort 
-    ? `Eres un experto en síntesis de información. Genera un resumen CORTITO, directo y al grano del texto proporcionado.
-Usa viñetas (bullets) para destacar los puntos clave. No te extiendas más de 3 párrafos cortos o 5 viñetas principales. Entrega la respuesta directamente en formato Markdown.`
-    : `Eres un redactor académico experto. Genera un resumen COMPLETO, detallado y bien estructurado del documento proporcionado.
-Divide el resumen en subtítulos conceptuales acordes con los temas del texto, desarrolla explicaciones claras de cada concepto y entrega una conclusión de la lectura. Utiliza formato Markdown premium.`;
+    ? `Eres un experto en síntesis de información. Genera un resumen CORTITO del texto proporcionado en viñetas Markdown.`
+    : `Eres un redactor académico experto. Genera un resumen COMPLETO, detallado y estructurado en Markdown del texto proporcionado.`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -387,14 +458,19 @@ Divide el resumen en subtítulos conceptuales acordes con los temas del texto, d
         model: 'llama-3.1-8b-instant',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Genera un resumen ${isShort ? 'corto y sintético' : 'completo y estructurado'} del siguiente texto:\n\n${text}` }
+          { role: 'user', content: `Genera un resumen ${isShort ? 'corto' : 'completo'} del siguiente texto:\n\n${text}` }
         ],
         temperature: 0.3
       })
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     return data.choices[0].message.content;
   } catch (error) {
@@ -403,11 +479,6 @@ Divide el resumen en subtítulos conceptuales acordes con los temas del texto, d
   }
 };
 
-/**
- * Genera un Quiz interactivo de 5 preguntas basado en el texto del documento.
- * @param {string} documentText Texto extraído del documento.
- * @returns {Promise<Array>} Lista de 5 preguntas para el quiz.
- */
 export const generateQuizFromText = async (documentText) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
@@ -418,16 +489,9 @@ export const generateQuizFromText = async (documentText) => {
     text = text.substring(0, MAX_CHARS) + "\n\n... [Texto truncado por límite de caracteres]";
   }
 
-  const systemPrompt = `Eres un docente universitario experto en evaluaciones.
-Genera un quiz de evaluación interactivo de exactamente 5 preguntas basadas exclusivamente en el texto del documento que se te proporciona.
+  const systemPrompt = `Eres un docente universitario experto. Genera un quiz interactivo de exactamente 5 preguntas basadas en el texto.
 
-Reglas:
-- Genera exactamente 5 preguntas de opción múltiple de alta calidad y relevancia.
-- Cada pregunta debe tener exactamente 4 opciones de respuesta coherentes.
-- Señala cuál es la respuesta correcta usando su índice (0 para la primera opción, 1 para la segunda, 2 para la tercera, y 3 para la cuarta).
-- Asegúrate de que las preguntas evalúen el aprendizaje conceptual real del documento.
-
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, NO uses markdown tipo \`\`\`json):
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {
   "quiz": [
     {
@@ -445,7 +509,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
 }`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -463,7 +527,12 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
@@ -474,28 +543,33 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
   }
 };
 
-/**
- * Genera un análisis crítico y recomendaciones basadas en las notas y el riesgo académico.
- */
 export const getAcademicRiskAnalysis = async (subjectName, currentGrades, remainingWeight, gradeNeededToPass) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
 
-  const gradesString = currentGrades.map(g => `Nota: ${g.note} (Ponderación: ${g.weight}%)`).join(', ');
+  const parseGrade = (val) => {
+    if (!val) return 0;
+    const num = parseFloat(val);
+    if (isNaN(num)) return 0;
+    if (num >= 10 && num <= 70) return num / 10;
+    if (num >= 1 && num <= 7) return num;
+    return num / 10;
+  };
+
+  const gradesString = currentGrades.map(g => `Nota: ${parseGrade(g.note).toFixed(1)} (Ponderación: ${g.weight}%)`).join(', ');
 
   const systemPrompt = `Eres un consejero académico y mentor estudiantil de IA.
-Tu objetivo es analizar la situación académica de un estudiante en la asignatura "${subjectName}" y entregarle un veredicto realista, motivador, con consejos específicos y estrategias de estudio recomendadas.
+Analiza la situación académica del estudiante en "${subjectName}" y entrega un veredicto realista y motivador.
 
-Contexto del estudiante:
-- Asignatura: ${subjectName}
-- Notas obtenidas actualmente: [${gradesString}]
-- Porcentaje restante del ramo: ${remainingWeight}%
-- Nota promedio mínima que necesita en lo restante para aprobar (con nota final 4.0): ${gradeNeededToPass > 7.0 ? 'Imposible de aprobar directamente' : gradeNeededToPass.toFixed(2)}
+Contexto:
+- Notas: [${gradesString}]
+- Restante: ${remainingWeight}%
+- Nota necesaria: ${gradeNeededToPass > 7.0 ? 'Imposible' : gradeNeededToPass.toFixed(2)}
 
-Entrega tu respuesta estructurada en dos o tres párrafos cortos en formato Markdown (puedes usar negritas, listas, etc.). Sé directo, empático pero realista con sus opciones de aprobación.`;
+Devuelve tu respuesta estructurada en dos o tres párrafos cortos en formato Markdown.`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -512,7 +586,12 @@ Entrega tu respuesta estructurada en dos o tres párrafos cortos en formato Mark
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     return data.choices[0].message.content;
   } catch (error) {
@@ -532,21 +611,29 @@ export const transcribeAudio = async (audioBlob) => {
   formData.append("model", "whisper-large-v3-turbo");
   formData.append("response_format", "json");
 
-  const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: formData
-  });
+  try {
+    const response = await fetchGroqWithRetry("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: formData
+    });
 
-  const data = await response.json();
-  if (!response.ok) {
-    console.error("Error en Groq Whisper:", data);
-    throw new Error(data.error?.message || "Error al transcribir el audio.");
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("Error en Groq Whisper:", data);
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de transcripción (Groq Whisper) está saturado. Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || "Error al transcribir el audio.");
+    }
+
+    return data.text;
+  } catch (error) {
+    console.error("Error en transcribeAudio:", error);
+    throw error;
   }
-
-  return data.text;
 };
 
 export const generateRecordingSummary = async (transcript) => {
@@ -555,52 +642,46 @@ export const generateRecordingSummary = async (transcript) => {
     throw new Error("No se encontró la API Key de Groq en el entorno.");
   }
 
-  const systemPrompt = `Analiza la siguiente transcripción de una clase universitaria y genera material de estudio.
-Debes responder estrictamente con un objeto JSON (sin bloques de código markdown, sin texto adicional antes o después) con el siguiente formato:
+  const systemPrompt = `Analiza la siguiente transcripción de una clase universitaria y genera material de estudio en JSON.
+Formato:
 {
-  "resumen": "Resumen estructurado de la clase en formato Markdown usando títulos y viñetas.",
-  "conceptosClave": ["Arreglo de conceptos clave discutidos"],
-  "preguntasPrueba": [
-    {
-      "pregunta": "Pregunta de opción múltiple relevante",
-      "opciones": ["Opción A", "Opción B", "Opción C", "Opción D"],
-      "respuestaCorrecta": "Opción A (u otra opción exacta de la lista)",
-      "explicacion": "Explicación detallada de por qué es correcta"
+  "resumen": "Resumen estructurado de la clase en Markdown.",
+  "conceptosClave": ["Concepto 1"],
+  "preguntasPrueba": [{"pregunta": "P?", "opciones": ["A", "B"], "respuestaCorrecta": "A", "explicacion": "Ex"}],
+  "flashcards": [{"front": "Q", "back": "A"}]
+}`;
+
+  try {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Transcripción de la clase:\n${transcript}` }
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || "Error al generar los materiales de la clase.");
     }
-  ],
-  "flashcards": [
-    {
-      "front": "Pregunta o término en el anverso",
-      "back": "Respuesta o definición corta en el reverso"
-    }
-  ]
-}
 
-Genera exactamente 4 o 5 preguntas de prueba y 4 o 5 flashcards.`;
-
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Transcripción de la clase:\n${transcript}` }
-      ],
-      temperature: 0.3,
-      response_format: { type: "json_object" }
-    })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Error al generar los materiales de la clase.");
+    return JSON.parse(data.choices[0].message.content);
+  } catch (error) {
+    console.error("Error en generateRecordingSummary:", error);
+    throw error;
   }
-
-  return JSON.parse(data.choices[0].message.content);
 };
 
 export const askTranscriptAI = async (transcript, question) => {
@@ -609,37 +690,49 @@ export const askTranscriptAI = async (transcript, question) => {
     throw new Error("No se encontró la API Key de Groq en el entorno.");
   }
 
-  const systemPrompt = `Eres un asistente de estudio enfocado en una clase grabada en particular.
-Tu única fuente de conocimiento para responder es la transcripción proporcionada a continuación.
-Responde de forma clara y estructurada basándote exclusivamente en esta transcripción.
-Si lo solicitado no está mencionado en la clase, responde amablemente: "Ese tema no fue discutido durante esta clase grabada."
-
---- INICIO DE LA TRANSCRIPCIÓN ---
-${transcript}
---- FIN DE LA TRANSCRIPCIÓN ---`;
-
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: question }
-      ],
-      temperature: 0.3
-    })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Error al procesar la pregunta.");
+  // Truncar transcripción a un máximo de 12,000 caracteres
+  let text = transcript || "";
+  if (text.length > 12000) {
+    text = text.substring(0, 12000) + "\n\n... [Transcripción truncada por límite de la IA]";
   }
 
-  return data.choices[0].message.content;
+  const systemPrompt = `Eres un asistente de estudio enfocado en una clase grabada.
+Tu única fuente de conocimiento para responder es la transcripción proporcionada.
+
+--- INICIO DE LA TRANSCRIPCIÓN ---
+${text}
+--- FIN DE LA TRANSCRIPCIÓN ---`;
+
+  try {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question }
+        ],
+        temperature: 0.3
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 429) {
+        return "⚠️ El servidor de Inteligencia Artificial (Groq) está saturado. Por favor, espera unos segundos e intenta enviar de nuevo su consulta.";
+      }
+      throw new Error(data.error?.message || "Error al procesar la pregunta.");
+    }
+
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error en askTranscriptAI:", error);
+    return "❌ Error de red al intentar contactar a Groq.";
+  }
 };
 
 export const generateCustomQuiz = async (documentText, numQuestions = 5) => {
@@ -652,34 +745,20 @@ export const generateCustomQuiz = async (documentText, numQuestions = 5) => {
     text = text.substring(0, MAX_CHARS) + "\n\n... [Texto truncado por límite de caracteres]";
   }
 
-  const systemPrompt = `Eres un docente universitario experto en evaluaciones.
-Genera un quiz de evaluación interactivo de exactamente ${numQuestions} preguntas basadas exclusivamente en el texto del documento que se te proporciona.
+  const systemPrompt = `Eres un docente universitario experto. Genera un quiz de exactamente ${numQuestions} preguntas basado en el texto.
 
-Reglas:
-- Genera exactamente ${numQuestions} preguntas de opción múltiple de alta calidad y relevancia.
-- Cada pregunta debe tener exactamente 4 opciones de respuesta coherentes.
-- Señala cuál es la respuesta correcta usando su índice (0 para la primera opción, 1 para la segunda, 2 para la tercera, y 3 para la cuarta).
-- Asegúrate de que las preguntas evalúen el aprendizaje conceptual real del documento.
-
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, NO uses markdown tipo \`\`\`json):
+Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 {
   "quiz": [
     {
       "id": 1,
-      "pregunta": "¿Qué define el concepto X?",
-      "opciones": [
-        "Opción A",
-        "Opción B",
-        "Opción C",
-        "Opción D"
-      ],
-      "respuestaCorrecta": 1
+       pregrunta: "", opciones: [], respuestaCorrecta: 0
     }
   ]
 }`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -697,7 +776,12 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error de API');
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
+      }
+      throw new Error(data.error?.message || 'Error de API');
+    }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
@@ -707,5 +791,3 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura (NO expliques nada, 
     throw error;
   }
 };
-
-

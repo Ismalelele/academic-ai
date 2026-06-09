@@ -25,6 +25,12 @@ export default defineConfig({
         theme_color: '#f4f7f9',
         background_color: '#f4f7f9',
         display: 'standalone',
+        protocol_handlers: [
+          {
+            protocol: "web+academic",
+            url: "/calendario?event=%s"
+          }
+        ],
         icons: [
           {
             src: '/icon-192x192.png',

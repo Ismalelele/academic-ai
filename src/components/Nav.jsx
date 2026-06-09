@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
-  LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, 
+  LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, BellRing,
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
   ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic, ChevronUp, ChevronDown
 } from 'lucide-react';
@@ -22,7 +22,15 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const [showChatbot, setShowChatbot] = useState(false);
   const [showProfilePopover, setShowProfilePopover] = useState(false);
   const { user, signOut, updateProfile } = useAuth();
-  const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications();
+  const { notifications, unreadCount, markAsRead, deleteNotification, dailyAlertTime, setDailyAlertTime } = useNotifications();
+  const [toasts, setToasts] = useState([]);
+  const showToast = (message) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
   const { effectiveSchedule } = useSchedule();
   const { tasks } = useTasks();
   
@@ -358,6 +366,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                     <Calendar size={16} /> <span>Horario</span>
                   </NavLink>
                 </li>
+
                 <li>
                   <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                     <Mic size={16} /> <span>Clases Grabadas</span>
@@ -372,7 +381,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                     </li>
                     <li>
                       <NavLink to="/calificaciones" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                        <GraduationCap size={16} /> <span>Notas</span>
+                        <GraduationCap size={16} /> <span>Promedio</span>
                       </NavLink>
                     </li>
                   </>
@@ -910,6 +919,37 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   />
                 </div>
 
+                {/* Alarma de Tareas Urgentes */}
+                <div className="form-group-premium" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', marginTop: '15px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', fontWeight: 'bold' }}>
+                    <BellRing size={16} /> Alarma de Tareas Urgentes
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', marginTop: '8px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Notificar tareas urgentes a las:</span>
+                    <input 
+                      type="time" 
+                      value={dailyAlertTime} 
+                      onChange={(e) => {
+                        setDailyAlertTime(e.target.value);
+                        showToast(`Alarma programada para las ${e.target.value}`);
+                      }} 
+                      style={{ 
+                        padding: '6px 10px', 
+                        borderRadius: '8px', 
+                        border: '2px solid var(--primary)', 
+                        background: 'transparent', 
+                        color: 'var(--text-main)', 
+                        fontFamily: 'inherit',
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }} 
+                      title="Configurar hora de alerta automática"
+                    />
+                  </div>
+                </div>
+
                 {/* Mensaje de Estado */}
                 {profileStatus && (
                   <div style={{
@@ -966,6 +1006,20 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               </div>
             </form>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {createPortal(
+        <div className="toast-container" style={{ zIndex: 1000000 }}>
+          {toasts.map(toast => (
+            <div key={toast.id} className="toast-notification">
+              <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
+                <CheckCircle size={18} />
+              </span>
+              <span>{toast.message}</span>
+            </div>
+          ))}
         </div>,
         document.body
       )}
