@@ -18,6 +18,16 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
 
 
 
+* Clases Grabadas & Nombramiento de Apuntes (Audio & Notes Studio)
+
+  * *Reproductor de Audio Integrado:* Escucha grabaciones de tus clases directamente desde la interfaz con controles de reproducción optimizados.
+
+  * *Nombramiento Interactivo:* Permite asignar nombres de manera dinámica a los apuntes de voz al guardarlos, con asignación por defecto inteligente ("nueva nota").
+
+  * *Control de Volumen:* Ajusta el nivel de audio de las grabaciones de tus apuntes con controles personalizados.
+
+
+
 * Análisis Crítico de Documentos (Doc Critic & Quiz Wizard)
 
   * *Extractor Multiformato:* Lee archivos .pdf, .docx, .txt y .pptx (PowerPoint) gracias a un extractor local personalizado basado en jjszip.
@@ -30,15 +40,17 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
 
 
 
-* Pronóstico Académico Predictivo (Subject Simulator)
+* Pronóstico Académico Predictivo & Horario Interactivo (Subject Simulator & Inline Editor)
 
   * *Cálculo de Promedios Ponderados:* Administra las calificaciones de cada asignatura y simula las notas restantes necesarias para aprobar (nota 4.0) o eximirte (nota 5.0).
 
-  * *Semáforo de Riesgo Físico:* Widget interactivo de semáforo con luces brillantes tricolor que cambian según el riesgo de reprobación.
+  * *Editor de Horario Inline:* Corrección rápida e inline de asignaturas, aulas, bloques de horas y días directamente desde la página sin necesidad de modales intrusivos.
 
-  * *Predicciones con IA:* Utiliza Groq Llama-3.1 para analizar tus calificaciones actuales e históricas y recibir mentoría personalizada en Markdown.
+  * *Paleta de Colores Extendida:* Personalización de asignaturas con 16 combinaciones vibrantes de color totalmente sincronizadas entre el visor principal y el editor.
 
-  * *Simulador de Examen:* Evalúa el impacto porcentual del examen final en el promedio definitivo.
+  * *Semáforo de Riesgo Físico:* Widget interactivo con luces tricolor que cambian en tiempo real según el promedio acumulado.
+
+  * *Predicciones con IA:* Utiliza Groq Llama-3.1 para analizar tu rendimiento actual y recibir mentoría personalizada en Markdown.
 
 
 
@@ -64,15 +76,15 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
 
 
 
-* UI de Dock de Navegación Inferior (Responsive Glassmorphism)
+* UI de Navegación Adaptable (Responsive Glassmorphism)
 
-  * *Dock Flotante Premium:* Menú inferior flotante estilo macOS/iOS con efecto de cristal esmerilado (backdrop-filter) y centrado suave.
+  * *Dock Flotante Premium (Desktop):* Menú inferior flotante estilo macOS/iOS con efecto de cristal esmerilado (backdrop-filter) y centrado suave.
 
-  * *Responsividad Inteligente:* En celulares, las etiquetas y el logotipo se ocultan de forma automática para optimizar espacio, transformándose en una barra de pestañas compacta (Spotify/Instagram style).
+  * *Barra Lateral Izquierda (Mobile):* En celulares, la barra se transforma en un menú vertical compacto fijado al lateral izquierdo. Los submenús, popovers de perfil y el asistente de chat se despliegan hacia la derecha con transiciones fluidas.
 
-  * *Chevrons de Desplazamiento:* Botones de navegación lateral en PC para desplazar la barra de tareas de forma cómoda.
+  * *Corrección de Visibilidad en Submenús:* Se optimizó la especificidad de CSS en móviles para garantizar que los textos descriptivos de los submenús de Academia, IA y Comunidad sean totalmente legibles.
 
-  * *Coordinación de Menús:* Las notificaciones y el chatbot de la app flotan alineados sobre la barra de navegación para evitar cualquier superposición visual.
+  * *Desplazamiento de Contenido Principal:* Ajuste automático del área de visualización (`padding-left: 88px` en móvil) para evitar solapamientos con la barra de navegación lateral.
 
 
 

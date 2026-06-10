@@ -570,7 +570,7 @@ Generado automáticamente por AcademicAI
                   border: '1px solid var(--border-color)',
                   padding: '10px 20px',
                   borderRadius: '12px',
-                  background: 'rgba(0, 0, 0, 0.15)',
+                  background: 'var(--primary-light)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
@@ -622,7 +622,7 @@ Generado automáticamente por AcademicAI
                           left: '50%',
                           transform: 'translateX(-50%)',
                           marginTop: '8px',
-                          background: 'rgba(15, 23, 42, 0.95)',
+                          background: 'var(--sidebar-bg)',
                           backdropFilter: 'blur(25px)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '16px',
@@ -662,7 +662,7 @@ Generado automáticamente por AcademicAI
                                   marginBottom: '2px'
                                 }}
                                 onMouseOver={(e) => {
-                                  if (!isSel) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                  if (!isSel) e.currentTarget.style.background = 'var(--primary-light)';
                                 }}
                                 onMouseOut={(e) => {
                                   if (!isSel) e.currentTarget.style.background = 'transparent';

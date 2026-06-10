@@ -147,6 +147,56 @@ body {
 
 /* Sidebar XL */
 /* ================= BOTTOM NAV DOCK LAYOUT ================= */
+.nav-scroll-wrap {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    overflow: visible;
+    margin: 0 10px;
+    position: relative;
+}
+
+.dock-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.profile-popover {
+    position: absolute;
+    bottom: 55px;
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 16px;
+    width: 240px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 10001;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    animation: fadeUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chatbot-tooltip {
+    position: absolute;
+    bottom: 50px;
+    right: 0;
+    background: var(--primary);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    box-shadow: var(--shadow-md);
+    z-index: 10002;
+    animation: fadeUp 0.3s ease;
+}
+
 .sidebar {
     position: fixed;
     bottom: 20px;
@@ -355,6 +405,18 @@ body {
         transform: translate(-50%, 0);
     }
 }
+
+@keyframes slideRightFade {
+    from {
+        opacity: 0;
+        transform: translateX(-15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 
 .sidebar .theme-toggle {
     display: flex;
@@ -1277,7 +1339,7 @@ body.dark-mode .chat-footer input {
 
 @media (max-width: 768px) {
     .app-container {
-        flex-direction: column;
+        flex-direction: row;
     }
 
     .nav-scroll-btn {
@@ -1289,15 +1351,31 @@ body.dark-mode .chat-footer input {
     }
 
     .sidebar {
+        position: fixed;
+        top: 12px;
         bottom: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: calc(100% - 24px);
-        height: 62px;
-        padding: 0 10px;
+        left: 12px;
+        transform: none;
+        width: 64px;
+        height: calc(100vh - 24px);
+        padding: 15px 0;
         border-radius: 16px;
         border: 1px solid var(--border-color);
         box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        box-sizing: border-box;
+    }
+
+    .nav-scroll-wrap {
+        flex-direction: column;
+        width: 100%;
+        margin: 10px 0;
+        justify-content: center;
+        flex-grow: 1;
+        overflow: visible;
     }
 
     .sidebar .logo {
@@ -1305,9 +1383,12 @@ body.dark-mode .chat-footer input {
     }
 
     .sidebar .nav-links {
-        gap: 2px;
-        justify-content: space-around;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        justify-content: center;
         padding: 0;
+        margin: 0;
     }
 
     .sidebar .nav-links a,
@@ -1319,11 +1400,18 @@ body.dark-mode .chat-footer input {
         border: none;
     }
 
-    .sidebar .nav-links a span,
-    .sidebar .nav-links button.nav-dropdown-trigger span,
-    .sidebar .nav-links button.nav-dropdown-trigger .chevron-icon {
+    .sidebar .nav-links > li > a > span,
+    .sidebar .nav-links > li > button.nav-dropdown-trigger > span,
+    .sidebar .nav-links > li > button.nav-dropdown-trigger > .chevron-icon {
         display: none !important;
-        /* Hide labels and chevrons to fit icons perfectly in mobile */
+        /* Hide labels and chevrons to fit icons perfectly in mobile, but keep submenus! */
+    }
+
+    .dock-actions {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        margin-top: auto;
     }
 
     .sidebar .theme-toggle {
@@ -1338,8 +1426,8 @@ body.dark-mode .chat-footer input {
 
     .main-content {
         padding: 20px;
-        padding-bottom: 90px;
-        /* Margen inferior para no tapar contenido */
+        padding-left: 88px; /* Offset for left vertical sidebar */
+        padding-bottom: 20px;
     }
 
     header {
@@ -1355,12 +1443,71 @@ body.dark-mode .chat-footer input {
     .btn-primary {
         width: 100%;
     }
+
+    /* Floating elements next to left sidebar */
+    .nav-submenu {
+        bottom: auto !important;
+        top: 0 !important;
+        left: calc(100% + 12px) !important;
+        transform: none !important;
+        animation: slideRightFade 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    .nav-submenu::after {
+        bottom: auto !important;
+        left: -6px !important;
+        top: 20px !important;
+        transform: translateY(-50%) rotate(45deg) !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        border-left: 1px solid var(--border-color) !important;
+        border-top: 1px solid var(--border-color) !important;
+        background: var(--card-bg) !important;
+    }
+
+    .profile-popover {
+        position: fixed;
+        left: 88px;
+        bottom: 16px;
+        right: auto;
+        width: 240px;
+        animation: slideRightFade 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .notification-panel {
+        position: fixed;
+        left: 88px;
+        right: 16px;
+        bottom: 16px;
+        top: 16px;
+        width: auto;
+        max-height: calc(100vh - 32px);
+        margin: 0;
+    }
+
+    .chatbot-window {
+        position: fixed;
+        left: 88px;
+        right: 16px;
+        bottom: 16px;
+        width: auto;
+        height: calc(100vh - 32px);
+        max-height: 550px;
+    }
+
+    .chatbot-tooltip {
+        bottom: auto;
+        left: 55px;
+        right: auto;
+        animation: slideRightFade 0.3s ease;
+    }
 }
 
 @media (max-width: 480px) {
     .main-content {
         padding: 15px;
-        padding-bottom: 90px;
+        padding-left: 88px; /* Offset for left vertical sidebar */
+        padding-bottom: 15px;
     }
 
     header h1 {

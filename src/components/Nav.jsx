@@ -326,7 +326,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       </div>
 
       {/* Navigation Scroll Wrap */}
-      <div style={{ display: 'flex', alignItems: 'center', flexGrow: 1, overflow: 'visible', margin: '0 10px', position: 'relative' }}>
+      <div className="nav-scroll-wrap">
         
         {/* Links Navigation */}
         <ul className="nav-links" ref={navLinksRef} style={{ overflow: 'visible' }}>
@@ -471,7 +471,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       </div>
 
       {/* Bottom Bar Actions (Right side) */}
-      <div className="dock-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+      <div className="dock-actions">
         
         {/* Theme Toggle */}
         <div className="theme-toggle" onClick={() => { toggleTheme(); closeMenu(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
@@ -533,20 +533,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         {/* AI Chatbot Button */}
         <div className="dock-chatbot-container" ref={chatbotRef} style={{ position: 'relative' }}>
           {showChatTooltip && !showProfilePopover && !showNotifications && !showChatbot && (
-            <div className="chatbot-tooltip" style={{
-              position: 'absolute',
-              bottom: '50px',
-              right: '0',
-              background: 'var(--primary)',
-              color: 'white',
-              padding: '6px 12px',
-              borderRadius: '10px',
-              fontSize: '0.75rem',
-              whiteSpace: 'nowrap',
-              boxShadow: 'var(--shadow-md)',
-              zIndex: 10002,
-              animation: 'fadeUp 0.3s ease'
-            }}>
+            <div className="chatbot-tooltip">
               ¿Preguntas? ¡Escríbeme!
             </div>
           )}
@@ -660,24 +647,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
             </button>
 
             {showProfilePopover && (
-              <div style={{
-                position: 'absolute',
-                bottom: '55px',
-                right: 0,
-                background: 'var(--card-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '16px',
-                padding: '16px',
-                width: '240px',
-                boxShadow: 'var(--shadow-md)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                zIndex: 10001,
-                backdropFilter: 'var(--glass-blur)',
-                WebkitBackdropFilter: 'var(--glass-blur)',
-                animation: 'fadeUp 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}>
+              <div className="profile-popover">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '40px', '1.1rem')}
                   <div style={{ overflow: 'hidden', textAlign: 'left' }}>
