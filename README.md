@@ -17,7 +17,6 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
   * *Gestión de Contexto:* Habilita, deshabilita o renombra archivos de forma interactiva en la barra lateral para afinar el foco de lectura del asistente.
 
 
-
 * Clases Grabadas & Nombramiento de Apuntes (Audio & Notes Studio)
 
   * *Reproductor de Audio Integrado:* Escucha grabaciones de tus clases directamente desde la interfaz con controles de reproducción optimizados.
@@ -132,60 +131,3 @@ Este proyecto implementa un stack moderno enfocado en la velocidad de ejecución
 
 * LocalStorage: Persistencia híbrida en el cliente para el espejo local-first.
 
-
-
-## Configuración del Entorno
-
-
-
-Para ejecutar la aplicación localmente, asegúrate de tener las siguientes variables de entorno en un archivo .env en la raíz del proyecto:
-
-
-
-```env
-
-VITE_SUPABASE_URL=tu_supabase_url
-
-VITE_SUPABASE_ANON_KEY=tu_supabase_anon_key
-
-VITE_GROQ_API_KEY=tu_groq_api_key
-
-VITE_GEMINI_API_KEY=tu_gemini_api_key
-
-```
-
-
-
-### Inicialización de Base de Datos
-
-Si estás configurando una base de datos de Supabase desde cero, copia el contenido de [supabase_schema.sql](file:///c:/Users/Isma/Desktop/academic-ai/supabase_schema.sql) y ejecútalo directamente en el SQL Editor de tu consola de Supabase.
-
-
-
-## Instalación y Despliegue Local
-
-
-
-1. Instalar Dependencias:
-
-   ```bash
-
-   npm install
-
-   ```
-
-2. Iniciar Servidor de Desarrollo:
-
-   ```bash
-
-   npm run dev
-
-   ```
-
-3. Compilar para Producción:
-
-   ```bash
-
-   npm run build
-
-   ```
