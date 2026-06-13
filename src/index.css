@@ -6214,8 +6214,141 @@ body.dark-mode .latest-grade-item {
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
+    appearance: none;
     margin: 0;
 }
 input[type=number] {
     -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* ================= KANBAN MOBILE STACKING ================= */
+@media (max-width: 768px) {
+    .kanban-board-half {
+        max-height: none !important;
+        overflow-y: visible !important;
+    }
+    .kanban-board {
+        display: flex !important;
+        flex-direction: column !important;
+        height: auto !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        gap: 20px !important;
+    }
+    .kanban-column {
+        height: auto !important;
+        max-height: none !important;
+    }
+}
+
+/* ================= MOBILE AI CHAT PRIORITIZATION ================= */
+.btn-toggle-docs {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .btn-toggle-docs {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: var(--primary-light);
+        color: var(--primary);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 750;
+        cursor: pointer;
+    }
+
+    .chat-layout {
+        flex-direction: column !important;
+        height: calc(100vh - 120px) !important;
+    }
+
+    /* By default on mobile, hide docs, show chat */
+    .chat-layout .chat-sidebar {
+        display: none !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    .chat-layout .chat-area {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* When toggled, show docs, hide chat */
+    .chat-layout.show-docs-mobile .chat-sidebar {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    .chat-layout.show-docs-mobile .chat-area {
+        display: none !important;
+    }
+}
+
+/* ================= COMUNIDAD RESPONSIVE CHAT FLOW ================= */
+.btn-back-to-groups {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .btn-back-to-groups {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: var(--primary-light);
+        color: var(--primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 750;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+
+    .chats-view-layout {
+        display: flex !important;
+        width: 100% !important;
+        height: calc(100vh - 120px) !important;
+    }
+
+    /* When a group chat is active, show only the main chat window and hide list */
+    .chats-view-layout.has-active-chat .chats-sidebar {
+        display: none !important;
+    }
+    .chats-view-layout.has-active-chat .chats-main-window {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* When no chat is active, show only the list of groups */
+    .chats-view-layout:not(.has-active-chat) .chats-sidebar {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    .chats-view-layout:not(.has-active-chat) .chats-main-window {
+        display: none !important;
+    }
+}
+
+/* ================= TIMETABLE STICKY COLUMN FIXED OVERLAP ================= */
+.time-column {
+    z-index: 20 !important;
+    background: var(--card-bg) !important; /* Fully opaque background */
+}
+body.dark-mode .time-column {
+    background: #1f2937 !important; /* Fully opaque background in dark mode */
+}
+.card:hover {
+    z-index: 10 !important; /* Below time-column (z-index 20) */
+}
+.card:active, .card.is-dragging {
+    z-index: 15 !important; /* Below time-column (z-index 20) */
 }

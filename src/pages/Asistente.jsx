@@ -10,6 +10,7 @@ export default function Asistente() {
   const [activeSubject, setActiveSubject] = useState('global');
   const [inputText, setInputText] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [showDocsMobile, setShowDocsMobile] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -56,7 +57,7 @@ export default function Asistente() {
         </div>
       </header>
 
-      <div className="chat-layout">
+      <div className={`chat-layout ${showDocsMobile ? 'show-docs-mobile' : ''}`}>
         {/* Sidebar Repositorio */}
         <aside className="chat-sidebar">
         <div className="sidebar-header">
@@ -162,6 +163,14 @@ export default function Asistente() {
               <p>Consultando: <strong>{activeSubject === 'global' ? 'Repositorio Global' : activeSubject}</strong></p>
             </div>
           </div>
+          <button 
+            type="button"
+            className="btn-toggle-docs" 
+            onClick={() => setShowDocsMobile(!showDocsMobile)}
+          >
+            {showDocsMobile ? <MessageSquare size={18} /> : <FileText size={18} />}
+            <span>{showDocsMobile ? 'Ver Chat' : 'Documentos'}</span>
+          </button>
         </header>
 
         <div className="messages-container">

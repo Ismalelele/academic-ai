@@ -140,7 +140,7 @@ export default function Horario() {
           <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px' }}>
             {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
               const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-              const dayClasses = tempSchedule.filter(c => c.day === dayIndex);
+              const dayClasses = tempSchedule.filter(c => c.day === dayIndex).sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
               
               return (
                 <div 

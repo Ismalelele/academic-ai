@@ -25,6 +25,8 @@ function App() {
     return localStorage.getItem('darkMode') === 'true';
   });
 
+
+
   useEffect(() => {
     if (isDarkMode) {
       document.body.classList.add('dark-mode');

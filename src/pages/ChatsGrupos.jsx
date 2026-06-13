@@ -395,7 +395,7 @@ export default function ChatsGrupos() {
         )}
       </header>
 
-      <div className="chats-view-layout">
+      <div className={`chats-view-layout ${activeGroupId ? 'has-active-chat' : ''}`}>
         {/* PANEL LATERAL DE GRUPOS Y SOLICITUDES */}
         <aside className="chats-sidebar">
           <div className="chats-sidebar-header">
@@ -546,7 +546,14 @@ export default function ChatsGrupos() {
                 {/* Header del Chat */}
                 <header className="chats-header">
                   <div className="chats-header-info">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <button 
+                        type="button"
+                        className="btn-back-to-groups" 
+                        onClick={() => setActiveGroupId(null)}
+                      >
+                        <ChevronLeft size={16} /> Volver
+                      </button>
                       <h3>{activeGroup.titulo}</h3>
                       <button
                         onClick={handleDeleteGroupClick}
@@ -602,6 +609,9 @@ export default function ChatsGrupos() {
                 {/* Sub Tab Selector (Mensajes / Biblioteca / Integrantes) */}
                 <div className="group-tab-selector" style={{
                   display: 'flex',
+                  overflowX: 'auto',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
                   borderBottom: '1px solid var(--border-color)',
                   background: 'rgba(0, 0, 0, 0.08)',
                   padding: '0 20px',
@@ -621,7 +631,8 @@ export default function ChatsGrupos() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      transition: '0.2s'
+                      transition: '0.2s',
+                      flexShrink: 0
                     }}
                   >
                     <MessageSquare size={15} /> Mensajes
@@ -640,7 +651,8 @@ export default function ChatsGrupos() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      transition: '0.2s'
+                      transition: '0.2s',
+                      flexShrink: 0
                     }}
                   >
                     <BookOpen size={15} /> Biblioteca
@@ -659,7 +671,8 @@ export default function ChatsGrupos() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      transition: '0.2s'
+                      transition: '0.2s',
+                      flexShrink: 0
                     }}
                   >
                     <Users size={15} /> Integrantes ({activeGroupMembers.length})
@@ -678,7 +691,8 @@ export default function ChatsGrupos() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      transition: '0.2s'
+                      transition: '0.2s',
+                      flexShrink: 0
                     }}
                   >
                     <PencilLine size={15} /> Pizarra (IA)
@@ -697,7 +711,8 @@ export default function ChatsGrupos() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      transition: '0.2s'
+                      transition: '0.2s',
+                      flexShrink: 0
                     }}
                   >
                     <Flame size={15} /> Versus (IA)
@@ -1986,6 +2001,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
   const [strokeWidth, setStrokeWidth] = useState(3);
   
   const [isThemeDark, setIsThemeDark] = useState(() => document.body.classList.contains('dark-mode'));
+  const [customConfirm, setCustomConfirm] = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [customAlert, setCustomAlert] = useState({ open: false, title: '', message: '' });
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -2037,8 +2054,12 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     const localData = localStorage.getItem(localKey);
     let boardState = null;
     if (localData) {
-      boardState = JSON.parse(localData);
-      applyBoardState(boardState);
+      try {
+        boardState = JSON.parse(localData);
+        applyBoardState(boardState);
+      } catch (err) {
+        console.warn("Error parsing local board data:", err);
+      }
     }
     
     if (supabase && activeGroupId && !isFallbackMode) {
@@ -2508,6 +2529,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     <div style={{
       display: 'grid',
       gridTemplateColumns: showAiPanel ? '1fr 340px' : '1fr',
+      flex: 1,
       height: '100%',
       overflow: 'hidden',
       position: 'relative'
@@ -2694,7 +2716,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
           onMouseLeave={handleStickyMouseUp}
           style={{
             position: 'relative',
-            width: '800px',
+            width: '100%',
+            maxWidth: '800px',
             height: '500px',
             borderRadius: '16px',
             overflow: 'hidden',
@@ -2715,6 +2738,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
             onTouchEnd={handleMouseUp}
             style={{
               display: 'block',
+              width: '100%',
+              height: '100%',
               cursor: tool === 'pencil' ? 'crosshair' : tool === 'eraser' ? 'cell' : 'default'
             }}
           />

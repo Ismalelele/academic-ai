@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { transcribeAudio, generateRecordingSummary, askTranscriptAI } from '../utils/aiProcessor';
 import { marked } from 'marked';
+import ysFixWebmDuration from 'fix-webm-duration';
 import { 
   Book, ArrowLeft, Loader, Trash2, Mic, FileAudio, MessageSquare, 
   BookOpen, Brain, HelpCircle, Sparkles, Square, Play, Pause, Headphones
@@ -15,8 +16,8 @@ const openAudioDB = () => {
     const request = indexedDB.open('AcademicAudioDB', 1);
     request.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains('audio')) {
-        db.createObjectStore('audio', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('audios')) {
+        db.createObjectStore('audios', { keyPath: 'id_grabacion' });
       }
     };
     request.onsuccess = (e) => resolve(e.target.result);
@@ -27,30 +28,28 @@ const openAudioDB = () => {
 const saveAudioBlob = async (id, blob) => {
   try {
     const db = await openAudioDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('audio', 'readwrite');
-      const store = transaction.objectStore('audio');
-      const request = store.put({ id, blob });
-      request.onsuccess = () => resolve();
-      request.onerror = (e) => reject(e.target.error);
-    });
+    const transaction = db.transaction('audios', 'readwrite');
+    const store = transaction.objectStore('audios');
+    store.put({ id_grabacion: id, blob });
   } catch (err) {
-    console.error("Error saving audio to IndexedDB:", err);
+    console.error("Error al guardar audio en IndexedDB:", err);
   }
 };
 
 const getAudioBlob = async (id) => {
   try {
     const db = await openAudioDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('audio', 'readonly');
-      const store = transaction.objectStore('audio');
+    return new Promise((resolve) => {
+      const transaction = db.transaction('audios', 'readonly');
+      const store = transaction.objectStore('audios');
       const request = store.get(id);
-      request.onsuccess = (e) => resolve(e.target.result?.blob || null);
-      request.onerror = (e) => reject(e.target.error);
+      request.onsuccess = (e) => {
+        resolve(e.target.result ? e.target.result.blob : null);
+      };
+      request.onerror = () => resolve(null);
     });
   } catch (err) {
-    console.error("Error getting audio from IndexedDB:", err);
+    console.error("Error al leer audio desde IndexedDB:", err);
     return null;
   }
 };
@@ -58,15 +57,11 @@ const getAudioBlob = async (id) => {
 const deleteAudioBlob = async (id) => {
   try {
     const db = await openAudioDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('audio', 'readwrite');
-      const store = transaction.objectStore('audio');
-      const request = store.delete(id);
-      request.onsuccess = () => resolve();
-      request.onerror = (e) => reject(e.target.error);
-    });
+    const transaction = db.transaction('audios', 'readwrite');
+    const store = transaction.objectStore('audios');
+    store.delete(id);
   } catch (err) {
-    console.error("Error deleting audio from IndexedDB:", err);
+    console.error("Error al eliminar audio de IndexedDB:", err);
   }
 };
 
@@ -74,6 +69,7 @@ export default function ClasesGrabadas() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
   const [audioSrc, setAudioSrc] = useState(null);
+  const [activeSubject, setActiveSubject] = useState(null);
 
   const [customSubjects, setCustomSubjects] = useState(() => {
     const saved = localStorage.getItem(`academic_custom_subjects_${user?.id || 'local'}`);
@@ -89,7 +85,6 @@ export default function ClasesGrabadas() {
     }
   }, [user]);
 
-  const [activeSubject, setActiveSubject] = useState(null);
   const [recordings, setRecordings] = useState([]);
   const [selectedRecording, setSelectedRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -108,6 +103,8 @@ export default function ClasesGrabadas() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
+  const recordingStartTimeRef = useRef(null);
+  const activeObjectUrlRef = useRef(null);
 
   useEffect(() => {
     if (user && activeSubject) {
@@ -116,12 +113,21 @@ export default function ClasesGrabadas() {
   }, [user, activeSubject]);
 
   useEffect(() => {
-    let objectUrl = null;
+    let active = true;
+
+    // Revoke previous URL if any to prevent leaks
+    if (activeObjectUrlRef.current) {
+      URL.revokeObjectURL(activeObjectUrlRef.current);
+      activeObjectUrlRef.current = null;
+    }
+
     if (selectedRecording) {
       getAudioBlob(selectedRecording.id_grabacion).then(blob => {
+        if (!active) return;
         if (blob) {
-          objectUrl = URL.createObjectURL(blob);
-          setAudioSrc(objectUrl);
+          const url = URL.createObjectURL(blob);
+          activeObjectUrlRef.current = url;
+          setAudioSrc(url);
         } else {
           setAudioSrc(null);
         }
@@ -129,9 +135,12 @@ export default function ClasesGrabadas() {
     } else {
       setAudioSrc(null);
     }
+
     return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
+      active = false;
+      if (activeObjectUrlRef.current) {
+        URL.revokeObjectURL(activeObjectUrlRef.current);
+        activeObjectUrlRef.current = null;
       }
     };
   }, [selectedRecording]);
@@ -179,12 +188,25 @@ export default function ClasesGrabadas() {
       };
 
       recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-        const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
-        await handleSaveAndProcess(audioBlob, title);
+        const duration = Date.now() - recordingStartTimeRef.current;
+        const rawBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        try {
+          // Use ysFixWebmDuration to reconstruct headers client-side
+          const fixedBlob = await ysFixWebmDuration(rawBlob, duration);
+          const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+          const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
+          await handleSaveAndProcess(fixedBlob, title);
+        } catch (fixErr) {
+          console.error("Error fixing WebM duration:", fixErr);
+          // Fallback to raw blob if something fails
+          const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+          const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
+          await handleSaveAndProcess(rawBlob, title);
+        }
       };
 
+      recordingStartTimeRef.current = Date.now();
       recorder.start();
       setIsRecording(true);
       setRecordingTime(0);

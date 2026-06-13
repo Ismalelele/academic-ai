@@ -364,12 +364,14 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 <li>
                   <NavLink to="/horario" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                     <Calendar size={16} /> <span>Horario</span>
+                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                   </NavLink>
                 </li>
 
                 <li>
                   <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                     <Mic size={16} /> <span>Clases Grabadas</span>
+                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                   </NavLink>
                 </li>
                 {effectiveSchedule && effectiveSchedule.length > 0 && (
@@ -377,11 +379,13 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                     <li>
                       <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                         <BookOpenText size={16} /> <span>Apuntes</span>
+                        <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                       </NavLink>
                     </li>
                     <li>
                       <NavLink to="/calificaciones" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                         <GraduationCap size={16} /> <span>Promedio</span>
+                        <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                       </NavLink>
                     </li>
                   </>
@@ -417,11 +421,13 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 <li>
                   <NavLink to="/asistente" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                     <MessageSquare size={16} /> <span>Asistente IA</span>
+                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                   </NavLink>
                 </li>
                 <li>
                   <NavLink to="/analisis" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                     <Sparkles size={16} /> <span>Análisis</span>
+                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                   </NavLink>
                 </li>
               </ul>
@@ -455,6 +461,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 <li>
                   <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                     <MessageCircle size={16} /> <span>Chats</span>
+                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                   </NavLink>
                 </li>
               </ul>
