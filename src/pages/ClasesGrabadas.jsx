@@ -547,7 +547,7 @@ export default function ClasesGrabadas() {
                     gap: '15px',
                     flexShrink: 0
                   }}>
-                    <div style={{
+                    <div className="audio-player-container" style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '15px',
