@@ -392,7 +392,7 @@ export default function ClasesGrabadas() {
   // 2. Recordings Workspace view (Active Subject)
   if (activeSubject) {
     return (
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 80px)', overflow: 'hidden' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <button 
