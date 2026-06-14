@@ -236,7 +236,7 @@ export default function ClasesGrabadas() {
         
         const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
         const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
-        await handleSaveAndProcess(fixedBlob, title);
+        await handleSaveAndProcess(rawBlob, fixedBlob, title);
       };
 
       recordingStartTimeRef.current = Date.now();
@@ -263,10 +263,10 @@ export default function ClasesGrabadas() {
     }
   };
 
-  const handleSaveAndProcess = async (audioBlob, title) => {
+  const handleSaveAndProcess = async (rawBlob, fixedBlob, title) => {
     setTranscribing(true);
     try {
-      const transcriptText = await transcribeAudio(audioBlob);
+      const transcriptText = await transcribeAudio(rawBlob);
       
       setAnalyzing(true);
       const aiMaterials = await generateRecordingSummary(transcriptText);
@@ -284,7 +284,7 @@ export default function ClasesGrabadas() {
         fecha_creacion: new Date().toISOString()
       };
 
-      await saveAudioBlob(newRecording.id_grabacion, audioBlob);
+      await saveAudioBlob(newRecording.id_grabacion, fixedBlob);
 
       if (supabase && user && user.id && !user.id.startsWith('user-local-')) {
         try {
