@@ -15,6 +15,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import { extractTextFromPptx } from '../utils/pptxParser';
 import { generateCustomQuiz } from '../utils/aiProcessor';
+import { addStudyMinutes } from '../utils/studyTracker';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
@@ -148,7 +149,19 @@ export default function ChatsGrupos() {
 
   // Reset subtab on group change and subscribe to general versus invitations
   useEffect(() => {
-    setGroupSubTab('chat');
+    const pendingActiveTab = localStorage.getItem('academic_group_pending_activetab');
+    if (pendingActiveTab) {
+      setActiveTab(pendingActiveTab);
+      localStorage.removeItem('academic_group_pending_activetab');
+    }
+
+    const pendingSubTab = localStorage.getItem('academic_group_pending_subtab');
+    if (pendingSubTab) {
+      setGroupSubTab(pendingSubTab);
+      localStorage.removeItem('academic_group_pending_subtab');
+    } else {
+      setGroupSubTab('chat');
+    }
     setVersusInvite(null);
 
     if (!supabase || !activeGroupId || isFallbackMode) return;
@@ -2031,6 +2044,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
   const currentPoints = useRef([]);
   const startCoords = useRef({ x: 0, y: 0 });
   const channelRef = useRef(null);
+  const lastDrawMinutesAwardedRef = useRef(0);
+  const lastActiveBroadcastRef = useRef(0);
   
   const [draggingStickyId, setDraggingStickyId] = useState(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -2199,6 +2214,39 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     }
   };
 
+  const triggerWhiteboardActiveBroadcast = () => {
+    const now = Date.now();
+    if (now - lastActiveBroadcastRef.current > 30000) {
+      lastActiveBroadcastRef.current = now;
+      
+      if (supabase && activeGroupId && !isFallbackMode) {
+        const notifyChannel = supabase.channel(`pizarra_notify:${activeGroupId}`);
+        notifyChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            notifyChannel.send({
+              type: 'broadcast',
+              event: 'whiteboard_active',
+              payload: { userId: user?.id, groupTitle: activeGroup?.titulo }
+            });
+          }
+        });
+      }
+
+      try {
+        const bc = new BroadcastChannel('academic_local_whiteboard');
+        bc.postMessage({
+          event: 'whiteboard_active',
+          userId: user?.id,
+          groupId: activeGroupId,
+          groupTitle: activeGroup?.titulo
+        });
+        bc.close();
+      } catch (e) {
+        // Ignorar
+      }
+    }
+  };
+
   const broadcastStickiesState = (updatedStickies) => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -2262,6 +2310,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
         setShapes(updated);
         broadcastDraw('shape', { shape: newShape });
         saveBoard(lines, updated, stickies, bgImageSrc);
+        triggerWhiteboardActiveBroadcast();
       }
     } else {
       currentPoints.current = [];
@@ -2328,6 +2377,13 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
         setLines(updated);
         broadcastDraw('stroke', { line: newLine });
         saveBoard(updated, shapes, stickies, bgImageSrc);
+        triggerWhiteboardActiveBroadcast();
+
+        const nowMs = Date.now();
+        if (nowMs - lastDrawMinutesAwardedRef.current > 60000) {
+          addStudyMinutes(user?.id, 1); // 1 active minute for drawing on whiteboard
+          lastDrawMinutesAwardedRef.current = nowMs;
+        }
       }
       currentPoints.current = [];
     } else if (tool === 'rect' || tool === 'circle' || tool === 'line') {
@@ -2344,6 +2400,13 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
       setShapes(updated);
       broadcastDraw('shape', { shape: newShape });
       saveBoard(lines, updated, stickies, bgImageSrc);
+      triggerWhiteboardActiveBroadcast();
+
+      const nowMs = Date.now();
+      if (nowMs - lastDrawMinutesAwardedRef.current > 60000) {
+        addStudyMinutes(user?.id, 1); // 1 active minute for drawing on whiteboard
+        lastDrawMinutesAwardedRef.current = nowMs;
+      }
     }
   };
 
@@ -2359,6 +2422,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     setStickies(updated);
     broadcastStickiesState(updated);
     saveBoard(lines, shapes, updated, bgImageSrc);
+    addStudyMinutes(user?.id, 1); // 1 active minute for creating a sticky note
+    triggerWhiteboardActiveBroadcast();
   };
 
   const handleStickyTextChange = (id, newText) => {

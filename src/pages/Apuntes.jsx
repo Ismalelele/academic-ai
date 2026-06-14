@@ -3,6 +3,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { generateToolSuggestions, generateQuizFromNotes } from '../utils/aiProcessor';
+import { addStudyMinutes } from '../utils/studyTracker';
 import { marked } from 'marked';
 import { 
   Book, BookOpen, Plus, Trash2, ArrowLeft, Save, 
@@ -127,6 +128,8 @@ export default function Apuntes() {
       alert("Tu navegador no soporta conversión de texto a voz.");
       return;
     }
+
+    addStudyMinutes(user?.id, 3); // 3 cognitive study minutes for listening to TTS summaries
 
     window.speechSynthesis.cancel();
 
@@ -337,6 +340,7 @@ export default function Apuntes() {
     setQuizError(null);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
+    addStudyMinutes(user?.id, 5); // 5 study minutes for generating a quiz
 
     try {
       const questions = await generateQuizFromNotes(textToEvaluate, activeSubject);
@@ -403,6 +407,7 @@ export default function Apuntes() {
       stats.totalScore += score;
       stats.totalQuestions += total;
       localStorage.setItem(historyKey, JSON.stringify(stats));
+      addStudyMinutes(user.id, 10); // 10 study minutes for finishing/reviewing a quiz
     }
     setQuizStage('results');
   };

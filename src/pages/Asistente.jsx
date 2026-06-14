@@ -2,10 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, FileText, UploadCloud, MessageSquare, BookOpen, Bot, Trash2, X, MoreVertical, Edit2 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useSchedule } from '../context/ScheduleContext';
+import { useAuth } from '../context/AuthContext';
+import { addStudyMinutes } from '../utils/studyTracker';
 import { marked } from 'marked';
 
 export default function Asistente() {
   const { schedule } = useSchedule();
+  const { user } = useAuth();
   const { subjectData, getSubjectData, uploadDocument, sendMessage, deleteDocument, clearDocuments, toggleDocumentSelection, renameDocument } = useChat();
   const [activeSubject, setActiveSubject] = useState('global');
   const [inputText, setInputText] = useState('');
@@ -31,12 +34,14 @@ export default function Asistente() {
     if (!inputText.trim()) return;
     sendMessage(activeSubject, inputText);
     setInputText('');
+    addStudyMinutes(user?.id, 2); // 2 active cognitive minutes per chat interaction
   };
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
       files.forEach(file => uploadDocument(activeSubject, file));
+      addStudyMinutes(user?.id, 5); // 5 study minutes for uploading & parsing files
       e.target.value = ''; // Reset input to allow re-uploading the same file
     }
   };

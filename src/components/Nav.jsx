@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, BellRing,
@@ -11,11 +11,15 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
+import { useGroupChat } from '../context/GroupChatContext';
 import { askDashboardGroq } from '../utils/aiProcessor';
+import { addStudyMinutes } from '../utils/studyTracker';
 
 export default function Nav({ isDarkMode, toggleTheme }) {
   const location = useLocation();
   const currentPath = location.pathname;
+  const navigate = useNavigate();
+  const { setActiveGroupId } = useGroupChat();
 
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -255,6 +259,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     setChatInput('');
     setChatHistory(prev => [...prev, { sender: 'user', text: userText }]);
     setIsChatting(true);
+    addStudyMinutes(user?.id, 2); // 2 active cognitive minutes per chat interaction
     
     try {
       const taskNames = activeTasks.length > 0 ? activeTasks.map(t => t.title).join(', ') : 'Ninguna';
@@ -269,12 +274,45 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   };
 
   const getIconForType = (type) => {
-    switch(type) {
+    if (!type) return '💡';
+    const prefix = type.split(':')[0];
+    switch(prefix) {
       case 'clase': return '📚';
       case 'urgente': return '⚠️';
       case 'tarea': return '📝';
       case 'chat': return '💬';
+      case 'pizarra': return '🎨';
+      case 'request': return '👤';
       default: return '💡';
+    }
+  };
+
+  const handleNotificationClick = (n) => {
+    if (!n.read) {
+      markAsRead(n.id);
+    }
+    if (n.type) {
+      const parts = n.type.split(':');
+      const prefix = parts[0];
+      const groupId = parts[1];
+      if (groupId) {
+        if (prefix === 'pizarra') {
+          localStorage.setItem('academic_group_pending_subtab', 'board');
+          setActiveGroupId(groupId);
+          navigate('/chats');
+          setShowNotifications(false);
+        } else if (prefix === 'chat') {
+          localStorage.setItem('academic_group_pending_subtab', 'chat');
+          setActiveGroupId(groupId);
+          navigate('/chats');
+          setShowNotifications(false);
+        } else if (prefix === 'request') {
+          localStorage.setItem('academic_group_pending_activetab', 'solicitudes');
+          setActiveGroupId(groupId);
+          navigate('/chats');
+          setShowNotifications(false);
+        }
+      }
     }
   };
 
@@ -293,26 +331,33 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         {notifications.length === 0 ? (
           <div className="notification-empty">No tienes notificaciones</div>
         ) : (
-          notifications.map(n => (
-            <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'}`}>
-              <div className="notification-icon">{getIconForType(n.type)}</div>
-              <div className="notification-content">
-                <h4>{n.title}</h4>
-                <p>{n.message}</p>
-                <span className="notification-time">{formatDate(n.createdAt)}</span>
-              </div>
-              <div className="notification-actions">
-                {!n.read && (
-                  <button onClick={() => markAsRead(n.id)} title="Marcar como leída">
-                    <CheckCircle size={16} />
+          notifications.map(n => {
+            const isClickable = n.type && (n.type.startsWith('pizarra:') || n.type.startsWith('chat:') || n.type.startsWith('request:'));
+            return (
+              <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'}`}>
+                <div className="notification-icon">{getIconForType(n.type)}</div>
+                <div 
+                  className="notification-content"
+                  style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                  onClick={() => isClickable && handleNotificationClick(n)}
+                >
+                  <h4>{n.title}</h4>
+                  <p>{n.message}</p>
+                  <span className="notification-time">{formatDate(n.createdAt)}</span>
+                </div>
+                <div className="notification-actions">
+                  {!n.read && (
+                    <button onClick={() => markAsRead(n.id)} title="Marcar como leída">
+                      <CheckCircle size={16} />
+                    </button>
+                  )}
+                  <button onClick={() => deleteNotification(n.id)} title="Eliminar" className="btn-delete">
+                    <Trash2 size={16} />
                   </button>
-                )}
-                <button onClick={() => deleteNotification(n.id)} title="Eliminar" className="btn-delete">
-                  <Trash2 size={16} />
-                </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

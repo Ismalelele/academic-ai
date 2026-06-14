@@ -29,6 +29,10 @@ export default function Horario() {
   const [selectedClass, setSelectedClass] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [tempSchedule, setTempSchedule] = useState([]);
+  const [selectedDayMobile, setSelectedDayMobile] = useState(() => {
+    const today = new Date().getDay();
+    return today === 0 ? 6 : today - 1;
+  });
 
   const handleGenerateRoutine = () => {
     const pendingTasks = tasks.filter(t => t.status !== 'done');
@@ -364,9 +368,29 @@ export default function Horario() {
             ))}
           </div>
 
-          <div className="days-container">
+          <div className="days-container" style={{ minWidth: 'auto', width: '100%' }}>
+            {/* Day Selector (Mobile Only) */}
+            <div className="mobile-day-selector">
+              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedDayMobile(idx)}
+                  className={selectedDayMobile === idx ? 'active' : ''}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+
             <div className="days-header">
-              <div>LUNES</div><div>MARTES</div><div>MIÉRCOLES</div><div>JUEVES</div><div>VIERNES</div><div>SÁBADO</div><div>DOMINGO</div>
+              {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dayName, idx) => (
+                <div 
+                  key={idx} 
+                  className={selectedDayMobile === idx ? 'active-day-mobile' : 'inactive-day-mobile'}
+                >
+                  {dayName.toUpperCase()}
+                </div>
+              ))}
             </div>
             <div className="grid-content" style={{ position: 'relative' }}>
               {isProcessing && (
@@ -377,7 +401,10 @@ export default function Horario() {
               )}
               
               {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => (
-                <div key={dayIndex} className="day-track">
+                <div 
+                  key={dayIndex} 
+                  className={`day-track ${selectedDayMobile === dayIndex ? 'active-day-mobile' : 'inactive-day-mobile'}`}
+                >
                   {effectiveSchedule && effectiveSchedule
                     .filter(cls => cls.day === dayIndex)
                     .map(cls => (

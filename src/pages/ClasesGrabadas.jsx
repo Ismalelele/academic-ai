@@ -3,6 +3,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { transcribeAudio, generateRecordingSummary, askTranscriptAI } from '../utils/aiProcessor';
+import { addStudyMinutes } from '../utils/studyTracker';
 import { marked } from 'marked';
 import ysFixWebmDuration from 'fix-webm-duration';
 import { 
@@ -176,8 +177,30 @@ export default function ClasesGrabadas() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true
+        } 
+      });
+      
+      let options = { audioBitsPerSecond: 24000 };
+      let mime = 'audio/webm';
+      
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mime = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mime = 'audio/webm';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        mime = 'audio/ogg';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mime = 'audio/mp4';
+      }
+      
+      options.mimeType = mime;
+      const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
 
@@ -189,21 +212,20 @@ export default function ClasesGrabadas() {
 
       recorder.onstop = async () => {
         const duration = Date.now() - recordingStartTimeRef.current;
-        const rawBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const rawBlob = new Blob(audioChunksRef.current, { type: mime });
         
-        try {
-          // Use ysFixWebmDuration to reconstruct headers client-side
-          const fixedBlob = await ysFixWebmDuration(rawBlob, duration);
-          const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-          const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
-          await handleSaveAndProcess(fixedBlob, title);
-        } catch (fixErr) {
-          console.error("Error fixing WebM duration:", fixErr);
-          // Fallback to raw blob if something fails
-          const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-          const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
-          await handleSaveAndProcess(rawBlob, title);
+        let fixedBlob = rawBlob;
+        if (mime.includes('webm')) {
+          try {
+            fixedBlob = await ysFixWebmDuration(rawBlob, duration);
+          } catch (fixErr) {
+            console.error("Error fixing WebM duration:", fixErr);
+          }
         }
+        
+        const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
+        await handleSaveAndProcess(fixedBlob, title);
       };
 
       recordingStartTimeRef.current = Date.now();
@@ -268,6 +290,7 @@ export default function ClasesGrabadas() {
       setSelectedRecording(newRecording);
       setRecordingTab('summary');
       setRecordingChatHistory([]);
+      addStudyMinutes(user?.id, 15); // 15 study minutes for recording and transcribing a class
     } catch (error) {
       console.error("Error al procesar la grabación:", error);
       alert("Error al transcribir o procesar la grabación de clase: " + (error.message || error));
@@ -308,6 +331,7 @@ export default function ClasesGrabadas() {
     setRecordingChatHistory(prev => [...prev, userMessage]);
     setRecordingChatInput('');
     setRecordingChatLoading(true);
+    addStudyMinutes(user?.id, 2); // 2 active cognitive minutes per chat interaction with transcript
 
     try {
       const reply = await askTranscriptAI(selectedRecording.transcripcion, recordingChatInput);
@@ -671,7 +695,10 @@ export default function ClasesGrabadas() {
                         <button
                           className="btn-primary"
                           disabled={Object.keys(recordingQuizAnswers).length !== selectedRecording.preguntas_prueba.length}
-                          onClick={() => setRecordingShowQuizScore(true)}
+                          onClick={() => {
+                            setRecordingShowQuizScore(true);
+                            addStudyMinutes(user?.id, 10); // 10 study minutes for quiz completion
+                          }}
                           style={{ alignSelf: 'flex-start', padding: '10px 20px', borderRadius: '8px' }}
                         >
                           Enviar Respuestas
@@ -685,7 +712,12 @@ export default function ClasesGrabadas() {
                       <h4 style={{ margin: 0 }}>Tarjetas de Estudio Interactivas (Repaso Activo)</h4>
                       
                       <div 
-                        onClick={() => setRecordingFlashcardFlipped(!recordingFlashcardFlipped)}
+                        onClick={() => {
+                          setRecordingFlashcardFlipped(!recordingFlashcardFlipped);
+                          if (!recordingFlashcardFlipped) {
+                            addStudyMinutes(user?.id, 1); // 1 study minute for reviewing a card
+                          }
+                        }}
                         style={{
                           width: '400px',
                           height: '240px',

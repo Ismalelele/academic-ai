@@ -606,8 +606,18 @@ export const transcribeAudio = async (audioBlob) => {
     throw new Error("No se encontró la API Key de Groq en el entorno.");
   }
 
+  let extension = "webm";
+  if (audioBlob.type) {
+    const mime = audioBlob.type.toLowerCase();
+    if (mime.includes("mp4")) extension = "mp4";
+    else if (mime.includes("m4a")) extension = "m4a";
+    else if (mime.includes("mpeg") || mime.includes("mp3")) extension = "mp3";
+    else if (mime.includes("wav")) extension = "wav";
+    else if (mime.includes("ogg")) extension = "ogg";
+  }
+
   const formData = new FormData();
-  formData.append("file", audioBlob, "grabacion.webm");
+  formData.append("file", audioBlob, `grabacion.${extension}`);
   formData.append("model", "whisper-large-v3-turbo");
   formData.append("response_format", "json");
 
@@ -790,4 +800,127 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
     console.error("Error en generateCustomQuiz:", error);
     throw error;
   }
+};
+
+export const scheduleAiNotifications = async (userId, schedule = [], tasks = [], studyBlocks = []) => {
+  if (!userId) return [];
+  const key = `academic_ai_scheduled_alerts_${userId}`;
+  const now = new Date();
+  
+  // Try to generate via Groq if API Key is available
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (apiKey) {
+    try {
+      const localNowString = now.toLocaleString('es-ES', { timeZoneName: 'short' });
+      const systemPrompt = `Eres un asistente académico y coach estudiantil proactivo, empático y motivador.
+Tu labor es calendarizar alertas de motivación, estudio y recordatorios personalizadas para el estudiante para las próximas 24 horas.
+Recibirás:
+- La fecha y hora actual del estudiante: ${localNowString}
+- El horario escolar/clases del alumno: ${JSON.stringify(schedule)}
+- Las tareas pendientes: ${JSON.stringify(tasks.filter(t => t.status !== 'done'))}
+- Los bloques de estudio programados: ${JSON.stringify(studyBlocks)}
+
+Debes proponer entre 2 y 4 notificaciones oportunas y muy motivadoras para el día de hoy y mañana.
+Pautas para programar los horarios:
+- Si hay un bloque de estudio programado, pon la alerta de aliento 5 minutos ANTES de que comience.
+- Si hay una tarea urgente pendiente, pon un recordatorio amigable en algún momento libre (donde no tenga clases).
+- El triggerTime debe ser un ISO String válido de fecha y hora local/UTC correspondiente al momento exacto en que debe sonar.
+- Asegúrate de que triggerTime sea en el FUTURO (después de la hora actual: ${now.toISOString()}).
+
+Devuelve EXCLUSIVAMENTE un JSON válido con la siguiente estructura:
+{
+  "alerts": [
+    {
+      "id": "ai-alert-[unique-id]",
+      "title": "[Título corto y llamativo con un emoji, ej: 📚 Hora de Foco, 💡 Hack de Estudio]",
+      "message": "[Mensaje inspirador y contextual, hablándole directamente por su tarea o asignatura. Sé conciso, máximo 2 oraciones. No uses clichés redundantes.]",
+      "triggerTime": "ISO String en el futuro"
+    }
+  ]
+}`;
+
+      const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: "Genera las alertas motivadoras y calendarizadas para mis próximas 24 horas." }
+          ],
+          temperature: 0.6,
+          response_format: { type: "json_object" }
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        const content = data.choices[0].message.content;
+        const parsed = JSON.parse(content);
+        if (parsed.alerts && Array.isArray(parsed.alerts)) {
+          // Add fired: false to all alerts
+          const formattedAlerts = parsed.alerts.map(alert => ({
+            ...alert,
+            fired: false
+          }));
+          localStorage.setItem(key, JSON.stringify(formattedAlerts));
+          return formattedAlerts;
+        }
+      }
+    } catch (e) {
+      console.warn("Error calling Groq for AI scheduled notifications, falling back to local heuristic scheduling:", e);
+    }
+  }
+
+  // Fallback: local heuristic scheduling (if offline or error occurs)
+  console.log("Using local heuristic alert generator...");
+  const fallbackAlerts = [];
+  
+  // Alert 1: Study Block reminder if there is one
+  if (studyBlocks && studyBlocks.length > 0) {
+    const nextBlock = studyBlocks[0]; // grab the first block
+    const blockTime = new Date();
+    blockTime.setHours(nextBlock.startH, nextBlock.startM - 5, 0, 0);
+    if (blockTime > now) {
+      fallbackAlerts.push({
+        id: `ai-alert-fallback-block-${Date.now()}`,
+        title: `📚 Prepárate para estudiar`,
+        message: `Tu bloque de estudio para "${nextBlock.title}" inicia en 5 minutos. ¡Pon tu teléfono en silencio y concéntrate!`,
+        triggerTime: blockTime.toISOString(),
+        fired: false
+      });
+    }
+  }
+
+  // Alert 2: General focus/motivational reminder in 3 hours
+  const motivTime = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours from now
+  const pendingUrgentes = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
+  let motivMsg = "¡Hola! Mantén el foco en tus metas de hoy. Recuerda tomar pequeños descansos.";
+  if (pendingUrgentes.length > 0) {
+    motivMsg = `Tienes la tarea urgente "${pendingUrgentes[0].title}" pendiente. ¡Un paso a la vez, tú puedes completarla!`;
+  }
+  
+  fallbackAlerts.push({
+    id: `ai-alert-fallback-motiv-${Date.now()}`,
+    title: `⚡ Impulso de Enfoque`,
+    message: motivMsg,
+    triggerTime: motivTime.toISOString(),
+    fired: false
+  });
+
+  // Alert 3: Check-in reminder in 6 hours
+  const checkTime = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+  fallbackAlerts.push({
+    id: `ai-alert-fallback-check-${Date.now()}`,
+    title: `🌱 Balance de Estudio`,
+    message: "Hacer un descanso de 10 minutos ahora te ayudará a retener mejor lo aprendido. ¡Respira hondo!",
+    triggerTime: checkTime.toISOString(),
+    fired: false
+  });
+
+  localStorage.setItem(key, JSON.stringify(fallbackAlerts));
+  return fallbackAlerts;
 };

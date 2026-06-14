@@ -1352,13 +1352,13 @@ body.dark-mode .chat-footer input {
 
     .sidebar {
         position: fixed;
-        top: 12px;
-        bottom: 12px;
-        left: 12px;
+        top: 8px;
+        bottom: 8px;
+        left: 8px;
         transform: none;
-        width: 64px;
-        height: calc(100vh - 24px);
-        padding: 15px 0;
+        width: 56px;
+        height: calc(100vh - 16px);
+        padding: 10px 0;
         border-radius: 16px;
         border: 1px solid var(--border-color);
         box-shadow: var(--shadow-sm);
@@ -1372,7 +1372,7 @@ body.dark-mode .chat-footer input {
     .nav-scroll-wrap {
         flex-direction: column;
         width: 100%;
-        margin: 10px 0;
+        margin: 5px 0;
         justify-content: center;
         flex-grow: 1;
         overflow: visible;
@@ -1384,7 +1384,7 @@ body.dark-mode .chat-footer input {
 
     .sidebar .nav-links {
         flex-direction: column;
-        gap: 10px;
+        gap: 6px;
         width: 100%;
         justify-content: center;
         padding: 0;
@@ -1393,8 +1393,8 @@ body.dark-mode .chat-footer input {
 
     .sidebar .nav-links a,
     .sidebar .nav-links button.nav-dropdown-trigger {
-        padding: 8px;
-        border-radius: 10px;
+        padding: 6px;
+        border-radius: 8px;
         gap: 0;
         background: transparent;
         border: none;
@@ -1409,15 +1409,39 @@ body.dark-mode .chat-footer input {
 
     .dock-actions {
         flex-direction: column;
-        gap: 10px;
+        gap: 6px;
         width: 100%;
         margin-top: auto;
     }
 
     .sidebar .theme-toggle {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
         margin-left: 0;
+    }
+
+    .dock-chatbot-container .chatbot-tooltip,
+    .sidebar .chatbot-tooltip {
+        left: calc(100% + 12px) !important;
+        right: auto !important;
+        bottom: 8px !important;
+        transform: none !important;
+        animation: slideRightFade 0.3s ease !important;
+    }
+
+    .dock-chatbot-container .chatbot-tooltip::after,
+    .sidebar .chatbot-tooltip::after {
+        content: '' !important;
+        position: absolute !important;
+        left: -4px !important;
+        right: auto !important;
+        top: 50% !important;
+        bottom: auto !important;
+        width: 8px !important;
+        height: 8px !important;
+        background: #10b981 !important;
+        transform: translateY(-50%) rotate(45deg) !important;
+        border: none !important;
     }
 
     .desktop-only {
@@ -1425,8 +1449,8 @@ body.dark-mode .chat-footer input {
     }
 
     .main-content {
-        padding: 20px;
-        padding-left: 88px; /* Offset for left vertical sidebar */
+        padding: 16px;
+        padding-left: 76px; /* Offset for left vertical sidebar */
         padding-bottom: 20px;
     }
 
@@ -1495,12 +1519,6 @@ body.dark-mode .chat-footer input {
         max-height: 550px;
     }
 
-    .chatbot-tooltip {
-        bottom: auto;
-        left: 55px;
-        right: auto;
-        animation: slideRightFade 0.3s ease;
-    }
 }
 
 @media (max-width: 480px) {
@@ -6351,4 +6369,76 @@ body.dark-mode .time-column {
 }
 .card:active, .card.is-dragging {
     z-index: 15 !important; /* Below time-column (z-index 20) */
+}
+
+/* ================= SELECT OPTIONS LEGIBILITY FIX ================= */
+.premium-input option,
+.premium-modal select option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+}
+
+body.dark-mode .premium-input option,
+body.dark-mode .premium-modal select option {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+}
+
+/* ================= MOBILE DAY SELECTOR FOR HORARIO ================= */
+.mobile-day-selector {
+    display: none;
+    gap: 6px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+    width: 100%;
+}
+body.dark-mode .mobile-day-selector {
+    background: rgba(255, 255, 255, 0.02);
+}
+.mobile-day-selector button {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.mobile-day-selector button.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 10px rgba(14, 165, 233, 0.25);
+}
+
+@media (max-width: 768px) {
+    .mobile-day-selector {
+        display: flex;
+    }
+    .days-container {
+        min-width: auto !important;
+    }
+    .days-header {
+        grid-template-columns: 1fr !important;
+    }
+    .grid-content {
+        grid-template-columns: 1fr !important;
+    }
+    .days-header .active-day-mobile {
+        display: flex !important;
+        width: 100% !important;
+    }
+    .day-track.active-day-mobile {
+        display: block !important;
+        width: 100% !important;
+    }
+    .inactive-day-mobile {
+        display: none !important;
+    }
 }

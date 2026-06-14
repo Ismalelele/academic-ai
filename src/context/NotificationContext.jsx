@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useSchedule } from './ScheduleContext';
 import { useTasks } from './TaskContext';
+import { scheduleAiNotifications } from '../utils/aiProcessor';
 
 const NotificationContext = createContext();
 
@@ -11,7 +12,7 @@ export const useNotifications = () => useContext(NotificationContext);
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const { user } = useAuth();
-  const { effectiveSchedule } = useSchedule();
+  const { effectiveSchedule, studyBlocks } = useSchedule();
   const { tasks } = useTasks();
 
   // 1. Cargar notificaciones de Supabase
@@ -258,6 +259,29 @@ export const NotificationProvider = ({ children }) => {
       if (firedAlert) {
         lastAlertTimeRef.current = currentMinuteString;
       }
+
+      // 3.2 Revisar Alertas Calendarizadas por la IA
+      const savedAiAlerts = localStorage.getItem(`academic_ai_scheduled_alerts_${user.id}`);
+      if (savedAiAlerts) {
+        try {
+          let alerts = JSON.parse(savedAiAlerts);
+          let updated = false;
+          
+          alerts.forEach(alert => {
+            if (!alert.fired && new Date(alert.triggerTime) <= now) {
+              addNotification(alert.title || '💡 Asistente Académico', alert.message, 'info');
+              alert.fired = true;
+              updated = true;
+            }
+          });
+          
+          if (updated) {
+            localStorage.setItem(`academic_ai_scheduled_alerts_${user.id}`, JSON.stringify(alerts));
+          }
+        } catch (e) {
+          console.error("Error checking AI scheduled alerts:", e);
+        }
+      }
     };
 
     // Ejecutar inmediatamente y luego cada 1 minuto
@@ -265,6 +289,30 @@ export const NotificationProvider = ({ children }) => {
     const interval = setInterval(checkAlerts, 60000);
     return () => clearInterval(interval);
   }, [effectiveSchedule, tasks, notifications, user, dailyAlertTime]);
+
+  // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
+  useEffect(() => {
+    if (!user) return;
+    
+    const runAiScheduling = async () => {
+      const todayStr = new Date().toDateString();
+      const lastScheduledDay = localStorage.getItem(`academic_ai_last_schedule_date_${user.id}`);
+      
+      if (lastScheduledDay !== todayStr) {
+        try {
+          console.log("Scheduling AI notifications for today...");
+          await scheduleAiNotifications(user.id, effectiveSchedule, tasks, studyBlocks);
+          localStorage.setItem(`academic_ai_last_schedule_date_${user.id}`, todayStr);
+        } catch (e) {
+          console.error("Error scheduling AI notifications:", e);
+        }
+      }
+    };
+    
+    // Ejecutar con un pequeño delay para asegurar la carga del horario y tareas
+    const timer = setTimeout(runAiScheduling, 4000);
+    return () => clearTimeout(timer);
+  }, [user, effectiveSchedule, tasks, studyBlocks]);
 
   return (
     <NotificationContext.Provider value={{

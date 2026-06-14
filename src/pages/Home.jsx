@@ -5,6 +5,7 @@ import { useTasks } from '../context/TaskContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { getWeeklyStudyHours, getHistoricalWeeklyAverage } from '../utils/studyTracker';
 
 const parseGrade = (val) => {
   if (!val) return 0;
@@ -268,9 +269,22 @@ export default function Home() {
     }
   }
 
+  const weeklyHours = getWeeklyStudyHours(user?.id);
+  const totalWeeklyHours = weeklyHours.reduce((sum, h) => sum + h, 0);
+  const historicalAverage = getHistoricalWeeklyAverage(user?.id);
+  const exceedsAverage = totalWeeklyHours > historicalAverage;
+  const chartColor = exceedsAverage ? '#10b981' : 'var(--primary)';
+  const chartGradientId = exceedsAverage ? 'chartGradientGreen' : 'chartGradientDefault';
+
+  const studyDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const studyHoursData = studyDays.map((day, idx) => ({
+    day,
+    hours: weeklyHours[idx]
+  }));
+
   // Concentric Rings calculation
   const p1 = tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
-  const p2 = 72; // study goal rate (18h of 25h)
+  const p2 = Math.min(100, (totalWeeklyHours / 25) * 100); // study goal rate (of 25h)
   const p3 = quizStats.avg > 0 ? quizStats.avg : 50;
 
   const r1 = 70;
@@ -310,18 +324,7 @@ export default function Home() {
     return allGrades.slice(0, 3);
   };
 
-  // Study hours line chart trend calculations
-  const studyHoursData = [
-    { day: 'Lun', hours: 4 },
-    { day: 'Mar', hours: 8 },
-    { day: 'Mié', hours: 6 },
-    { day: 'Jue', hours: 14 },
-    { day: 'Vie', hours: 8 },
-    { day: 'Sáb', hours: 10 },
-    { day: 'Dom', hours: 5 }
-  ];
-
-  const maxHours = 20;
+  const maxHours = Math.max(20, Math.ceil(Math.max(...weeklyHours) / 5) * 5);
   const svgWidth = 500;
   const svgHeight = 200;
   const paddingX = 40;
@@ -416,16 +419,32 @@ export default function Home() {
               <div className="kpi-card-header">
                 <div>
                   <h3>Horas de estudio</h3>
-                  <p className="kpi-subtitle">Tendencia semanal de estudio</p>
+                  <p className="kpi-subtitle">
+                    {exceedsAverage ? (
+                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>
+                        ¡Superaste tu media! Tu enfoque esta semana ha sido de {totalWeeklyHours.toFixed(1).replace('.', ',')} horas (media: {historicalAverage.toFixed(1).replace('.', ',')}h)
+                      </span>
+                    ) : (
+                      <span>
+                        Tu enfoque esta semana ha sido de {totalWeeklyHours.toFixed(1).replace('.', ',')} horas (media: {historicalAverage.toFixed(1).replace('.', ',')}h)
+                      </span>
+                    )}
+                  </p>
                 </div>
-                <span className="kpi-main-val">18h</span>
+                <span className="kpi-main-val" style={{ color: chartColor }}>
+                  {totalWeeklyHours.toFixed(1).replace('.', ',')}h
+                </span>
               </div>
               <div className="kpi-chart-wrapper">
                 <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} width="100%" height="100%" style={{ overflow: 'visible' }}>
                   <defs>
-                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="chartGradientDefault" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.6" />
                       <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="chartGradientGreen" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
                   
@@ -442,17 +461,17 @@ export default function Home() {
                   })}
 
                   {/* Area under the line */}
-                  <path d={areaPath} fill="url(#chartGradient)" />
+                  <path d={areaPath} fill={`url(#${chartGradientId})`} />
 
                   {/* Line path */}
-                  <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={linePath} fill="none" stroke={chartColor} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
 
                   {/* Points on the line */}
                   {points.map((p, i) => (
                     <g key={i}>
-                      <circle cx={p.x} cy={p.y} r="5.5" fill="var(--card-bg)" stroke="var(--primary)" strokeWidth="3" />
+                      <circle cx={p.x} cy={p.y} r="5.5" fill="var(--card-bg)" stroke={chartColor} strokeWidth="3" />
                       {/* Hours value text on top of the dot */}
-                      <text x={p.x} y={p.y - 12} textAnchor="middle" fill="var(--primary)" fontSize="11" fontWeight="800">
+                      <text x={p.x} y={p.y - 12} textAnchor="middle" fill={chartColor} fontSize="11" fontWeight="800">
                         {p.hours}h
                       </text>
                       {/* Day label */}
@@ -543,7 +562,7 @@ export default function Home() {
                   <div className="legend-item cyan">
                     <span className="dot"></span>
                     <span className="label">Estudio:</span>
-                    <span className="val">18h/25h ({Math.round(p2)}%)</span>
+                    <span className="val">{totalWeeklyHours.toFixed(1).replace('.', ',')}h/25h ({Math.round(p2)}%)</span>
                   </div>
                   <div className="legend-item orange">
                     <span className="dot"></span>

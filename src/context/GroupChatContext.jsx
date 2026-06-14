@@ -126,7 +126,7 @@ export const GroupChatProvider = ({ children }) => {
                 addNotification(
                   `Nuevo mensaje en ${group.titulo}`,
                   `${newMsg.user_name}: "${newMsg.texto.substring(0, 45)}${newMsg.texto.length > 45 ? '...' : ''}"`,
-                  'chat'
+                  `chat:${group.id_grupo}`
                 );
               }
               return currentActiveId;
@@ -767,7 +767,7 @@ export const GroupChatProvider = ({ children }) => {
       addNotification(
         'Nueva Solicitud de Chat', 
         `${selectedName} quiere unirse a tu grupo de "${targetGroup.titulo}"`, 
-        'info'
+        `request:${groupId}`
       );
     } else {
       // Si estamos en Supabase, simulamos insertando en Supabase directamente
@@ -789,7 +789,7 @@ export const GroupChatProvider = ({ children }) => {
           addNotification(
             'Nueva Solicitud de Chat', 
             `${selectedName} quiere unirse a tu grupo de "${targetGroup.titulo}"`, 
-            'info'
+            `request:${groupId}`
           );
         }
       });
@@ -846,7 +846,7 @@ export const GroupChatProvider = ({ children }) => {
               addNotification(
                 `Nuevo mensaje en ${targetGroup.titulo}`,
                 `${sender.name}: "${text.substring(0, 45)}${text.length > 45 ? '...' : ''}"`,
-                'chat'
+                `chat:${groupId}`
               );
             }
             return currentActiveId;
@@ -870,7 +870,7 @@ export const GroupChatProvider = ({ children }) => {
                   addNotification(
                     `Nuevo mensaje en ${targetGroup.titulo}`,
                     `${sender.name}: "${text.substring(0, 45)}${text.length > 45 ? '...' : ''}"`,
-                    'chat'
+                    `chat:${groupId}`
                   );
                 }
                 return currentActiveId;
@@ -1155,6 +1155,76 @@ export const GroupChatProvider = ({ children }) => {
       }
     }
   };
+
+  // Suscribirse a eventos de pizarra activa de todos nuestros grupos en Supabase
+  useEffect(() => {
+    if (!user || isFallbackMode || !groups || groups.length === 0) return;
+
+    const channels = [];
+
+    groups.forEach(group => {
+      // Solo escuchar grupos donde el usuario está aceptado
+      if (group.membership?.estado !== 'aceptado') return;
+
+      const groupChannel = supabase
+        .channel(`pizarra_notify:${group.id_grupo}`)
+        .on('broadcast', { event: 'whiteboard_active' }, ({ payload }) => {
+          // Si el emisor no es el propio usuario
+          if (payload.userId !== user.id) {
+            const isViewingThisGroupChat = activeGroupId === group.id_grupo;
+            const isChatsTabOpen = window.location.pathname === '/chats';
+            const isBoardTabActive = localStorage.getItem('academic_group_pending_subtab') === 'board';
+
+            if (!isChatsTabOpen || !isViewingThisGroupChat || !isBoardTabActive) {
+              addNotification(
+                '¡Sala de Pizarra activa!',
+                `Tu compañero está dibujando en el grupo "${group.titulo}"`,
+                `pizarra:${group.id_grupo}`
+              );
+            }
+          }
+        })
+        .subscribe();
+
+      channels.push(groupChannel);
+    });
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, [user, groups, activeGroupId, isFallbackMode, addNotification]);
+
+  // Suscribirse localmente vía BroadcastChannel (soporte fallback y sincronización local)
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const bc = new BroadcastChannel('academic_local_whiteboard');
+      bc.onmessage = (event) => {
+        if (event.data && event.data.event === 'whiteboard_active') {
+          const { userId: senderId, groupId, groupTitle } = event.data;
+          if (senderId !== user.id) {
+            const group = groups.find(g => g.id_grupo === groupId);
+            if (group && group.membership?.estado === 'aceptado') {
+              const isViewingThisGroupChat = activeGroupId === groupId;
+              const isChatsTabOpen = window.location.pathname === '/chats';
+              const isBoardTabActive = localStorage.getItem('academic_group_pending_subtab') === 'board';
+
+              if (!isChatsTabOpen || !isViewingThisGroupChat || !isBoardTabActive) {
+                addNotification(
+                  '¡Sala de Pizarra activa!',
+                  `Tu compañero está dibujando en el grupo "${groupTitle}"`,
+                  `pizarra:${groupId}`
+                );
+              }
+            }
+          }
+        }
+      };
+      return () => bc.close();
+    } catch (e) {
+      // Ignorar
+    }
+  }, [user, groups, activeGroupId, addNotification]);
 
   return (
     <GroupChatContext.Provider value={{
