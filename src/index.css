@@ -3706,11 +3706,40 @@ body.dark-mode .notebook-card:hover {
     animation: fadeUp 0.5s ease-out;
 }
 
-@media (max-width: 900px) {
+.mobile-only {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .mobile-only {
+        display: flex !important;
+    }
+
     .notes-workspace {
-        grid-template-columns: 1fr;
-        grid-template-rows: 200px 1fr;
-        height: auto;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: none !important;
+        height: calc(100vh - 120px) !important;
+        gap: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+    }
+    
+    .notes-workspace.has-selection .notes-sidebar {
+        display: none !important;
+    }
+    
+    .notes-workspace:not(.has-selection) .notes-details-section {
+        display: none !important;
+    }
+    
+    .notes-sidebar {
+        border-right: none !important;
+        width: 100% !important;
+    }
+    
+    .notes-details-section {
+        width: 100% !important;
     }
 }
 

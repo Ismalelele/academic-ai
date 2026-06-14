@@ -488,7 +488,7 @@ export default function Apuntes() {
           </button>
         </header>
 
-        <div className="notes-workspace">
+        <div className={`notes-workspace ${selectedNote ? 'has-selection' : ''}`}>
             {/* Notes list sidebar */}
             <aside className="notes-sidebar">
               <div className="notes-sidebar-header">
@@ -585,16 +585,35 @@ export default function Apuntes() {
             </aside>
 
             {/* Active Note Editor */}
-            <section style={{ flexGrow: 1, height: '100%' }}>
+            <section className="notes-details-section" style={{ flexGrow: 1, height: '100%' }}>
               {selectedNote ? (
                 <div className="note-editor">
-                  <div className="note-editor-header">
+                  <div className="note-editor-header" style={{ display: 'flex', alignItems: 'center' }}>
+                    <button 
+                      onClick={() => setSelectedNote(null)}
+                      className="btn-secondary mobile-only"
+                      style={{
+                        display: 'none',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '8px',
+                        borderRadius: '50%',
+                        border: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        background: 'transparent',
+                        color: 'var(--text-main)',
+                        marginRight: '10px'
+                      }}
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
                     <input 
                       type="text" 
                       className="note-title-input"
                       value={selectedNote.title}
                       onChange={(e) => handleUpdateNote('title', e.target.value)}
                       placeholder="Título de la nota..."
+                      style={{ flexGrow: 1 }}
                     />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       <button

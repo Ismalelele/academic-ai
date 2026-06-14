@@ -412,7 +412,7 @@ export default function ClasesGrabadas() {
           </div>
         </header>
 
-        <div className="notes-workspace" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '30px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div className={`notes-workspace ${selectedRecording ? 'has-selection' : ''}`} style={{ flex: 1, minHeight: 0 }}>
           <aside className="notes-sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <div className="notes-sidebar-header" style={{ marginBottom: '15px', flexShrink: 0 }}>
               <h3>Grabaciones ({recordings.length})</h3>
@@ -481,7 +481,7 @@ export default function ClasesGrabadas() {
             </div>
           </aside>
 
-          <section style={{ flexGrow: 1, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+          <section className="notes-details-section" style={{ flexGrow: 1, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
             {transcribing ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', gap: '15px' }}>
                 <Loader size={48} className="spinner" style={{ color: 'var(--primary)' }} />
@@ -497,11 +497,30 @@ export default function ClasesGrabadas() {
             ) : selectedRecording ? (
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                 <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>{selectedRecording.titulo}</h3>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Clase grabada el {new Date(selectedRecording.fecha_creacion).toLocaleString()}
-                    </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button 
+                      onClick={() => setSelectedRecording(null)}
+                      className="btn-secondary mobile-only"
+                      style={{
+                        display: 'none',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '8px',
+                        borderRadius: '50%',
+                        border: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        background: 'transparent',
+                        color: 'var(--text-main)'
+                      }}
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>{selectedRecording.titulo}</h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Clase grabada el {new Date(selectedRecording.fecha_creacion).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
