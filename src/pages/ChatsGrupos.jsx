@@ -16,6 +16,7 @@ import mammoth from 'mammoth';
 import { extractTextFromPptx } from '../utils/pptxParser';
 import { generateCustomQuiz } from '../utils/aiProcessor';
 import { addStudyMinutes } from '../utils/studyTracker';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
@@ -219,9 +220,9 @@ export default function ChatsGrupos() {
 
   const loadUserNotes = () => {
     if (!user || !activeGroup) return;
-    const saved = localStorage.getItem(`academic_notes_${user.id}_${activeGroup.asignatura}`);
+    const saved = getSafeLocalStorage(`academic_${user.id}_notes_${activeGroup.asignatura}`, user.id, null);
     if (saved) {
-      setUserNotes(JSON.parse(saved));
+      setUserNotes(saved);
     } else {
       setUserNotes([]);
     }
@@ -279,8 +280,8 @@ export default function ChatsGrupos() {
     const noteTitle = `Análisis de Pizarra - ${activeGroup.titulo}`;
     const subjectName = activeGroup.asignatura;
     
-    const savedNotes = localStorage.getItem(`academic_notes_${user.id}_${subjectName}`);
-    const currentNotes = savedNotes ? JSON.parse(savedNotes) : [];
+    const savedNotes = getSafeLocalStorage(`academic_${user.id}_notes_${subjectName}`, user.id, null);
+    const currentNotes = savedNotes ? savedNotes : [];
     
     const newNote = {
       id: `note-${Date.now()}`,
@@ -290,7 +291,7 @@ export default function ChatsGrupos() {
     };
     
     const updatedNotes = [newNote, ...currentNotes];
-    localStorage.setItem(`academic_notes_${user.id}_${subjectName}`, JSON.stringify(updatedNotes));
+    localStorage.setItem(`academic_${user.id}_notes_${subjectName}`, JSON.stringify(updatedNotes));
     alert(`¡El análisis ha sido guardado exitosamente como una nota en tu cuaderno de "${subjectName}"!`);
   };
 
@@ -2065,12 +2066,13 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     setAiAnalysis('');
     setShowAiPanel(false);
     
-    const localKey = `academic_board_${activeGroupId}`;
-    const localData = localStorage.getItem(localKey);
+    if (!user) return;
+    const localKey = `academic_${user.id}_board_${activeGroupId}`;
+    const localData = getSafeLocalStorage(localKey, user.id, null);
     let boardState = null;
     if (localData) {
       try {
-        boardState = JSON.parse(localData);
+        boardState = typeof localData === 'string' ? JSON.parse(localData) : localData;
         applyBoardState(boardState);
       } catch (err) {
         console.warn("Error parsing local board data:", err);
@@ -2125,7 +2127,9 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
     };
     
     const jsonStr = JSON.stringify(boardState);
-    localStorage.setItem(`academic_board_${activeGroupId}`, jsonStr);
+    if (user?.id) {
+      localStorage.setItem(`academic_${user.id}_board_${activeGroupId}`, jsonStr);
+    }
     
     if (supabase && activeGroupId && !isFallbackMode) {
       try {

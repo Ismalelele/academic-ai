@@ -40,6 +40,9 @@ export const AuthProvider = ({ children }) => {
         (_event, session) => {
           if (session?.user) {
             setUser(session.user);
+          } else {
+            setUser(null);
+            clearAllUserData();
           }
         }
       );
@@ -52,6 +55,58 @@ export const AuthProvider = ({ children }) => {
       if (subscriptionObj) subscriptionObj.unsubscribe();
     };
   }, []);
+
+  const clearAllUserData = async () => {
+    // Si hay una sesión local de respaldo activa, no la borramos a menos que sea un signOut explícito
+    if (localStorage.getItem('sb-local-session-user')) {
+      return;
+    }
+
+    console.log("[Auth] Iniciando limpieza total reactiva de almacenamiento y cachés...");
+    
+    // 1. Limpiar localStorage
+    try {
+      localStorage.clear();
+    } catch (e) {
+      console.warn("Error al limpiar localStorage:", e);
+    }
+
+    // 2. Limpiar sessionStorage
+    try {
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn("Error al limpiar sessionStorage:", e);
+    }
+
+    // 3. Eliminar base de datos IndexedDB 'AcademicAudioDB'
+    try {
+      if (window.indexedDB) {
+        window.indexedDB.deleteDatabase('AcademicAudioDB');
+      }
+    } catch (e) {
+      console.warn("Error al borrar IndexedDB:", e);
+    }
+
+    // 4. Limpiar Cache Storage
+    try {
+      if (window.caches) {
+        const cacheNames = await window.caches.keys();
+        await Promise.all(cacheNames.map(name => window.caches.delete(name)));
+      }
+    } catch (e) {
+      console.warn("Error al borrar Cache Storage:", e);
+    }
+
+    // 5. Desregistrar Service Workers
+    try {
+      if (navigator.serviceWorker) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        registrations.forEach(registration => registration.unregister());
+      }
+    } catch (e) {
+      console.warn("Error al desregistrar Service Workers:", e);
+    }
+  };
 
   const signInWithGoogle = async () => {
     try {
@@ -133,20 +188,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.warn("Error al intentar cerrar sesión en Supabase:", error);
     } finally {
-      setUser(null);
       localStorage.removeItem('sb-local-session-user');
-      try {
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.includes('supabase.auth'))) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-      } catch (storageErr) {
-        console.warn("No se pudo limpiar localStorage:", storageErr);
-      }
+      setUser(null);
+      await clearAllUserData();
     }
   };
 

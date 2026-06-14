@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useAuth } from '../context/AuthContext';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 import { marked } from 'marked';
 import { 
   GraduationCap, Plus, Trash2, Info, X, HelpCircle, 
@@ -166,11 +167,10 @@ export default function Calificaciones() {
 
   const getSubjectStatus = (subjectName) => {
     if (!user) return { color: '#94a3b8', label: 'Sin notas' };
-    const saved = localStorage.getItem(`academic_grades_${user.id}_${subjectName}`);
+    const saved = getSafeLocalStorage(`academic_${user.id}_grades_${subjectName}`, user.id, null);
     if (!saved) return { color: '#94a3b8', label: 'Sin notas' };
     try {
-      const rowsObj = JSON.parse(saved);
-      const valid = rowsObj.filter(r => {
+      const valid = saved.filter(r => {
         const noteVal = parseGrade(r.note);
         const weightVal = parseFloat(r.weight);
         return r.note !== '' && r.weight !== '' && !isNaN(noteVal) && noteVal >= 1.0 && noteVal <= 7.0 && !isNaN(weightVal);
@@ -252,9 +252,9 @@ Generado automáticamente por AcademicAI
   // Load grades from localStorage when subject or user changes
   useEffect(() => {
     if (user && activeSubject) {
-      const saved = localStorage.getItem(`academic_grades_${user.id}_${activeSubject}`);
+      const saved = getSafeLocalStorage(`academic_${user.id}_grades_${activeSubject}`, user.id, null);
       if (saved) {
-        setRows(JSON.parse(saved));
+        setRows(saved);
       } else {
         setRows([
           { id: '1', note: '', weight: '' },
@@ -269,7 +269,7 @@ Generado automáticamente por AcademicAI
   const saveRows = (updatedRows) => {
     setRows(updatedRows);
     if (user && activeSubject) {
-      localStorage.setItem(`academic_grades_${user.id}_${activeSubject}`, JSON.stringify(updatedRows));
+      localStorage.setItem(`academic_${user.id}_grades_${activeSubject}`, JSON.stringify(updatedRows));
     }
   };
 

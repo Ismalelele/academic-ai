@@ -4,10 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { transcribeAudio, generateRecordingSummary, askTranscriptAI } from '../utils/aiProcessor';
 import { addStudyMinutes } from '../utils/studyTracker';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 import { marked } from 'marked';
 import ysFixWebmDuration from 'fix-webm-duration';
-import { 
-  Book, ArrowLeft, Loader, Trash2, Mic, FileAudio, MessageSquare, 
+import {
+  Book, ArrowLeft, Loader, Trash2, Mic, FileAudio, MessageSquare,
   BookOpen, Brain, HelpCircle, Sparkles, Square, Play, Pause, Headphones
 } from 'lucide-react';
 
@@ -70,7 +71,7 @@ const generateUUID = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -84,16 +85,16 @@ export default function ClasesGrabadas() {
   const [activeSubject, setActiveSubject] = useState(null);
 
   const [customSubjects, setCustomSubjects] = useState(() => {
-    const saved = localStorage.getItem(`academic_custom_subjects_${user?.id || 'local'}`);
-    return saved ? JSON.parse(saved) : [];
+    if (!user) return [];
+    return getSafeLocalStorage(`academic_${user.id}_custom_subjects`, user.id, []);
   });
 
   useEffect(() => {
     if (user?.id) {
-      const saved = localStorage.getItem(`academic_custom_subjects_${user.id}`);
-      if (saved) {
-        setCustomSubjects(JSON.parse(saved));
-      }
+      const saved = getSafeLocalStorage(`academic_${user.id}_custom_subjects`, user.id, []);
+      setCustomSubjects(saved);
+    } else {
+      setCustomSubjects([]);
     }
   }, [user]);
 
@@ -158,10 +159,11 @@ export default function ClasesGrabadas() {
   }, [selectedRecording]);
 
   const loadRecordings = async () => {
+    if (!user?.id) return;
     // 1. Cargar desde localStorage
-    const localSaved = localStorage.getItem(`academic_recordings_${user.id}_${activeSubject}`);
+    const localSaved = getSafeLocalStorage(`academic_${user.id}_recordings_${activeSubject}`, user.id, null);
     if (localSaved) {
-      setRecordings(JSON.parse(localSaved));
+      setRecordings(localSaved);
     } else {
       setRecordings([]);
     }
@@ -178,7 +180,7 @@ export default function ClasesGrabadas() {
 
         if (!error && data) {
           setRecordings(data);
-          localStorage.setItem(`academic_recordings_${user.id}_${activeSubject}`, JSON.stringify(data));
+          localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(data));
         }
       } catch (err) {
         console.warn("Fallo al sincronizar grabaciones desde Supabase:", err);
@@ -188,18 +190,18 @@ export default function ClasesGrabadas() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
           sampleRate: 16000,
           echoCancellation: true,
           noiseSuppression: true
-        } 
+        }
       });
-      
+
       let options = { audioBitsPerSecond: 24000 };
       let mime = 'audio/webm';
-      
+
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
         mime = 'audio/webm;codecs=opus';
       } else if (MediaRecorder.isTypeSupported('audio/webm')) {
@@ -209,7 +211,7 @@ export default function ClasesGrabadas() {
       } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
         mime = 'audio/mp4';
       }
-      
+
       options.mimeType = mime;
       const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
@@ -224,7 +226,7 @@ export default function ClasesGrabadas() {
       recorder.onstop = async () => {
         const duration = Date.now() - recordingStartTimeRef.current;
         const rawBlob = new Blob(audioChunksRef.current, { type: mime });
-        
+
         let fixedBlob = rawBlob;
         if (mime.includes('webm')) {
           try {
@@ -233,8 +235,8 @@ export default function ClasesGrabadas() {
             console.error("Error fixing WebM duration:", fixErr);
           }
         }
-        
-        const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+
+        const defaultTitle = `Clase - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         const title = window.prompt("Ingresa un título para esta grabación de clase:", defaultTitle) || defaultTitle;
         await handleSaveAndProcess(rawBlob, fixedBlob, title);
       };
@@ -267,10 +269,10 @@ export default function ClasesGrabadas() {
     setTranscribing(true);
     try {
       const transcriptText = await transcribeAudio(rawBlob);
-      
+
       setAnalyzing(true);
       const aiMaterials = await generateRecordingSummary(transcriptText);
-      
+
       const newRecording = {
         id_grabacion: generateUUID(),
         user_id: user?.id || 'local-user',
@@ -297,7 +299,9 @@ export default function ClasesGrabadas() {
 
       const updatedRecordings = [newRecording, ...recordings];
       setRecordings(updatedRecordings);
-      localStorage.setItem(`academic_recordings_${user?.id || 'local'}_${activeSubject}`, JSON.stringify(updatedRecordings));
+      if (user?.id) {
+        localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(updatedRecordings));
+      }
       setSelectedRecording(newRecording);
       setRecordingTab('summary');
       setRecordingChatHistory([]);
@@ -327,7 +331,9 @@ export default function ClasesGrabadas() {
 
     const updatedRecordings = recordings.filter(rec => rec.id_grabacion !== id);
     setRecordings(updatedRecordings);
-    localStorage.setItem(`academic_recordings_${user.id}_${activeSubject}`, JSON.stringify(updatedRecordings));
+    if (user?.id) {
+      localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(updatedRecordings));
+    }
 
     if (selectedRecording?.id_grabacion === id) {
       setSelectedRecording(null);
@@ -377,7 +383,9 @@ export default function ClasesGrabadas() {
     }
     const updated = [...customSubjects, trimmed];
     setCustomSubjects(updated);
-    localStorage.setItem(`academic_custom_subjects_${user?.id || 'local'}`, JSON.stringify(updated));
+    if (user?.id) {
+      localStorage.setItem(`academic_${user.id}_custom_subjects`, JSON.stringify(updated));
+    }
   };
 
   const getColorType = (title) => {
@@ -392,14 +400,14 @@ export default function ClasesGrabadas() {
   // 2. Recordings Workspace view (Active Subject)
   if (activeSubject) {
     return (
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 80px)', overflow: 'hidden' }}>
+      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <button 
+            <button
               onClick={() => {
                 setActiveSubject(null);
                 setSelectedRecording(null);
-              }} 
+              }}
               className="btn-secondary"
               style={{
                 display: 'flex',
@@ -460,8 +468,8 @@ export default function ClasesGrabadas() {
                 </div>
               ) : (
                 recordings.map(rec => (
-                  <div 
-                    key={rec.id_grabacion} 
+                  <div
+                    key={rec.id_grabacion}
                     className={`note-item ${selectedRecording?.id_grabacion === rec.id_grabacion ? 'active' : ''}`}
                     onClick={() => {
                       setSelectedRecording(rec);
@@ -479,8 +487,8 @@ export default function ClasesGrabadas() {
                         {new Date(rec.fecha_creacion).toLocaleDateString()}
                       </div>
                     </div>
-                    <button 
-                      onClick={(e) => handleDeleteRecording(e, rec.id_grabacion)} 
+                    <button
+                      onClick={(e) => handleDeleteRecording(e, rec.id_grabacion)}
                       className="btn-delete-note"
                       style={{ opacity: 0.6, cursor: 'pointer', border: 'none', background: 'transparent' }}
                     >
@@ -499,8 +507,8 @@ export default function ClasesGrabadas() {
                 <div style={{ textAlign: 'center' }}>
                   <h3>{analyzing ? 'Generando materiales de estudio con IA...' : 'Transcribiendo audio de la clase...'}</h3>
                   <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>
-                    {analyzing 
-                      ? 'Groq está construyendo el resumen, conceptos clave, cuestionarios y flashcards...' 
+                    {analyzing
+                      ? 'Groq está construyendo el resumen, conceptos clave, cuestionarios y flashcards...'
                       : 'Groq Whisper está procesando el archivo de voz para generar el texto completo...'}
                   </p>
                 </div>
@@ -509,7 +517,7 @@ export default function ClasesGrabadas() {
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                 <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button 
+                    <button
                       onClick={() => setSelectedRecording(null)}
                       className="btn-secondary mobile-only"
                       style={{
@@ -564,15 +572,15 @@ export default function ClasesGrabadas() {
                         <Headphones size={20} />
                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reproductor</span>
                       </div>
-                      <audio 
-                        controls 
-                        src={audioSrc} 
-                        style={{ 
-                          height: '46px', 
+                      <audio
+                        controls
+                        src={audioSrc}
+                        style={{
+                          height: '46px',
                           outline: 'none',
                           flexGrow: 1,
                           width: '100%'
-                        }} 
+                        }}
                       />
                     </div>
                   </div>
@@ -740,8 +748,8 @@ export default function ClasesGrabadas() {
                   {recordingTab === 'flashcards' && selectedRecording.flashcards && selectedRecording.flashcards.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', padding: '20px 0' }}>
                       <h4 style={{ margin: 0 }}>Tarjetas de Estudio Interactivas (Repaso Activo)</h4>
-                      
-                      <div 
+
+                      <div
                         onClick={() => {
                           setRecordingFlashcardFlipped(!recordingFlashcardFlipped);
                           if (!recordingFlashcardFlipped) {
@@ -849,7 +857,7 @@ export default function ClasesGrabadas() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary)' }}>
                     <MessageSquare size={14} /> Asistente de Grabación RAG
                   </div>
-                  
+
                   {recordingChatHistory.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '120px', overflowY: 'auto', padding: '5px', background: 'rgba(0,0,0,0.01)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                       {recordingChatHistory.map((msg, idx) => (
@@ -892,10 +900,10 @@ export default function ClasesGrabadas() {
                         outline: 'none'
                       }}
                     />
-                    <button 
-                      type="submit" 
-                      className="btn-primary" 
-                      disabled={!recordingChatInput.trim() || recordingChatLoading} 
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={!recordingChatInput.trim() || recordingChatLoading}
                       style={{ padding: '10px 15px', borderRadius: '8px' }}
                     >
                       Preguntar
@@ -923,7 +931,7 @@ export default function ClasesGrabadas() {
           <h1 className="page-title">Clases Grabadas</h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>Transcribe y analiza tus apuntes y grabaciones por asignatura</p>
         </div>
-        <button 
+        <button
           onClick={handleAddCustomSubject}
           className="btn-primary"
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '10px' }}
@@ -936,8 +944,8 @@ export default function ClasesGrabadas() {
         {uniqueSubjects.map((sub, index) => {
           const colorType = getColorType(sub);
           return (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className="notebook-card"
               onClick={() => setActiveSubject(sub)}
             >

@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { useSchedule } from './ScheduleContext';
 import { useTasks } from './TaskContext';
 import { scheduleAiNotifications } from '../utils/aiProcessor';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 
 const NotificationContext = createContext();
 
@@ -261,10 +262,10 @@ export const NotificationProvider = ({ children }) => {
       }
 
       // 3.2 Revisar Alertas Calendarizadas por la IA
-      const savedAiAlerts = localStorage.getItem(`academic_ai_scheduled_alerts_${user.id}`);
+      const savedAiAlerts = getSafeLocalStorage(`academic_${user.id}_ai_scheduled_alerts`, user.id, null);
       if (savedAiAlerts) {
         try {
-          let alerts = JSON.parse(savedAiAlerts);
+          let alerts = savedAiAlerts;
           let updated = false;
           
           alerts.forEach(alert => {
@@ -276,7 +277,7 @@ export const NotificationProvider = ({ children }) => {
           });
           
           if (updated) {
-            localStorage.setItem(`academic_ai_scheduled_alerts_${user.id}`, JSON.stringify(alerts));
+            localStorage.setItem(`academic_${user.id}_ai_scheduled_alerts`, JSON.stringify(alerts));
           }
         } catch (e) {
           console.error("Error checking AI scheduled alerts:", e);

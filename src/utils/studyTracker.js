@@ -1,3 +1,5 @@
+import { getSafeLocalStorage } from './storageSecurity';
+
 export const getLocalDateString = (date = new Date()) => {
   const offset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -5,8 +7,9 @@ export const getLocalDateString = (date = new Date()) => {
 };
 
 const initializeStudyData = (userId) => {
-  const key = `academic_study_minutes_${userId}`;
-  const saved = localStorage.getItem(key);
+  if (!userId) return {};
+  const key = `academic_${userId}_study_minutes`;
+  const saved = getSafeLocalStorage(key, userId, null);
   if (!saved) {
     const mockData = {};
     const now = new Date();
@@ -26,16 +29,12 @@ const initializeStudyData = (userId) => {
     localStorage.setItem(key, JSON.stringify(mockData));
     return mockData;
   }
-  try {
-    return JSON.parse(saved);
-  } catch (e) {
-    return {};
-  }
+  return saved;
 };
 
 export const addStudyMinutes = (userId, minutes) => {
   if (!userId) return;
-  const key = `academic_study_minutes_${userId}`;
+  const key = `academic_${userId}_study_minutes`;
   const todayStr = getLocalDateString();
   
   const data = initializeStudyData(userId);

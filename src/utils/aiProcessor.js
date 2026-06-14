@@ -804,7 +804,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
 export const scheduleAiNotifications = async (userId, schedule = [], tasks = [], studyBlocks = []) => {
   if (!userId) return [];
-  const key = `academic_ai_scheduled_alerts_${userId}`;
+  const key = `academic_${userId}_ai_scheduled_alerts`;
   const now = new Date();
   
   // Try to generate via Groq if API Key is available

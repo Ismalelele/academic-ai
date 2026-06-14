@@ -6,6 +6,7 @@ import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { getWeeklyStudyHours, getHistoricalWeeklyAverage } from '../utils/studyTracker';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 
 const parseGrade = (val) => {
   if (!val) return 0;
@@ -73,14 +74,13 @@ export default function Home() {
 
   const [manualAverages, setManualAverages] = useState(() => {
     if (!user) return {};
-    const saved = localStorage.getItem(`academic_manual_averages_${user.id}`);
-    return saved ? JSON.parse(saved) : {};
+    return getSafeLocalStorage(`academic_${user.id}_manual_averages`, user.id, {});
   });
 
   const saveManualAverages = (updated) => {
     setManualAverages(updated);
     if (user) {
-      localStorage.setItem(`academic_manual_averages_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_manual_averages`, JSON.stringify(updated));
     }
   };
 
@@ -96,6 +96,15 @@ export default function Home() {
       setActiveCursor(null);
     }
   }, [manualAverages, activeCursor]);
+
+  useEffect(() => {
+    if (user?.id) {
+      const saved = getSafeLocalStorage(`academic_${user.id}_manual_averages`, user.id, {});
+      setManualAverages(saved);
+    } else {
+      setManualAverages({});
+    }
+  }, [user]);
 
   const handleAverageChange = (subject, value, e) => {
     const originalVal = manualAverages[subject] || '';
@@ -159,10 +168,9 @@ export default function Home() {
     if (!user || !subjects || subjects.length === 0) return 0;
     let count = 0;
     subjects.forEach(subjectName => {
-      const saved = localStorage.getItem(`academic_grades_${user.id}_${subjectName}`);
+      const saved = getSafeLocalStorage(`academic_${user.id}_grades_${subjectName}`, user.id, null);
       if (saved) {
-        const rows = JSON.parse(saved);
-        rows.forEach(r => {
+        saved.forEach(r => {
           if (r.note && r.weight && !isNaN(parseFloat(r.note)) && !isNaN(parseFloat(r.weight))) {
             count++;
           }
@@ -193,11 +201,10 @@ export default function Home() {
 
   const getQuizStats = () => {
     if (!user) return { count: 0, avg: 0 };
-    const saved = localStorage.getItem(`quiz_stats_${user.id}`);
+    const saved = getSafeLocalStorage(`academic_${user.id}_quiz_stats`, user.id, null);
     if (!saved) return { count: 0, avg: 0 };
-    const stats = JSON.parse(saved);
-    const avg = stats.totalQuestions > 0 ? (stats.totalScore / stats.totalQuestions) * 100 : 0;
-    return { count: stats.count, avg };
+    const avg = saved.totalQuestions > 0 ? (saved.totalScore / saved.totalQuestions) * 100 : 0;
+    return { count: saved.count, avg };
   };
   const quizStats = getQuizStats();
 
@@ -304,10 +311,9 @@ export default function Home() {
     if (!user || !subjects || subjects.length === 0) return [];
     const allGrades = [];
     subjects.forEach(subjectName => {
-      const saved = localStorage.getItem(`academic_grades_${user.id}_${subjectName}`);
+      const saved = getSafeLocalStorage(`academic_${user.id}_grades_${subjectName}`, user.id, null);
       if (saved) {
-        const rows = JSON.parse(saved);
-        rows.forEach(r => {
+        saved.forEach(r => {
           const noteVal = parseGrade(r.note);
           if (r.note && r.weight && !isNaN(noteVal) && noteVal >= 1.0 && noteVal <= 7.0 && !isNaN(parseFloat(r.weight))) {
             allGrades.push({

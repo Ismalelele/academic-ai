@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { generateToolSuggestions, generateQuizFromNotes } from '../utils/aiProcessor';
 import { addStudyMinutes } from '../utils/studyTracker';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 import { marked } from 'marked';
 import { 
   Book, BookOpen, Plus, Trash2, ArrowLeft, Save, 
@@ -76,9 +77,9 @@ export default function Apuntes() {
   // Load notes when changing subject
   useEffect(() => {
     if (user && activeSubject) {
-      const savedNotes = localStorage.getItem(`academic_notes_${user.id}_${activeSubject}`);
+      const savedNotes = getSafeLocalStorage(`academic_${user.id}_notes_${activeSubject}`, user.id, null);
       if (savedNotes) {
-        setNotes(JSON.parse(savedNotes));
+        setNotes(savedNotes);
       } else {
         setNotes([]);
       }
@@ -240,7 +241,7 @@ export default function Apuntes() {
   const saveNotes = (updatedNotes) => {
     setNotes(updatedNotes);
     if (user && activeSubject) {
-      localStorage.setItem(`academic_notes_${user.id}_${activeSubject}`, JSON.stringify(updatedNotes));
+      localStorage.setItem(`academic_${user.id}_notes_${activeSubject}`, JSON.stringify(updatedNotes));
     }
   };
 
@@ -371,11 +372,11 @@ export default function Apuntes() {
     setIsToolsOpen(true);
     setToolsError(null);
 
-    const cacheKey = `ai_tools_${user.id}_${activeSubject}`;
-    const cached = localStorage.getItem(cacheKey);
+    const cacheKey = `academic_${user.id}_ai_tools_${activeSubject}`;
+    const cached = getSafeLocalStorage(cacheKey, user.id, null);
 
     if (cached) {
-      setTools(JSON.parse(cached));
+      setTools(cached);
       return;
     }
 
@@ -400,9 +401,9 @@ export default function Apuntes() {
     const score = quizQuestions.reduce((acc, q, i) => acc + (userAnswers[i] === q.respuestaCorrecta ? 1 : 0), 0);
     const total = quizQuestions.length;
     if (user) {
-      const historyKey = `quiz_stats_${user.id}`;
-      const saved = localStorage.getItem(historyKey);
-      const stats = saved ? JSON.parse(saved) : { count: 0, totalScore: 0, totalQuestions: 0 };
+      const historyKey = `academic_${user.id}_quiz_stats`;
+      const saved = getSafeLocalStorage(historyKey, user.id, null);
+      const stats = saved ? saved : { count: 0, totalScore: 0, totalQuestions: 0 };
       stats.count += 1;
       stats.totalScore += score;
       stats.totalQuestions += total;

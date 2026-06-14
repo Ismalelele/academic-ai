@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 
 export const calculatePriorityScore = (task) => {
   let score = 0;
@@ -66,14 +67,14 @@ export const TaskProvider = ({ children }) => {
             updated: true
           };
           const newPrev = [updatedLast, ...prev.slice(1)];
-          localStorage.setItem(`activity_log_${user.id}`, JSON.stringify(newPrev));
+          localStorage.setItem(`academic_${user.id}_activity_log`, JSON.stringify(newPrev));
           return newPrev;
         }
       }
 
       const newLog = { id: Date.now(), action, taskTitle, timestamp: new Date().toISOString() };
       const updated = [newLog, ...prev].slice(0, 50);
-      localStorage.setItem(`activity_log_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_activity_log`, JSON.stringify(updated));
       return updated;
     });
   };
@@ -87,9 +88,9 @@ export const TaskProvider = ({ children }) => {
       return;
     }
     
-    const savedLog = localStorage.getItem(`activity_log_${user.id}`);
+    const savedLog = getSafeLocalStorage(`academic_${user.id}_activity_log`, user.id, null);
     if (savedLog) {
-      setActivityLog(JSON.parse(savedLog));
+      setActivityLog(savedLog);
     } else {
       setActivityLog([]);
     }
@@ -97,8 +98,8 @@ export const TaskProvider = ({ children }) => {
     const fetchTasks = async () => {
       setIsLoading(true);
       if (user.id.startsWith('user-local-')) {
-        const savedTasks = localStorage.getItem(`academic_tasks_${user.id}`);
-        setTasks(savedTasks ? JSON.parse(savedTasks) : []);
+        const savedTasks = getSafeLocalStorage(`academic_${user.id}_tasks`, user.id, null);
+        setTasks(savedTasks ? savedTasks : []);
         setIsLoading(false);
         return;
       }
@@ -129,13 +130,13 @@ export const TaskProvider = ({ children }) => {
             return taskObj;
           });
           setTasks(formattedTasks);
-          localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(formattedTasks));
+          localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(formattedTasks));
         }
       } catch (error) {
         console.warn("Fallo al conectar con Supabase para tareas. Usando respaldo local. Error:", error?.message || error, "Código:", error?.code || 'N/A');
-        const savedTasks = localStorage.getItem(`academic_tasks_${user.id}`);
+        const savedTasks = getSafeLocalStorage(`academic_${user.id}_tasks`, user.id, null);
         if (savedTasks) {
-          setTasks(JSON.parse(savedTasks));
+          setTasks(savedTasks);
         } else {
           setTasks([]);
         }
@@ -166,7 +167,7 @@ export const TaskProvider = ({ children }) => {
     // Actualizar estado local e historial inmediatamente
     setTasks(prev => {
       const updated = [...prev, localNewTask];
-      localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(updated));
       return updated;
     });
     addActivity("Creó la tarea", localNewTask.title);
@@ -207,7 +208,7 @@ export const TaskProvider = ({ children }) => {
         // Reemplazar la tarea temporal local con los datos de Supabase (especialmente el id_tarea)
         setTasks(prev => {
           const replaced = prev.map(t => t.id === localNewTask.id ? dbTask : t);
-          localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(replaced));
+          localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(replaced));
           return replaced;
         });
         return dbTask;
@@ -226,7 +227,7 @@ export const TaskProvider = ({ children }) => {
     // Actualizar localmente rápido (Optimistic UI)
     setTasks(prev => {
       const updated = prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
-      localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(updated));
       return updated;
     });
 
@@ -264,7 +265,7 @@ export const TaskProvider = ({ children }) => {
     addActivity("Eliminó la tarea", taskTitle);
     setTasks(prev => {
       const updated = prev.filter(t => t.id !== taskId);
-      localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(updated));
       return updated;
     });
 
@@ -295,7 +296,7 @@ export const TaskProvider = ({ children }) => {
     addActivity("Eliminó", `${taskIds.length} tareas`);
     setTasks(prev => {
       const updated = prev.filter(t => !taskIds.includes(t.id));
-      localStorage.setItem(`academic_tasks_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(updated));
       return updated;
     });
 

@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { 
+import {
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, BellRing,
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
   ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic, ChevronUp, ChevronDown
@@ -37,7 +37,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   };
   const { effectiveSchedule } = useSchedule();
   const { tasks } = useTasks();
-  
+
   const notifRef = useRef();
   const chatbotRef = useRef();
   const chatbotBodyRef = useRef();
@@ -84,14 +84,14 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
     if (hasAvatar) {
       return (
-        <img 
-          src={avatarUrl} 
-          alt="Avatar" 
-          style={{ 
-            width: size, 
-            height: size, 
-            borderRadius: '50%', 
-            objectFit: 'cover', 
+        <img
+          src={avatarUrl}
+          alt="Avatar"
+          style={{
+            width: size,
+            height: size,
+            borderRadius: '50%',
+            objectFit: 'cover',
             border: '2px solid var(--primary)',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             transition: 'all 0.2s',
@@ -103,7 +103,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
     const gradient = isGradient ? avatarUrl : 'linear-gradient(135deg, #8b5cf6, #38bdf8)';
     return (
-      <div 
+      <div
         style={{
           width: size,
           height: size,
@@ -144,10 +144,10 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       setProfileStatus({ text: "El nombre no puede estar vacío", type: "error" });
       return;
     }
-    
+
     setIsSavingProfile(true);
     setProfileStatus(null);
-    
+
     const { data, error } = await updateProfile({
       full_name: profileName,
       carrera: profileCarrera,
@@ -156,9 +156,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       anio_ingreso: profileAnio,
       bio: profileBio
     });
-    
+
     setIsSavingProfile(false);
-    
+
     if (error) {
       setProfileStatus({ text: "Error al guardar: " + error.message, type: "error" });
     } else {
@@ -254,13 +254,13 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     if (!chatInput.trim() || isChatting) return;
-    
+
     const userText = chatInput;
     setChatInput('');
     setChatHistory(prev => [...prev, { sender: 'user', text: userText }]);
     setIsChatting(true);
     addStudyMinutes(user?.id, 2); // 2 active cognitive minutes per chat interaction
-    
+
     try {
       const taskNames = activeTasks.length > 0 ? activeTasks.map(t => t.title).join(', ') : 'Ninguna';
       const context = `El usuario tiene ${activeTasks.length} tareas pendientes (${taskNames}) y ${completedTasksCount} completadas.`;
@@ -276,7 +276,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const getIconForType = (type) => {
     if (!type) return '💡';
     const prefix = type.split(':')[0];
-    switch(prefix) {
+    switch (prefix) {
       case 'clase': return '📚';
       case 'urgente': return '⚠️';
       case 'tarea': return '📝';
@@ -318,7 +318,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
   const formatDate = (isoString) => {
     const d = new Date(isoString);
-    return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' - ' + d.toLocaleDateString();
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString();
   };
 
   const renderNotificationPanel = () => (
@@ -336,7 +336,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
             return (
               <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'}`}>
                 <div className="notification-icon">{getIconForType(n.type)}</div>
-                <div 
+                <div
                   className="notification-content"
                   style={{ cursor: isClickable ? 'pointer' : 'default' }}
                   onClick={() => isClickable && handleNotificationClick(n)}
@@ -372,7 +372,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
       {/* Navigation Scroll Wrap */}
       <div className="nav-scroll-wrap">
-        
+
         {/* Links Navigation */}
         <ul className="nav-links" ref={navLinksRef} style={{ overflow: 'visible' }}>
           {/* Dashboard */}
@@ -384,7 +384,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
           {/* Académico */}
           <li className="nav-dropdown-container" ref={academicoRef} style={{ position: 'relative' }}>
-            <button 
+            <button
               className={`nav-dropdown-trigger ${isAcademicoActive ? 'active' : ''} ${activeDropdown === 'academico' ? 'open' : ''}`}
               onClick={() => handleDropdownToggle('academico')}
               style={{
@@ -441,7 +441,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
           {/* IA */}
           <li className="nav-dropdown-container" ref={iaRef} style={{ position: 'relative' }}>
-            <button 
+            <button
               className={`nav-dropdown-trigger ${isIaActive ? 'active' : ''} ${activeDropdown === 'ia' ? 'open' : ''}`}
               onClick={() => handleDropdownToggle('ia')}
               style={{
@@ -481,7 +481,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
           {/* Comunidad */}
           <li className="nav-dropdown-container" ref={comunidadRef} style={{ position: 'relative' }}>
-            <button 
+            <button
               className={`nav-dropdown-trigger ${isComunidadActive ? 'active' : ''} ${activeDropdown === 'comunidad' ? 'open' : ''}`}
               onClick={() => handleDropdownToggle('comunidad')}
               style={{
@@ -524,7 +524,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
       {/* Bottom Bar Actions (Right side) */}
       <div className="dock-actions">
-        
+
         {/* Theme Toggle */}
         <div className="theme-toggle" onClick={() => { toggleTheme(); closeMenu(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
           {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -532,12 +532,12 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
         {/* Notifications Bell */}
         <div className="dock-notification-container" ref={notifRef} style={{ position: 'relative' }}>
-          <button 
+          <button
             className={`dock-action-btn ${unreadCount > 0 ? 'pulse-alert' : ''}`}
-            onClick={() => { 
-              setShowNotifications(!showNotifications); 
-              setShowChatbot(false); 
-              setShowProfilePopover(false); 
+            onClick={() => {
+              setShowNotifications(!showNotifications);
+              setShowChatbot(false);
+              setShowProfilePopover(false);
             }}
             title="Notificaciones"
             style={{
@@ -589,12 +589,12 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               ¿Preguntas? ¡Escríbeme!
             </div>
           )}
-          <button 
+          <button
             className={`dock-action-btn ${showChatbot ? 'active' : ''}`}
-            onClick={() => { 
-              handleToggleChatbot(); 
-              setShowNotifications(false); 
-              setShowProfilePopover(false); 
+            onClick={() => {
+              handleToggleChatbot();
+              setShowNotifications(false);
+              setShowProfilePopover(false);
             }}
             title="Asistente de Inteligencia Artificial"
             style={{
@@ -630,7 +630,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   <X size={16} />
                 </button>
               </div>
-              
+
               <div className="chatbot-body" ref={chatbotBodyRef}>
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={`chatbot-bubble ${msg.sender === 'user' ? 'user' : 'ai'}`}>
@@ -647,9 +647,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               </div>
 
               <form className="chatbot-footer" onSubmit={handleChatSubmit}>
-                <input 
-                  type="text" 
-                  placeholder="Pregúntame algo..." 
+                <input
+                  type="text"
+                  placeholder="Pregúntame algo..."
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   disabled={isChatting}
@@ -665,7 +665,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         {/* User Profile popover trigger */}
         {user && (
           <div className="user-profile-dock" ref={profileRef} style={{ position: 'relative' }}>
-            <button 
+            <button
               onClick={() => {
                 setShowProfilePopover(!showProfilePopover);
                 setShowNotifications(false);
@@ -683,9 +683,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               }}
               title={user.user_metadata?.full_name || 'Perfil'}
             >
-              <div 
-                style={{ 
-                  borderRadius: '50%', 
+              <div
+                style={{
+                  borderRadius: '50%',
                   transition: 'all 0.2s',
                   display: 'flex',
                   alignItems: 'center',
@@ -714,8 +714,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   </div>
                 </div>
                 <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
-                <button 
-                  onClick={openSettingsModal} 
+                <button
+                  onClick={openSettingsModal}
                   style={{
                     background: 'rgba(139, 92, 246, 0.08)',
                     border: '1px solid rgba(139, 92, 246, 0.2)',
@@ -737,8 +737,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 >
                   <Settings size={14} /> Configurar Perfil
                 </button>
-                <button 
-                  onClick={signOut} 
+                <button
+                  onClick={signOut}
                   style={{
                     background: 'rgba(239, 68, 68, 0.08)',
                     border: '1px solid rgba(239, 68, 68, 0.2)',
@@ -783,7 +783,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           WebkitBackdropFilter: 'blur(5px)'
         }}>
           <div className="premium-modal" style={{ maxWidth: '480px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <button 
+            <button
               onClick={() => setShowSettingsModal(false)}
               style={{
                 position: 'absolute',
@@ -805,7 +805,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
             <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px', marginBottom: '15px' }}>
-                
+
                 {/* Avatar Picker */}
                 <div className="form-group-premium" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                   <label style={{ width: '100%', textAlign: 'left' }}>Foto de Perfil</label>
@@ -826,11 +826,11 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                       boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                     }}>
                       <Camera size={14} />
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleAvatarUpload} 
-                        style={{ display: 'none' }} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        style={{ display: 'none' }}
                       />
                     </label>
                   </div>
@@ -839,7 +839,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selecciona un degradado premium:</span>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                       {presetGradients.map((grad, i) => (
-                        <div 
+                        <div
                           key={i}
                           onClick={() => setProfileAvatar(grad)}
                           style={{
@@ -859,7 +859,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>O ingresa una URL de imagen externa:</span>
-                      <input 
+                      <input
                         type="text"
                         className="premium-input"
                         style={{ paddingLeft: '10px', fontSize: '0.8rem' }}
@@ -874,8 +874,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 {/* Nombre Completo */}
                 <div className="form-group-premium">
                   <label>Nombre Completo</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="premium-input"
                     style={{ paddingLeft: '15px' }}
                     placeholder="Ej: Ismael Pérez"
@@ -888,8 +888,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 {/* Carrera */}
                 <div className="form-group-premium">
                   <label>Carrera / Especialidad</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="premium-input"
                     style={{ paddingLeft: '15px' }}
                     placeholder="Ej: Ingeniería Civil Informática"
@@ -901,8 +901,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 {/* Universidad */}
                 <div className="form-group-premium">
                   <label>Universidad / Institución</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="premium-input"
                     style={{ paddingLeft: '15px' }}
                     placeholder="Ej: Universidad de Chile"
@@ -948,25 +948,25 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', marginTop: '8px' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Notificar tareas urgentes a las:</span>
-                    <input 
-                      type="time" 
-                      value={dailyAlertTime} 
+                    <input
+                      type="time"
+                      value={dailyAlertTime}
                       onChange={(e) => {
                         setDailyAlertTime(e.target.value);
                         showToast(`Alarma programada para las ${e.target.value}`);
-                      }} 
-                      style={{ 
-                        padding: '6px 10px', 
-                        borderRadius: '8px', 
-                        border: '2px solid var(--primary)', 
-                        background: 'transparent', 
-                        color: 'var(--text-main)', 
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        border: '2px solid var(--primary)',
+                        background: 'transparent',
+                        color: 'var(--text-main)',
                         fontFamily: 'inherit',
                         fontWeight: 'bold',
                         fontSize: '1.1rem',
                         cursor: 'pointer',
                         outline: 'none'
-                      }} 
+                      }}
                       title="Configurar hora de alerta automática"
                     />
                   </div>
@@ -992,7 +992,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowSettingsModal(false)}
                   className="btn-secondary"
@@ -1000,15 +1000,15 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 >
                   Cancelar
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="btn-primary"
                   disabled={isSavingProfile}
-                  style={{ 
-                    flex: 1, 
-                    padding: '12px', 
-                    borderRadius: '10px', 
-                    fontWeight: 'bold', 
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    fontWeight: 'bold',
                     cursor: 'pointer',
                     background: 'var(--primary)',
                     border: 'none',

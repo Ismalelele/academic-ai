@@ -3,6 +3,7 @@ import { processScheduleImage } from '../utils/aiVisionProcessor';
 import { generateStudyPlan } from '../utils/aiProcessor';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { getSafeLocalStorage } from '../utils/storageSecurity';
 
 export const predefBlocks = [
   { index: 1, start: '08:15', end: '08:55', startH: 8, startM: 15, endH: 8, endM: 55 },
@@ -45,19 +46,19 @@ export const ScheduleProvider = ({ children }) => {
       return;
     }
     
-    const savedBlocks = localStorage.getItem(`studyBlocks_${user.id}`);
+    const savedBlocks = getSafeLocalStorage(`academic_${user.id}_study_blocks`, user.id, null);
     if (savedBlocks) {
-      setStudyBlocks(JSON.parse(savedBlocks));
+      setStudyBlocks(savedBlocks);
     } else {
       setStudyBlocks([]);
     }
 
     const fetchSchedule = async () => {
       if (user.id.startsWith('user-local-')) {
-        const localSchedule = localStorage.getItem(`academic_schedule_${user.id}`);
-        setSchedule(localSchedule ? JSON.parse(localSchedule) : null);
-        const localExceptions = localStorage.getItem(`academic_exceptions_${user.id}`);
-        setExceptions(localExceptions ? JSON.parse(localExceptions) : []);
+        const localSchedule = getSafeLocalStorage(`academic_${user.id}_schedule`, user.id, null);
+        setSchedule(localSchedule);
+        const localExceptions = getSafeLocalStorage(`academic_${user.id}_exceptions`, user.id, null);
+        setExceptions(localExceptions ? localExceptions : []);
         return;
       }
       try {
@@ -99,7 +100,7 @@ export const ScheduleProvider = ({ children }) => {
               };
             });
             setSchedule(formattedSchedule);
-            localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(formattedSchedule));
+            localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(formattedSchedule));
           }
 
           // Cargar excepciones
@@ -112,24 +113,24 @@ export const ScheduleProvider = ({ children }) => {
 
           if (excData) {
             setExceptions(excData);
-            localStorage.setItem(`academic_exceptions_${user.id}`, JSON.stringify(excData));
+            localStorage.setItem(`academic_${user.id}_exceptions`, JSON.stringify(excData));
           }
         } else {
           setSchedule(null);
-          localStorage.removeItem(`academic_schedule_${user.id}`);
+          localStorage.removeItem(`academic_${user.id}_schedule`);
         }
       } catch (error) {
         console.warn("Fallo al conectar con Supabase. Usando horario local de respaldo. Error:", error?.message || error, "Código:", error?.code || 'N/A');
-        const localSchedule = localStorage.getItem(`academic_schedule_${user.id}`);
+        const localSchedule = getSafeLocalStorage(`academic_${user.id}_schedule`, user.id, null);
         if (localSchedule) {
-          setSchedule(JSON.parse(localSchedule));
+          setSchedule(localSchedule);
         } else {
           setSchedule(null);
         }
 
-        const localExceptions = localStorage.getItem(`academic_exceptions_${user.id}`);
+        const localExceptions = getSafeLocalStorage(`academic_${user.id}_exceptions`, user.id, null);
         if (localExceptions) {
-          setExceptions(JSON.parse(localExceptions));
+          setExceptions(localExceptions);
         } else {
           setExceptions([]);
         }
@@ -174,7 +175,7 @@ export const ScheduleProvider = ({ children }) => {
   // Sync studyBlocks to localStorage
   useEffect(() => {
     if (user) {
-      localStorage.setItem(`studyBlocks_${user.id}`, JSON.stringify(studyBlocks));
+      localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(studyBlocks));
     }
   }, [studyBlocks, user]);
 
@@ -192,7 +193,7 @@ export const ScheduleProvider = ({ children }) => {
 
     setExceptions(prev => {
       const updated = [...prev, localNewException];
-      localStorage.setItem(`academic_exceptions_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_exceptions`, JSON.stringify(updated));
       return updated;
     });
 
@@ -212,7 +213,7 @@ export const ScheduleProvider = ({ children }) => {
       if (!error && data) {
         setExceptions(prev => {
           const replaced = prev.map(e => e.id_excepcion === localNewException.id_excepcion ? data : e);
-          localStorage.setItem(`academic_exceptions_${user.id}`, JSON.stringify(replaced));
+          localStorage.setItem(`academic_${user.id}_exceptions`, JSON.stringify(replaced));
           return replaced;
         });
       }
@@ -229,7 +230,7 @@ export const ScheduleProvider = ({ children }) => {
       const updated = prev.filter(e => 
         !(e.id_bloque === bloqueId && e.fecha_excepcion === dateString && e.tipo_excepcion === 'suspension')
       );
-      localStorage.setItem(`academic_exceptions_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`academic_${user.id}_exceptions`, JSON.stringify(updated));
       return updated;
     });
 
@@ -363,11 +364,11 @@ export const ScheduleProvider = ({ children }) => {
           });
 
           setSchedule(dbSchedule);
-          localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(dbSchedule));
+          localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(dbSchedule));
         } catch (dbError) {
           console.warn("Fallo al guardar horario en Supabase, guardando en localStorage local de respaldo:", dbError);
           setSchedule(finalSchedule);
-          localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(finalSchedule));
+          localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(finalSchedule));
         }
       }
     } catch (error) {
@@ -394,7 +395,7 @@ export const ScheduleProvider = ({ children }) => {
 
     if (user.id.startsWith('user-local-')) {
       setSchedule(formattedSchedule);
-      localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(formattedSchedule));
+      localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(formattedSchedule));
       return true;
     }
 
@@ -446,23 +447,23 @@ export const ScheduleProvider = ({ children }) => {
         });
 
         setSchedule(dbSchedule);
-        localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(dbSchedule));
+        localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(dbSchedule));
       } else {
         setSchedule([]);
-        localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify([]));
+        localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify([]));
       }
       return true;
     } catch (error) {
       console.warn("Fallo al guardar el horario en Supabase, guardando en local como respaldo:", error);
       setSchedule(formattedSchedule);
-      localStorage.setItem(`academic_schedule_${user.id}`, JSON.stringify(formattedSchedule));
+      localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(formattedSchedule));
       return true;
     }
   };
 
   const clearSchedule = async () => {
     if (user) {
-      localStorage.removeItem(`academic_schedule_${user.id}`);
+      localStorage.removeItem(`academic_${user.id}_schedule`);
       try {
         await supabase.from('horarios').delete().eq('user_id', user.id);
       } catch (e) {
@@ -507,7 +508,7 @@ export const ScheduleProvider = ({ children }) => {
     if (!pendingTasks || pendingTasks.length === 0) {
       setStudyBlocks([]);
       if (user) {
-        localStorage.removeItem(`studyBlocks_${user.id}`);
+        localStorage.removeItem(`academic_${user.id}_study_blocks`);
       }
       return;
     }
@@ -606,7 +607,7 @@ export const ScheduleProvider = ({ children }) => {
         });
         setStudyBlocks(formattedBlocks);
         if (user) {
-          localStorage.setItem(`studyBlocks_${user.id}`, JSON.stringify(formattedBlocks));
+          localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(formattedBlocks));
         }
       }
     } catch (error) {
