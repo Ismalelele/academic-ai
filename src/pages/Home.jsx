@@ -292,7 +292,7 @@ export default function Home() {
   // Concentric Rings calculation
   const p1 = tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
   const p2 = Math.min(100, (totalWeeklyHours / 25) * 100); // study goal rate (of 25h)
-  const p3 = quizStats.avg > 0 ? quizStats.avg : 50;
+  const p3 = quizStats.count > 0 ? quizStats.avg : 0;
 
   const r1 = 70;
   const c1 = 2 * Math.PI * r1;

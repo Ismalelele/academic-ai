@@ -98,6 +98,12 @@ export default function ClasesGrabadas() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (effectiveSchedule !== null && (!effectiveSchedule || effectiveSchedule.length === 0)) {
+      window.location.href = '/horario';
+    }
+  }, [effectiveSchedule]);
+
   const [recordings, setRecordings] = useState([]);
   const [selectedRecording, setSelectedRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -396,6 +402,11 @@ export default function ClasesGrabadas() {
     }
     return types[Math.abs(hash) % types.length];
   };
+
+  // 1. Placeholder when no schedule is generated (or empty schedule)
+  if (!effectiveSchedule || effectiveSchedule.length === 0) {
+    return null;
+  }
 
   // 2. Recordings Workspace view (Active Subject)
   if (activeSubject) {

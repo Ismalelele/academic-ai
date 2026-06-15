@@ -23,7 +23,7 @@ const COLOR_PALETTE = [
 ];
 
 export default function Horario() {
-  const { schedule, effectiveSchedule, studyBlocks, predefBlocks, isProcessing, uploadAndProcessImage, clearSchedule, saveFullSchedule, generateStudyRoutine, reportClassSuspension, removeClassSuspension, getColorType } = useSchedule();
+  const { schedule, effectiveSchedule, studyBlocks, predefBlocks, isProcessing, uploadAndProcessImage, clearSchedule, saveFullSchedule, generateStudyRoutine, reportClassSuspension, removeClassSuspension, getColorType, calculateVisuals } = useSchedule();
   const { tasks } = useTasks();
   const fileInputRef = useRef(null);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -129,8 +129,145 @@ export default function Horario() {
         </div>
       </header>
 
+      {/* === TIMETABLE VIEW === */}
+      <div className="timetable-container" style={{ marginBottom: isEditing ? '35px' : '0' }}>
+        <div className="time-column">
+          <div className="time-header">HORAS</div>
+          {predefBlocks && predefBlocks.map((b) => (
+            <div key={b.index} className="time-slot" style={{ fontSize: '0.7rem', padding: '0 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+              {b.start} - {b.end}
+            </div>
+          ))}
+        </div>
+
+        <div className="days-container" style={{ minWidth: 'auto', width: '100%' }}>
+          {/* Day Selector (Mobile Only) */}
+          <div className="mobile-day-selector">
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedDayMobile(idx)}
+                className={selectedDayMobile === idx ? 'active' : ''}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+
+          <div className="days-header">
+            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dayName, idx) => (
+              <div 
+                key={idx} 
+                className={selectedDayMobile === idx ? 'active-day-mobile' : 'inactive-day-mobile'}
+              >
+                {dayName.toUpperCase()}
+              </div>
+            ))}
+          </div>
+          <div className="grid-content" style={{ position: 'relative' }}>
+            {isProcessing && (
+              <div className="processing-overlay">
+                <Loader2 size={40} className="spinner" />
+                <p>La IA está analizando tu horario y estructurando las clases...</p>
+              </div>
+            )}
+            
+            {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => (
+              <div 
+                key={dayIndex} 
+                className={`day-track ${selectedDayMobile === dayIndex ? 'active-day-mobile' : 'inactive-day-mobile'}`}
+              >
+                {((isEditing ? tempSchedule : effectiveSchedule) || [])
+                  .filter(cls => cls.day === dayIndex)
+                  .map(cls => (
+                    <div 
+                      key={cls.id} 
+                      className={`card ${cls.type} ${cls.isSuspended ? 'suspended' : ''}`} 
+                      style={{ 
+                        top: cls.top, 
+                        height: cls.height,
+                        opacity: cls.isSuspended ? 0.5 : 1,
+                        cursor: isEditing ? 'default' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        textAlign: 'center'
+                      }}
+                      onClick={() => !isEditing && setSelectedClass(cls)}
+                    >
+                      <span style={{ textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.title}</span> 
+                      <span style={{ fontSize: '0.8rem', textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.room || ''}</span>
+                      {cls.isSuspended && (
+                        <div style={{ marginTop: '4px', fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                          🚫 Suspendida
+                        </div>
+                      )}
+                    </div>
+                ))}
+                {!isEditing && studyBlocks && studyBlocks
+                  .filter(cls => cls.day === dayIndex)
+                  .map(cls => (
+                    <div 
+                      key={cls.id} 
+                      className="card" 
+                      style={{ 
+                        top: cls.top, 
+                        height: cls.height,
+                        background: 'repeating-linear-gradient(45deg, var(--primary-light), var(--primary-light) 10px, transparent 10px, transparent 20px)',
+                        border: '2px dashed var(--primary)',
+                        color: 'var(--primary)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        opacity: 0.9,
+                        zIndex: 2
+                      }}
+                      title={`Motivo: ${cls.reason}\nPrioridad: ${cls.priority}`}
+                    >
+                      <strong>📚 {cls.title}</strong>
+                      <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Bloque Sugerido</span>
+                    </div>
+                ))}
+              </div>
+            ))}
+            
+            {!isEditing && !effectiveSchedule && !isProcessing && (
+              <div className="empty-schedule" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '30px', background: 'var(--bg)', zIndex: 10 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: '500', display: 'block', marginBottom: '15px' }}>Sube una foto o PDF para que la IA lo organice por ti.</span>
+                  <button 
+                    className="btn-secondary"
+                    onClick={enterEditMode}
+                    style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', margin: '0 auto', display: 'block' }}
+                  >
+                    ✏️ Crear Horario Manualmente
+                  </button>
+                </div>
+                
+                <div style={{ background: 'var(--primary-light)', border: '1px solid var(--primary)', borderRadius: '14px', padding: '25px', maxWidth: '550px', boxShadow: 'var(--shadow-sm)' }}>
+                  <h4 style={{ color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', fontSize: '1.1rem', fontWeight: '800' }}>
+                    ⚠️ Instrucciones de subida
+                  </h4>
+                  <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '12px', lineHeight: '1.5', fontWeight: '600' }}>
+                    Para que la IA no se confunda y dibuje los ramos en el día equivocado, asegúrate de que tu captura de pantalla contenga:
+                  </p>
+                  <ul style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginLeft: '25px', lineHeight: '1.7', fontWeight: '500' }}>
+                    <li>Los <strong>encabezados de los días</strong> (Lunes a Domingo) arriba.</li>
+                    <li>Las <strong>horas o duración</strong> en el eje izquierdo.</li>
+                    <li>El <strong>nombre de las asignaturas</strong> legible.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* === INLINE EDITOR VIEW === */}
-      {isEditing ? (
+      {isEditing && (
         <div style={{ 
           background: 'var(--card-bg)', 
           border: '1px solid var(--border-color)', 
@@ -138,7 +275,8 @@ export default function Horario() {
           padding: '20px', 
           boxShadow: 'var(--shadow-md)', 
           backdropFilter: 'var(--glass-blur)',
-          animation: 'fadeUp 0.4s ease-out'
+          animation: 'fadeUp 0.4s ease-out',
+          marginTop: '25px'
         }}>
           {/* Horizontal Day Columns */}
           <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px' }}>
@@ -234,8 +372,12 @@ export default function Horario() {
                                   type="number" min="0" max="23" placeholder="HH"
                                   value={cls.startH}
                                   onChange={(e) => {
+                                    const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
                                     const newSched = [...tempSchedule];
-                                    newSched[idx].startH = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
+                                    newSched[idx].startH = val;
+                                    const { top, height } = calculateVisuals(val, cls.startM, cls.endH, cls.endM);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
                                     setTempSchedule(newSched);
                                   }}
                                   style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
@@ -245,8 +387,12 @@ export default function Horario() {
                                   type="number" min="0" max="59" placeholder="MM"
                                   value={cls.startM}
                                   onChange={(e) => {
+                                    const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
                                     const newSched = [...tempSchedule];
-                                    newSched[idx].startM = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                                    newSched[idx].startM = val;
+                                    const { top, height } = calculateVisuals(cls.startH, val, cls.endH, cls.endM);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
                                     setTempSchedule(newSched);
                                   }}
                                   style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
@@ -261,8 +407,12 @@ export default function Horario() {
                                   type="number" min="0" max="23" placeholder="HH"
                                   value={cls.endH}
                                   onChange={(e) => {
+                                    const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
                                     const newSched = [...tempSchedule];
-                                    newSched[idx].endH = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
+                                    newSched[idx].endH = val;
+                                    const { top, height } = calculateVisuals(cls.startH, cls.startM, val, cls.endM);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
                                     setTempSchedule(newSched);
                                   }}
                                   style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
@@ -272,8 +422,12 @@ export default function Horario() {
                                   type="number" min="0" max="59" placeholder="MM"
                                   value={cls.endM}
                                   onChange={(e) => {
+                                    const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
                                     const newSched = [...tempSchedule];
-                                    newSched[idx].endM = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                                    newSched[idx].endM = val;
+                                    const { top, height } = calculateVisuals(cls.startH, cls.startM, cls.endH, val);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
                                     setTempSchedule(newSched);
                                   }}
                                   style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
@@ -291,6 +445,7 @@ export default function Horario() {
                                 return (
                                   <button
                                     key={c.type}
+                                    type="button"
                                     onClick={() => {
                                       const newSched = [...tempSchedule];
                                       newSched[idx].type = c.type;
@@ -319,6 +474,7 @@ export default function Horario() {
                           {/* Acciones */}
                           <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px', marginTop: '4px' }}>
                             <button 
+                              type="button"
                               onClick={() => {
                                 setTempSchedule(tempSchedule.filter((_, i) => i !== idx));
                               }}
@@ -334,15 +490,20 @@ export default function Horario() {
                   </div>
                   
                   <button
+                    type="button"
                     onClick={() => {
+                      const startH = 8, startM = 15, endH = 9, endM = 35;
+                      const { top, height } = calculateVisuals(startH, startM, endH, endM);
                       setTempSchedule([...tempSchedule, {
                         id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
                         title: '',
                         day: dayIndex,
-                        startH: 8,
-                        startM: 15,
-                        endH: 9,
-                        endM: 35,
+                        startH,
+                        startM,
+                        endH,
+                        endM,
+                        top,
+                        height,
                         type: 'cultura'
                       }]);
                     }}
@@ -354,143 +515,6 @@ export default function Horario() {
                 </div>
               );
             })}
-          </div>
-        </div>
-      ) : (
-        /* === TIMETABLE VIEW === */
-        <div className="timetable-container">
-          <div className="time-column">
-            <div className="time-header">HORAS</div>
-            {predefBlocks && predefBlocks.map((b) => (
-              <div key={b.index} className="time-slot" style={{ fontSize: '0.7rem', padding: '0 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                {b.start} - {b.end}
-              </div>
-            ))}
-          </div>
-
-          <div className="days-container" style={{ minWidth: 'auto', width: '100%' }}>
-            {/* Day Selector (Mobile Only) */}
-            <div className="mobile-day-selector">
-              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedDayMobile(idx)}
-                  className={selectedDayMobile === idx ? 'active' : ''}
-                >
-                  {day}
-                </button>
-              ))}
-            </div>
-
-            <div className="days-header">
-              {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dayName, idx) => (
-                <div 
-                  key={idx} 
-                  className={selectedDayMobile === idx ? 'active-day-mobile' : 'inactive-day-mobile'}
-                >
-                  {dayName.toUpperCase()}
-                </div>
-              ))}
-            </div>
-            <div className="grid-content" style={{ position: 'relative' }}>
-              {isProcessing && (
-                <div className="processing-overlay">
-                  <Loader2 size={40} className="spinner" />
-                  <p>La IA está analizando tu horario y estructurando las clases...</p>
-                </div>
-              )}
-              
-              {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => (
-                <div 
-                  key={dayIndex} 
-                  className={`day-track ${selectedDayMobile === dayIndex ? 'active-day-mobile' : 'inactive-day-mobile'}`}
-                >
-                  {effectiveSchedule && effectiveSchedule
-                    .filter(cls => cls.day === dayIndex)
-                    .map(cls => (
-                      <div 
-                        key={cls.id} 
-                        className={`card ${cls.type} ${cls.isSuspended ? 'suspended' : ''}`} 
-                        style={{ 
-                          top: cls.top, 
-                          height: cls.height,
-                          opacity: cls.isSuspended ? 0.5 : 1,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textAlign: 'center'
-                        }}
-                        onClick={() => setSelectedClass(cls)}
-                      >
-                        <span style={{ textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.title}</span> 
-                        <span style={{ fontSize: '0.8rem', textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.room || ''}</span>
-                        {cls.isSuspended && (
-                          <div style={{ marginTop: '4px', fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                            🚫 Suspendida
-                          </div>
-                        )}
-                      </div>
-                  ))}
-                  {studyBlocks && studyBlocks
-                    .filter(cls => cls.day === dayIndex)
-                    .map(cls => (
-                      <div 
-                        key={cls.id} 
-                        className="card" 
-                        style={{ 
-                          top: cls.top, 
-                          height: cls.height,
-                          background: 'repeating-linear-gradient(45deg, var(--primary-light), var(--primary-light) 10px, transparent 10px, transparent 20px)',
-                          border: '2px dashed var(--primary)',
-                          color: 'var(--primary)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textAlign: 'center',
-                          opacity: 0.9,
-                          zIndex: 2
-                        }}
-                        title={`Motivo: ${cls.reason}\nPrioridad: ${cls.priority}`}
-                      >
-                        <strong>📚 {cls.title}</strong>
-                        <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Bloque Sugerido</span>
-                      </div>
-                  ))}
-                </div>
-              ))}
-              
-              {!effectiveSchedule && !isProcessing && (
-                <div className="empty-schedule" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '30px', background: 'var(--bg)', zIndex: 10 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)', fontWeight: '500', display: 'block', marginBottom: '15px' }}>Sube una foto o PDF para que la IA lo organice por ti.</span>
-                    <button 
-                      className="btn-secondary"
-                      onClick={enterEditMode}
-                      style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', margin: '0 auto', display: 'block' }}
-                    >
-                      ✏️ Crear Horario Manualmente
-                    </button>
-                  </div>
-                  
-                  <div style={{ background: 'var(--primary-light)', border: '1px solid var(--primary)', borderRadius: '14px', padding: '25px', maxWidth: '550px', boxShadow: 'var(--shadow-sm)' }}>
-                    <h4 style={{ color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', fontSize: '1.1rem', fontWeight: '800' }}>
-                      ⚠️ Instrucciones de subida
-                    </h4>
-                    <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '12px', lineHeight: '1.5', fontWeight: '600' }}>
-                      Para que la IA no se confunda y dibuje los ramos en el día equivocado, asegúrate de que tu captura de pantalla contenga:
-                    </p>
-                    <ul style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginLeft: '25px', lineHeight: '1.7', fontWeight: '500' }}>
-                      <li>Los <strong>encabezados de los días</strong> (Lunes a Domingo) arriba.</li>
-                      <li>Las <strong>horas o duración</strong> en el eje izquierdo.</li>
-                      <li>El <strong>nombre de las asignaturas</strong> legible.</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}

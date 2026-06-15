@@ -11,23 +11,41 @@ const initializeStudyData = (userId) => {
   const key = `academic_${userId}_study_minutes`;
   const saved = getSafeLocalStorage(key, userId, null);
   if (!saved) {
-    const mockData = {};
-    const now = new Date();
-    const currentDay = now.getDay();
-    const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - distanceToMonday);
-    
-    // Some baseline study hours (in hours) to make the graph look alive initially
-    const mockHours = [3.5, 4.8, 3.0, 5.5, 4.0, 2.5, 1.2];
-    for (let i = 0; i < distanceToMonday; i++) {
-      const dayDate = new Date(monday);
-      dayDate.setDate(monday.getDate() + i);
-      const dayStr = getLocalDateString(dayDate);
-      mockData[dayStr] = Math.round(mockHours[i % mockHours.length] * 60);
+    // Check if the user has a schedule entered
+    const scheduleKey = `academic_${userId}_schedule`;
+    const scheduleStr = localStorage.getItem(scheduleKey);
+    let hasSchedule = false;
+    if (scheduleStr) {
+      try {
+        const parsed = JSON.parse(scheduleStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          hasSchedule = true;
+        }
+      } catch (e) {}
     }
-    localStorage.setItem(key, JSON.stringify(mockData));
-    return mockData;
+
+    if (hasSchedule) {
+      const mockData = {};
+      const now = new Date();
+      const currentDay = now.getDay();
+      const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - distanceToMonday);
+      
+      // Some baseline study hours (in hours) to make the graph look alive initially
+      const mockHours = [3.5, 4.8, 3.0, 5.5, 4.0, 2.5, 1.2];
+      for (let i = 0; i < distanceToMonday; i++) {
+        const dayDate = new Date(monday);
+        dayDate.setDate(monday.getDate() + i);
+        const dayStr = getLocalDateString(dayDate);
+        mockData[dayStr] = Math.round(mockHours[i % mockHours.length] * 60);
+      }
+      localStorage.setItem(key, JSON.stringify(mockData));
+      return mockData;
+    } else {
+      // User has no schedule yet, keep everything at 0
+      return {};
+    }
   }
   return saved;
 };
@@ -67,10 +85,10 @@ export const getWeeklyStudyHours = (userId) => {
 };
 
 export const getHistoricalWeeklyAverage = (userId) => {
-  if (!userId) return 15.0;
+  if (!userId) return 0.0;
   const data = initializeStudyData(userId);
   const keys = Object.keys(data);
-  if (keys.length === 0) return 15.0;
+  if (keys.length === 0) return 0.0;
   
   // Group keys by week-starting-on-Monday
   const weeklySums = {};
@@ -86,7 +104,7 @@ export const getHistoricalWeeklyAverage = (userId) => {
   });
 
   const weeks = Object.keys(weeklySums);
-  if (weeks.length === 0) return 15.0;
+  if (weeks.length === 0) return 0.0;
   
   const totalHours = weeks.reduce((sum, mon) => sum + (weeklySums[mon] / 60), 0);
   return parseFloat((totalHours / weeks.length).toFixed(1));

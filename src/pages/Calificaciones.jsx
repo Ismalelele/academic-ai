@@ -130,6 +130,12 @@ export default function Calificaciones() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (effectiveSchedule !== null && (!effectiveSchedule || effectiveSchedule.length === 0)) {
+      window.location.href = '/horario';
+    }
+  }, [effectiveSchedule]);
+
   const uniqueSubjects = effectiveSchedule 
     ? Array.from(new Set(effectiveSchedule.map(c => c.title))) 
     : [];
@@ -481,43 +487,7 @@ Generado automáticamente por AcademicAI
   };
 
   if (uniqueSubjects.length === 0) {
-    return (
-      <main className="main-content">
-        <header style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 className="page-title">Calculadora de promedio</h1>
-            <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
-              Configura tu horario para habilitar las calificaciones por materia o ingresa directamente tus notas individuales.
-            </p>
-          </div>
-        </header>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '60vh',
-          textAlign: 'center',
-          color: 'var(--text-muted)',
-          gap: '20px'
-        }}>
-          <GraduationCap size={64} style={{ color: 'var(--primary)', opacity: 0.8 }} />
-          <div>
-            <h3>Configura tu horario para habilitar la calculadora</h3>
-            <p style={{ marginTop: '8px', maxWidth: '400px', marginBottom: '20px' }}>
-              Para poder simular y estimar tus promedios, primero debes configurar tu horario semanal de clases.
-            </p>
-            <button 
-              onClick={() => window.location.href = '/horario'}
-              className="btn-primary"
-              style={{ padding: '12px 24px', borderRadius: '12px', cursor: 'pointer', margin: '0 auto' }}
-            >
-              ✏️ Ir a Mi Horario
-            </button>
-          </div>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   return (

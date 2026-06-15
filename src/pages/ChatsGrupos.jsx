@@ -391,22 +391,7 @@ export default function ChatsGrupos() {
             Crea salas de estudio para tus asignaturas, comparte códigos de invitación y debate con tus compañeros.
           </p>
         </div>
-        {isFallbackMode && (
-          <span style={{ 
-            fontSize: '0.8rem', 
-            background: 'rgba(245, 158, 11, 0.15)', 
-            color: '#b45309', 
-            padding: '6px 12px', 
-            borderRadius: '20px', 
-            fontWeight: 'bold',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <Sparkles size={14} /> Modo Demostración Local
-          </span>
-        )}
+
       </header>
 
       <div className={`chats-view-layout ${activeGroupId ? 'has-active-chat' : ''}`}>
@@ -520,36 +505,7 @@ export default function ChatsGrupos() {
             </div>
           )}
 
-          {/* SIMULADOR DE DEMO */}
-          {isFallbackMode && activeGroupId && activeGroup?.membership?.estado === 'aceptado' && (
-            <div className="chats-simulator-box">
-              <div className="chats-simulator-title">Simulador de Acciones</div>
-              <div className="chats-simulator-btns">
-                <button 
-                  className="btn-simulator" 
-                  onClick={() => simulateRequest(activeGroupId)}
-                >
-                  <Users size={12} /> Simular Solicitud Unión
-                </button>
-                <button 
-                  className="btn-simulator" 
-                  onClick={() => simulateIncomingMessage(activeGroupId)}
-                >
-                  <MessageSquare size={12} /> Simular Mensaje Inmediato
-                </button>
-                <button 
-                  className="btn-simulator" 
-                  onClick={() => {
-                    simulateIncomingMessage(activeGroupId, '', 5);
-                    alert("Mensaje programado en 5 segundos. ¡Sal del chat o ve al Dashboard para ver la notificación!");
-                  }}
-                  style={{ color: '#d97706', borderColor: 'rgba(217, 119, 6, 0.3)' }}
-                >
-                  <Bell size={12} /> Simular Mensaje en 5 seg
-                </button>
-              </div>
-            </div>
-          )}
+
         </aside>
 
         {/* VENTANA DE CHAT ACTIVO */}
@@ -1877,6 +1833,46 @@ export default function ChatsGrupos() {
               }}
             >
               Cerrar Perfil
+            </button>
+          </div>
+        </div>
+      )}
+
+      {customConfirm.open && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={() => setCustomConfirm(prev => ({ ...prev, open: false }))}>
+          <div className="premium-modal" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 800 }}>{customConfirm.title}</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5', fontWeight: 500 }}>{customConfirm.message}</p>
+            <div className="premium-actions">
+              <button 
+                onClick={() => setCustomConfirm(prev => ({ ...prev, open: false }))} 
+                className="btn-cancel-premium"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={customConfirm.onConfirm} 
+                className="btn-submit-premium"
+                style={{ background: '#ef4444' }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {customAlert.open && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2100 }} onClick={() => setCustomAlert(prev => ({ ...prev, open: false }))}>
+          <div className="premium-modal" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 800 }}>{customAlert.title}</h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5', fontWeight: 500 }}>{customAlert.message}</p>
+            <button 
+              onClick={() => setCustomAlert(prev => ({ ...prev, open: false }))}
+              className="btn-submit-premium"
+              style={{ width: '100%', padding: '12px' }}
+            >
+              Aceptar
             </button>
           </div>
         </div>

@@ -586,14 +586,14 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   </NavLink>
                 </li>
 
-                <li>
-                  <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                    <Mic size={16} /> <span>Clases Grabadas</span>
-                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                  </NavLink>
-                </li>
                 {effectiveSchedule && effectiveSchedule.length > 0 && (
                   <>
+                    <li>
+                      <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                        <Mic size={16} /> <span>Clases Grabadas</span>
+                        <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                      </NavLink>
+                    </li>
                     <li>
                       <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
                         <BookOpenText size={16} /> <span>Apuntes</span>

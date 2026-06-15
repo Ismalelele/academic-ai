@@ -287,11 +287,10 @@ export const ScheduleProvider = ({ children }) => {
     if (startIdx === -1) startIdx = 0;
     if (endIdx === -1 || endIdx < startIdx) endIdx = startIdx;
 
-    const pixelsPerSlot = 50;
-    const top = startIdx * pixelsPerSlot;
-    const height = (endIdx - startIdx + 1) * pixelsPerSlot;
-
-    return { top: `${top}px`, height: `${height - 4}px` };
+    return { 
+      top: `calc(${startIdx} * var(--slot-height, 50px))`, 
+      height: `calc((${endIdx - startIdx + 1}) * var(--slot-height, 50px) - 4px)` 
+    };
   };
 
   const uploadAndProcessImage = async (file) => {
@@ -630,7 +629,8 @@ export const ScheduleProvider = ({ children }) => {
       generateStudyRoutine,
       reportClassSuspension,
       removeClassSuspension,
-      getColorType
+      getColorType,
+      calculateVisuals
     }}>
       {children}
     </ScheduleContext.Provider>

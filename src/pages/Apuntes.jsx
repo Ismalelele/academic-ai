@@ -22,6 +22,12 @@ export default function Apuntes() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (effectiveSchedule !== null && (!effectiveSchedule || effectiveSchedule.length === 0)) {
+      window.location.href = '/horario';
+    }
+  }, [effectiveSchedule]);
+
   const [activeSubject, setActiveSubject] = useState(null);
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
@@ -420,34 +426,7 @@ export default function Apuntes() {
 
   // 1. Placeholder when no schedule is generated
   if (uniqueSubjects.length === 0) {
-    return (
-      <main className="main-content">
-        <header>
-          <div>
-            <h1 className="page-title">Mis Apuntes</h1>
-            <p className="subtitle">Carga tu horario para habilitar tus cuadernos de apuntes</p>
-          </div>
-        </header>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '60vh',
-          textAlign: 'center',
-          color: 'var(--text-muted)',
-          gap: '20px'
-        }}>
-          <Book size={64} style={{ color: 'var(--primary)', opacity: 0.8 }} />
-          <div>
-            <h3>Aún no has configurado tu horario</h3>
-            <p style={{ marginTop: '8px', maxWidth: '400px' }}>
-              Para poder crear tus cuadernos de apuntes por asignatura, primero debes cargar o configurar tu horario.
-            </p>
-          </div>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   // 2. Notebook workspace view (Active Subject)
