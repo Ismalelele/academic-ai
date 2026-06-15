@@ -164,9 +164,9 @@ body {
 }
 
 .profile-popover {
-    position: absolute;
-    bottom: 55px;
-    right: 0;
+    position: fixed;
+    bottom: 100px;
+    right: max(20px, calc(50% - 530px));
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 16px;
@@ -245,7 +245,7 @@ body {
     align-items: center;
     gap: 8px;
     flex-grow: 1;
-    justify-content: flex-start;
+    justify-content: center;
     margin: 0;
     padding: 0 10px;
     overflow: visible;
@@ -1339,6 +1339,53 @@ body.dark-mode .chat-footer input {
     }
 }
 
+.mobile-only {
+    display: none !important;
+}
+
+@media (max-width: 1100px) {
+    .sidebar {
+        padding: 0 12px;
+    }
+    .sidebar .logo {
+        margin-right: 12px;
+    }
+    .sidebar .logo h2 {
+        font-size: 1.1rem;
+    }
+    .sidebar .nav-links {
+        gap: 4px;
+        padding: 0 5px;
+    }
+    .sidebar .nav-links a,
+    .sidebar .nav-links>li>a,
+    .sidebar .nav-links>li>button.nav-dropdown-trigger {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        gap: 6px;
+    }
+    .dock-actions {
+        gap: 6px;
+    }
+}
+
+@media (max-width: 950px) {
+    .sidebar .nav-links>li>a>span,
+    .sidebar .nav-links>li>button.nav-dropdown-trigger>span,
+    .sidebar .nav-links>li>button.nav-dropdown-trigger>.chevron-icon {
+        display: none !important;
+    }
+    .sidebar .nav-links a,
+    .sidebar .nav-links>li>a,
+    .sidebar .nav-links>li>button.nav-dropdown-trigger {
+        padding: 8px;
+        border-radius: 10px;
+    }
+    .sidebar .logo h2 {
+        font-size: 1rem;
+    }
+}
+
 @media (max-width: 992px) {
     .sidebar {
         width: min(calc(100% - 30px), 950px);
@@ -1375,6 +1422,10 @@ body.dark-mode .chat-footer input {
         justify-content: space-between;
         align-items: center;
         box-sizing: border-box;
+    }
+
+    .sidebar::-webkit-scrollbar {
+        display: none;
     }
 
     .nav-scroll-wrap {
@@ -1453,7 +1504,25 @@ body.dark-mode .chat-footer input {
     }
 
     .desktop-only {
-        display: none;
+        display: none !important;
+    }
+
+    .mobile-only {
+        display: flex !important;
+    }
+
+    body.sidebar-collapsed .sidebar {
+        transform: translateX(-120%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    body.sidebar-collapsed .main-content {
+        padding-left: 16px !important;
+    }
+
+    .sidebar {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
     }
 
     .main-content {
@@ -1461,6 +1530,7 @@ body.dark-mode .chat-footer input {
         padding-left: 76px;
         /* Offset for left vertical sidebar */
         padding-bottom: 20px;
+        transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     header {
@@ -1505,6 +1575,7 @@ body.dark-mode .chat-footer input {
         right: auto;
         width: 240px;
         animation: slideRightFade 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: left 0.3s ease;
     }
 
     .notification-panel {
@@ -1516,6 +1587,13 @@ body.dark-mode .chat-footer input {
         width: auto;
         max-height: calc(100vh - 32px);
         margin: 0;
+        transition: left 0.3s ease;
+    }
+
+    body.sidebar-collapsed .notification-panel,
+    body.sidebar-collapsed .chatbot-window,
+    body.sidebar-collapsed .profile-popover {
+        left: 16px !important;
     }
 
     .chatbot-window {
@@ -1526,6 +1604,7 @@ body.dark-mode .chat-footer input {
         width: auto;
         height: calc(100vh - 32px);
         max-height: 550px;
+        transition: left 0.3s ease;
     }
 
 }
@@ -2897,22 +2976,28 @@ body.dark-mode .doc-dropdown-menu button:hover {
 }
 
 .notification-panel {
-    position: absolute;
-    bottom: 50px;
-    /* Flota justo sobre el botón */
-    right: 0;
-    width: 360px;
-    max-height: 480px;
+    position: fixed;
+    bottom: 100px;
+    right: max(20px, calc(50% - 530px));
+    width: 380px;
+    max-width: 90vw;
+    max-height: 80vh;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
     border-radius: 20px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
     animation: fadeUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
+    z-index: 10000;
+}
+
+.notification-item.selected {
+    background: rgba(14, 165, 233, 0.05) !important;
+    border-left: 3px solid var(--primary);
 }
 
 body.dark-mode .notification-panel {
@@ -3045,10 +3130,9 @@ body.dark-mode .notification-panel {
 }
 
 .chatbot-window {
-    position: absolute;
-    bottom: 50px;
-    right: 0;
-    left: auto;
+    position: fixed;
+    bottom: 100px;
+    right: max(20px, calc(50% - 530px));
     width: 360px;
     height: 480px;
     background: var(--card-bg);
@@ -6112,6 +6196,67 @@ body.dark-mode .kpi-card:hover {
     justify-content: space-between;
     gap: 15px;
     flex-grow: 1;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 1200px) {
+    .rings-layout {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+    }
+    .rings-legend {
+        align-items: center;
+        width: 100%;
+    }
+    .legend-item {
+        justify-content: center;
+        width: 100%;
+        max-width: 280px;
+    }
+    .legend-item .val {
+        margin-left: 8px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .rings-layout {
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+    }
+    .rings-legend {
+        align-items: flex-start;
+        width: auto;
+    }
+    .legend-item {
+        justify-content: flex-start;
+    }
+    .legend-item .val {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 600px) {
+    .rings-layout {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+    }
+    .rings-legend {
+        align-items: center;
+        width: 100%;
+    }
+    .legend-item {
+        justify-content: center;
+    }
+    .legend-item .val {
+        margin-left: 8px;
+    }
 }
 
 .rings-chart-wrapper {
@@ -6203,6 +6348,14 @@ body.dark-mode .kpi-card:hover {
     min-height: 280px;
     position: relative;
     overflow: hidden;
+}
+
+.grade-summary-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    margin-top: 0px;
+    align-items: start;
 }
 
 .grade-summary-card::before {

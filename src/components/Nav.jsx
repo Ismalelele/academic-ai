@@ -28,12 +28,31 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const { user, signOut, updateProfile } = useAuth();
   const { notifications, unreadCount, markAsRead, deleteNotification, dailyAlertTime, setDailyAlertTime } = useNotifications();
   const [toasts, setToasts] = useState([]);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const showToast = (message) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
+  };
+
+  const markAllAsRead = () => {
+    notifications.forEach(n => {
+      if (!n.read) markAsRead(n.id);
+    });
+  };
+
+  const toggleDeleteMode = () => {
+    setIsDeleteMode(!isDeleteMode);
+    setSelectedIds(new Set());
+  };
+
+  const performDelete = () => {
+    selectedIds.forEach(id => deleteNotification(id));
+    setIsDeleteMode(false);
+    setSelectedIds(new Set());
   };
   const { effectiveSchedule } = useSchedule();
   const { tasks } = useTasks();
@@ -46,6 +65,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const academicoRef = useRef();
   const iaRef = useRef();
   const comunidadRef = useRef();
+  const notifPanelRef = useRef();
+  const chatbotPanelRef = useRef();
+  const profilePopoverRef = useRef();
 
   const isAcademicoActive = ['/horario', '/clases', '/apuntes', '/calificaciones'].includes(currentPath);
   const isIaActive = ['/asistente', '/analisis'].includes(currentPath);
@@ -188,6 +210,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     setShowNotifications(false);
     setShowChatbot(false);
     setActiveDropdown(null);
+    if (window.innerWidth <= 768) {
+      setIsSidebarOpen(false);
+    }
   };
 
   const scrollNav = (direction) => {
@@ -212,18 +237,51 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     return sessionStorage.getItem('global_chatbot_tooltip_dismissed') !== 'true';
   });
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setIsSidebarOpen(true);
+        document.body.classList.remove('sidebar-collapsed');
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      document.body.classList.add('sidebar-collapsed');
+    } else {
+      document.body.classList.remove('sidebar-collapsed');
+    }
+  }, [isSidebarOpen]);
+
   const activeTasks = tasks.filter(t => t.status !== 'done');
   const completedTasksCount = tasks.filter(t => t.status === 'done').length;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
+      if (
+        notifRef.current && !notifRef.current.contains(event.target) &&
+        (!notifPanelRef.current || !notifPanelRef.current.contains(event.target))
+      ) {
         setShowNotifications(false);
       }
-      if (chatbotRef.current && !chatbotRef.current.contains(event.target)) {
+      if (
+        chatbotRef.current && !chatbotRef.current.contains(event.target) &&
+        (!chatbotPanelRef.current || !chatbotPanelRef.current.contains(event.target))
+      ) {
         setShowChatbot(false);
       }
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
+      if (
+        profileRef.current && !profileRef.current.contains(event.target) &&
+        (!profilePopoverRef.current || !profilePopoverRef.current.contains(event.target))
+      ) {
         setShowProfilePopover(false);
       }
       if (
@@ -322,39 +380,103 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   };
 
   const renderNotificationPanel = () => (
-    <div className="notification-panel">
+    <div className="notification-panel" ref={notifPanelRef}>
       <div className="notification-header">
         <h3>Notificaciones</h3>
         <span className="badge">{unreadCount} nuevas</span>
       </div>
+      
+      {notifications.length > 0 && (
+        <div className="notification-panel-actions" style={{ padding: '8px 16px', display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button 
+            onClick={markAllAsRead} 
+            className="premium-action-btn"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--primary)',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            Marcar todas leídas
+          </button>
+          
+          <button 
+            onClick={isDeleteMode ? (selectedIds.size > 0 ? performDelete : toggleDeleteMode) : toggleDeleteMode}
+            className={selectedIds.size > 0 ? "delete-btn-active" : "delete-btn-inactive"}
+            style={{
+              background: isDeleteMode ? (selectedIds.size > 0 ? '#ef4444' : 'rgba(239,68,68,0.1)') : 'rgba(255,255,255,0.05)',
+              border: isDeleteMode ? (selectedIds.size > 0 ? 'none' : '1px solid rgba(239,68,68,0.2)') : '1px solid var(--border-color)',
+              color: isDeleteMode ? (selectedIds.size > 0 ? 'white' : '#ef4444') : 'var(--text-muted)',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {isDeleteMode ? (selectedIds.size > 0 ? `Eliminar (${selectedIds.size})` : "Cancelar") : "Eliminar"}
+          </button>
+        </div>
+      )}
+
       <div className="notification-list">
         {notifications.length === 0 ? (
           <div className="notification-empty">No tienes notificaciones</div>
         ) : (
           notifications.map(n => {
             const isClickable = n.type && (n.type.startsWith('pizarra:') || n.type.startsWith('chat:') || n.type.startsWith('request:'));
+            const isSelected = selectedIds.has(n.id);
             return (
-              <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'}`}>
+              <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'} ${isSelected ? 'selected' : ''}`} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {isDeleteMode && (
+                  <input 
+                    type="checkbox" 
+                    checked={isSelected}
+                    onChange={() => {
+                      const newSet = new Set(selectedIds);
+                      if (newSet.has(n.id)) {
+                        newSet.delete(n.id);
+                      } else {
+                        newSet.add(n.id);
+                      }
+                      setSelectedIds(newSet);
+                    }} 
+                    style={{
+                      cursor: 'pointer',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '4px',
+                      border: '2px solid var(--border-color)',
+                      flexShrink: 0
+                    }}
+                  />
+                )}
                 <div className="notification-icon">{getIconForType(n.type)}</div>
                 <div
                   className="notification-content"
-                  style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                  style={{ cursor: isClickable ? 'pointer' : 'default', flexGrow: 1 }}
                   onClick={() => isClickable && handleNotificationClick(n)}
                 >
                   <h4>{n.title}</h4>
                   <p>{n.message}</p>
                   <span className="notification-time">{formatDate(n.createdAt)}</span>
                 </div>
-                <div className="notification-actions">
-                  {!n.read && (
-                    <button onClick={() => markAsRead(n.id)} title="Marcar como leída">
-                      <CheckCircle size={16} />
+                {!isDeleteMode && (
+                  <div className="notification-actions">
+                    {!n.read && (
+                      <button onClick={() => markAsRead(n.id)} title="Marcar como leída">
+                        <CheckCircle size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => deleteNotification(n.id)} title="Eliminar" className="btn-delete">
+                      <Trash2 size={16} />
                     </button>
-                  )}
-                  <button onClick={() => deleteNotification(n.id)} title="Eliminar" className="btn-delete">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             );
           })
@@ -364,11 +486,62 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   );
 
   return (
-    <nav className="sidebar">
-      {/* Logo (Desktop only) */}
-      <div className="logo desktop-only">
-        <h2>Academic<span>AI</span></h2>
-      </div>
+    <>
+      {!isSidebarOpen && createPortal(
+        <button 
+          className="sidebar-toggle-btn open-btn mobile-only" 
+          onClick={() => setIsSidebarOpen(true)}
+          title="Mostrar menú"
+          style={{
+            position: 'fixed',
+            top: '12px',
+            left: '12px',
+            zIndex: 9999,
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-main)',
+            borderRadius: '50%',
+            width: '36px',
+            height: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'var(--shadow-md)',
+            cursor: 'pointer'
+          }}
+        >
+          <ChevronRight size={20} />
+        </button>,
+        document.body
+      )}
+
+      <nav className={`sidebar ${!isSidebarOpen ? 'collapsed' : ''}`}>
+        {/* Botón para cerrar (solo móvil) */}
+        <button 
+          className="sidebar-toggle-btn close-btn mobile-only" 
+          onClick={() => setIsSidebarOpen(false)}
+          title="Ocultar menú"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            padding: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            alignSelf: 'center',
+            marginBottom: '10px',
+            marginTop: '5px'
+          }}
+        >
+          <ChevronLeft size={20} />
+        </button>
+
+        {/* Logo (Desktop only) */}
+        <div className="logo desktop-only">
+          <h2>Academic<span>AI</span></h2>
+        </div>
 
       {/* Navigation Scroll Wrap */}
       <div className="nav-scroll-wrap">
@@ -579,7 +752,6 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               </span>
             )}
           </button>
-          {showNotifications && renderNotificationPanel()}
         </div>
 
         {/* AI Chatbot Button */}
@@ -614,52 +786,6 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           >
             {showChatbot ? <X size={18} /> : <Bot size={18} />}
           </button>
-          {showChatbot && (
-            <div className="chatbot-window">
-              <div className="chatbot-header">
-                <div className="chatbot-header-info">
-                  <div className="chatbot-avatar">
-                    <Bot size={18} />
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Asistente AI</h4>
-                    <span className="chatbot-status" style={{ fontSize: '0.7rem' }}>En línea</span>
-                  </div>
-                </div>
-                <button className="chatbot-close-btn" onClick={() => setShowChatbot(false)}>
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="chatbot-body" ref={chatbotBodyRef}>
-                {chatHistory.map((msg, i) => (
-                  <div key={i} className={`chatbot-bubble ${msg.sender === 'user' ? 'user' : 'ai'}`}>
-                    {msg.text}
-                  </div>
-                ))}
-                {isChatting && (
-                  <div className="chatbot-bubble ai loading">
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                  </div>
-                )}
-              </div>
-
-              <form className="chatbot-footer" onSubmit={handleChatSubmit}>
-                <input
-                  type="text"
-                  placeholder="Pregúntame algo..."
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  disabled={isChatting}
-                />
-                <button type="submit" disabled={!chatInput.trim() || isChatting} className="chatbot-send-btn">
-                  <Send size={16} />
-                </button>
-              </form>
-            </div>
-          )}
         </div>
 
         {/* User Profile popover trigger */}
@@ -697,71 +823,6 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '38px', '1.1rem')}
               </div>
             </button>
-
-            {showProfilePopover && (
-              <div className="profile-popover">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '40px', '1.1rem')}
-                  <div style={{ overflow: 'hidden', textAlign: 'left' }}>
-                    <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
-                      {user.user_metadata?.full_name || 'Alumno'}
-                    </p>
-                    {(user.user_metadata?.carrera || user.user_metadata?.universidad) && (
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {user.user_metadata.carrera || 'Estudiante'} {user.user_metadata.universidad ? `| ${user.user_metadata.universidad}` : ''}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
-                <button
-                  onClick={openSettingsModal}
-                  style={{
-                    background: 'rgba(139, 92, 246, 0.08)',
-                    border: '1px solid rgba(139, 92, 246, 0.2)',
-                    color: 'var(--primary)',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: '600',
-                    width: '100%',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                  onMouseOver={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.15)'}
-                  onMouseOut={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.08)'}
-                >
-                  <Settings size={14} /> Configurar Perfil
-                </button>
-                <button
-                  onClick={signOut}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    color: '#ef4444',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: '600',
-                    width: '100%',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                  onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.15)'}
-                  onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.08)'}
-                >
-                  Cerrar Sesión
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1032,6 +1093,122 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         document.body
       )}
 
+      {showNotifications && createPortal(renderNotificationPanel(), document.body)}
+
+      {showChatbot && createPortal(
+        <div className="chatbot-window" ref={chatbotPanelRef}>
+          <div className="chatbot-header">
+            <div className="chatbot-header-info">
+              <div className="chatbot-avatar">
+                <Bot size={18} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Asistente AI</h4>
+                <span className="chatbot-status" style={{ fontSize: '0.7rem' }}>En línea</span>
+              </div>
+            </div>
+            <button className="chatbot-close-btn" onClick={() => setShowChatbot(false)}>
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="chatbot-body" ref={chatbotBodyRef}>
+            {chatHistory.map((msg, i) => (
+              <div key={i} className={`chatbot-bubble ${msg.sender === 'user' ? 'user' : 'ai'}`}>
+                {msg.text}
+              </div>
+            ))}
+            {isChatting && (
+              <div className="chatbot-bubble ai loading">
+                <span className="dot"></span>
+                <span className="dot"></span>
+                <span className="dot"></span>
+              </div>
+            )}
+          </div>
+
+          <form className="chatbot-footer" onSubmit={handleChatSubmit}>
+            <input
+              type="text"
+              placeholder="Pregúntame algo..."
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              disabled={isChatting}
+            />
+            <button type="submit" disabled={!chatInput.trim() || isChatting} className="chatbot-send-btn">
+              <Send size={16} />
+            </button>
+          </form>
+        </div>,
+        document.body
+      )}
+
+      {showProfilePopover && createPortal(
+        <div className="profile-popover" ref={profilePopoverRef}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '40px', '1.1rem')}
+            <div style={{ overflow: 'hidden', textAlign: 'left' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
+                {user.user_metadata?.full_name || 'Alumno'}
+              </p>
+              {(user.user_metadata?.carrera || user.user_metadata?.universidad) && (
+                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  {user.user_metadata.carrera || 'Estudiante'} {user.user_metadata.universidad ? `| ${user.user_metadata.universidad}` : ''}
+                </p>
+              )}
+            </div>
+          </div>
+          <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
+          <button
+            onClick={openSettingsModal}
+            style={{
+              background: 'rgba(139, 92, 246, 0.08)',
+              border: '1px solid rgba(139, 92, 246, 0.2)',
+              color: 'var(--primary)',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              width: '100%',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.15)'}
+            onMouseOut={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.08)'}
+          >
+            <Settings size={14} /> Configurar Perfil
+          </button>
+          <button
+            onClick={signOut}
+            style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              color: '#ef4444',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              width: '100%',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.15)'}
+            onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.08)'}
+          >
+            Cerrar Sesión
+          </button>
+        </div>,
+        document.body
+      )}
+
       {createPortal(
         <div className="toast-container" style={{ zIndex: 1000000 }}>
           {toasts.map(toast => (
@@ -1046,5 +1223,6 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         document.body
       )}
     </nav>
+   </>
   );
 }

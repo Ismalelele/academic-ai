@@ -610,7 +610,7 @@ export default function Home() {
                 <p className="kpi-subtitle">Resumen general, promedios manuales y últimas calificaciones</p>
               </div>
 
-              <div className="grade-summary-layout" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px', marginTop: '0px' }}>
+              <div className="grade-summary-layout">
                 {/* Columna Izquierda: Promedio General y Últimas Calificaciones */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div className="promedio-display" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
