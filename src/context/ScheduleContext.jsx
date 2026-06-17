@@ -473,6 +473,79 @@ export const ScheduleProvider = ({ children }) => {
     setStudyBlocks([]);
   };
 
+  const clearStudyBlocks = () => {
+    setStudyBlocks([]);
+    if (user) {
+      localStorage.removeItem(`academic_${user.id}_study_blocks`);
+    }
+  };
+
+  const updateStudyBlock = (blockId, newDay, newStartH, newStartM, newEndH, newEndM) => {
+    const { top, height } = calculateVisuals(newStartH, newStartM, newEndH, newEndM);
+    setStudyBlocks(prev => prev.map(b => {
+      if (b.id === blockId) {
+        return {
+          ...b,
+          day: newDay,
+          startH: newStartH,
+          startM: newStartM,
+          endH: newEndH,
+          endM: newEndM,
+          top,
+          height
+        };
+      }
+      return b;
+    }));
+  };
+
+  const updateClass = async (classId, newDay, newStartH, newStartM, newEndH, newEndM) => {
+    const { top, height } = calculateVisuals(newStartH, newStartM, newEndH, newEndM);
+    let updatedSchedule = null;
+    
+    setSchedule(prev => {
+      if (!prev) return prev;
+      const next = prev.map(c => {
+        if (c.id === classId) {
+          return {
+            ...c,
+            day: newDay,
+            startH: newStartH,
+            startM: newStartM,
+            endH: newEndH,
+            endM: newEndM,
+            top,
+            height
+          };
+        }
+        return c;
+      });
+      updatedSchedule = next;
+      return next;
+    });
+
+    if (user && updatedSchedule) {
+      localStorage.setItem(`academic_${user.id}_schedule`, JSON.stringify(updatedSchedule));
+      
+      const isNumericId = typeof classId === 'number' || !isNaN(Number(classId));
+      if (isNumericId) {
+        try {
+          const startTimeStr = `${newStartH.toString().padStart(2, '0')}:${newStartM.toString().padStart(2, '0')}`;
+          const endTimeStr = `${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`;
+          await supabase.from('bloques_clases')
+            .update({
+              dia_semana: newDay,
+              hora_inicio: startTimeStr,
+              hora_fin: endTimeStr
+            })
+            .eq('id_bloque', Number(classId));
+        } catch (e) {
+          console.warn("Could not sync class drag and drop to Supabase:", e);
+        }
+      }
+    }
+  };
+
   const findAvailableBlocks = (currentSchedule) => {
     const availableBlocks = [];
     const validSchedule = (currentSchedule || []).filter(c => !c.isSuspended);
@@ -625,6 +698,9 @@ export const ScheduleProvider = ({ children }) => {
       isProcessing, 
       uploadAndProcessImage, 
       clearSchedule,
+      clearStudyBlocks,
+      updateStudyBlock,
+      updateClass,
       saveFullSchedule,
       generateStudyRoutine,
       reportClassSuspension,

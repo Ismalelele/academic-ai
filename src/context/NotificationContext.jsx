@@ -215,17 +215,13 @@ export const NotificationProvider = ({ children }) => {
 
       let firedAlert = false;
 
-      // Revisar Horario (Clase Próxima y Post-Clase)
+      // 1. Clases: Avisar 15 minutos antes
       if (effectiveSchedule && effectiveSchedule.length > 0) {
         effectiveSchedule.forEach(cls => {
           if (cls.day === currentDay && !cls.isSuspended) {
             const startMins = cls.startH * 60 + cls.startM;
-            const endMins = cls.endH * 60 + cls.endM;
-
-            // 1. Clase Próxima (15 minutos antes)
             if (startMins - currentMins === 15) {
               const msg = `Tu clase de ${cls.title} empieza en 15 minutos en ${cls.room || 'el Aula'}.`;
-              // Comprobar si ya existe una alerta similar hoy
               const alreadyAlerted = notifications.some(n => 
                 n.title === 'Clase Próxima' && 
                 n.message === msg && 
@@ -236,17 +232,44 @@ export const NotificationProvider = ({ children }) => {
                 firedAlert = true;
               }
             }
+          }
+        });
+      }
 
-            // 2. Post-Clase (5 minutos después)
-            if (currentMins - endMins === 5) {
-              const msg = `¡Clase de ${cls.title} terminada! Tómale una foto a la pizarra o sube tus apuntes ahora para no perder el contexto.`;
+      // 2. Tareas: Avisar 15 minutos antes de la hora establecida (dailyAlertTime)
+      const [alertH, alertM] = dailyAlertTime.split(':').map(Number);
+      const alertMins = alertH * 60 + alertM;
+      if (alertMins - currentMins === 15) {
+        const pendientes = tasks ? tasks.filter(t => t.status !== 'done') : [];
+        pendientes.forEach(task => {
+          const msg = `Tienes la tarea pendiente "${task.title}" del ramo "${task.tag || 'General'}".`;
+          const alreadyAlerted = notifications.some(n => 
+            n.title === 'Recordatorio de Tarea' && 
+            n.message === msg &&
+            (new Date(n.createdAt).toDateString() === now.toDateString())
+          );
+          if (!alreadyAlerted) {
+            addNotification('Recordatorio de Tarea', msg, 'urgente');
+            firedAlert = true;
+          }
+        });
+      }
+
+      // 3. Bloques de Estudio (IA): Avisar 15 minutos antes
+      if (studyBlocks && studyBlocks.length > 0) {
+        studyBlocks.forEach(block => {
+          if (block.day === currentDay) {
+            const startMins = block.startH * 60 + block.startM;
+            if (startMins - currentMins === 15) {
+              const taskTitle = block.taskTitle || block.title || 'Estudio';
+              const msg = `Tu bloque de estudio para '${taskTitle}' empieza en 15 minutos.`;
               const alreadyAlerted = notifications.some(n => 
-                n.title === 'Clase Terminada' && 
-                n.message === msg && 
+                n.title === 'Bloque de Estudio' && 
+                n.message === msg &&
                 (new Date(n.createdAt).toDateString() === now.toDateString())
               );
               if (!alreadyAlerted) {
-                addNotification('Clase Terminada', msg, 'clase_post');
+                addNotification('Bloque de Estudio', msg, 'estudio');
                 firedAlert = true;
               }
             }
@@ -254,30 +277,7 @@ export const NotificationProvider = ({ children }) => {
         });
       }
 
-      const [alertH, alertM] = dailyAlertTime.split(':').map(Number);
-
-      // Revisar Tareas (Avisar a la hora configurada si hay tareas pendientes)
-      if (tasks && tasks.length > 0 && now.getHours() === alertH && now.getMinutes() === alertM) {
-        const pendientes = tasks.filter(t => t.status !== 'done');
-        if (pendientes.length > 0) {
-          const msg = `Tienes ${pendientes.length} tarea(s) pendiente(s) por realizar.`;
-          const alreadyAlerted = notifications.some(n => 
-            n.title === 'Recordatorio de Tareas' && 
-            n.message === msg &&
-            (new Date(n.createdAt).toDateString() === now.toDateString())
-          );
-          if (!alreadyAlerted) {
-            addNotification('Recordatorio de Tareas', msg, 'urgente');
-            firedAlert = true;
-          }
-        }
-      }
-
-      if (firedAlert) {
-        lastAlertTimeRef.current = currentMinuteString;
-      }
-
-      // 3.2 Revisar Alertas Calendarizadas por la IA
+      // 4. Alertas calendarizadas por la IA
       const savedAiAlerts = getSafeLocalStorage(`academic_${user.id}_ai_scheduled_alerts`, user.id, null);
       if (savedAiAlerts) {
         try {
@@ -299,6 +299,10 @@ export const NotificationProvider = ({ children }) => {
           console.error("Error checking AI scheduled alerts:", e);
         }
       }
+
+      if (firedAlert) {
+        lastAlertTimeRef.current = currentMinuteString;
+      }
     };
 
     // Ejecutar inmediatamente y luego cada 1 minuto
@@ -310,11 +314,11 @@ export const NotificationProvider = ({ children }) => {
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
   useEffect(() => {
     if (!user) return;
-    
+
     const runAiScheduling = async () => {
       const todayStr = new Date().toDateString();
       const lastScheduledDay = localStorage.getItem(`academic_ai_last_schedule_date_${user.id}`);
-      
+
       if (lastScheduledDay !== todayStr) {
         try {
           console.log("Scheduling AI notifications for today...");
@@ -325,7 +329,7 @@ export const NotificationProvider = ({ children }) => {
         }
       }
     };
-    
+
     // Ejecutar con un pequeño delay para asegurar la carga del horario y tareas
     const timer = setTimeout(runAiScheduling, 4000);
     return () => clearTimeout(timer);

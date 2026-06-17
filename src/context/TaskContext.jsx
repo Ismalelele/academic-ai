@@ -256,6 +256,57 @@ export const TaskProvider = ({ children }) => {
     return true;
   };
 
+  const updateTask = async (taskId, updates) => {
+    if (!user) return false;
+
+    // Actualizar localmente
+    setTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.id === taskId) {
+          const merged = { ...t, ...updates };
+          merged.priorityScore = calculatePriorityScore(merged);
+          return merged;
+        }
+        return t;
+      });
+      localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(updated));
+      return updated;
+    });
+
+    const taskTitle = tasks.find(t => t.id === taskId)?.title || 'Desconocida';
+    addActivity("Actualizó detalles de la tarea", taskTitle);
+
+    // Guardar en Supabase
+    try {
+      if (typeof taskId === 'string' && taskId.startsWith('task-local-')) {
+        return true;
+      }
+
+      const dbUpdates = {};
+      if (updates.title !== undefined) dbUpdates.titulo = updates.title;
+      if (updates.status !== undefined) dbUpdates.estado = updates.status;
+      if (updates.tag !== undefined) dbUpdates.etiqueta = updates.tag;
+      if (updates.deadline !== undefined) dbUpdates.fecha_entrega = updates.deadline || null;
+      if (updates.estimatedTime !== undefined) dbUpdates.tiempo_estimado = updates.estimatedTime || 2;
+      if (updates.type !== undefined) dbUpdates.tipo = updates.type || 'Tarea';
+      if (updates.manualPriority !== undefined) dbUpdates.prioridad_manual = updates.manualPriority;
+
+      if (Object.keys(dbUpdates).length > 0) {
+        const { error } = await supabase
+          .from('tareas')
+          .update(dbUpdates)
+          .eq('id_tarea', taskId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.warn("Fallo al actualizar detalles de la tarea en Supabase. Se guardó localmente.", error);
+    }
+
+    return true;
+  };
+
   // Eliminar una tarea individual
   const deleteTask = async (taskId) => {
     if (!user) return false;
@@ -324,6 +375,7 @@ export const TaskProvider = ({ children }) => {
       isLoading,
       addTask,
       updateTaskStatus,
+      updateTask,
       deleteTask,
       deleteMultipleTasks,
       activityLog

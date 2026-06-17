@@ -29,6 +29,8 @@ export default function Horario() {
   const editorRef = useRef(null);
   const [selectedClass, setSelectedClass] = useState(null);
   const [tempSchedule, setTempSchedule] = useState([]);
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+  const [activeColorPickerId, setActiveColorPickerId] = useState(null);
   const [selectedDayMobile, setSelectedDayMobile] = useState(() => {
     const today = new Date().getDay();
     return today === 0 ? 6 : today - 1;
@@ -39,6 +41,19 @@ export default function Horario() {
   useEffect(() => {
     setTempSchedule(schedule ? JSON.parse(JSON.stringify(schedule)) : []);
   }, [schedule]);
+
+  useEffect(() => {
+    if (!activeColorPickerId) return;
+    const handleDocumentClick = (e) => {
+      if (!e.target.closest('.color-picker-container')) {
+        setActiveColorPickerId(null);
+      }
+    };
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [activeColorPickerId]);
 
   const handleGenerateRoutine = () => {
     const pendingTasks = tasks.filter(t => t.status !== 'done');
@@ -62,7 +77,7 @@ export default function Horario() {
     const hasEmptyTitle = tempSchedule.some(c => !c.title.trim());
     if (hasEmptyTitle) {
       alert("Por favor, ingresa el nombre de todas las asignaturas.");
-      return;
+      return false;
     }
 
     // Validation of overlapping blocks
@@ -78,13 +93,14 @@ export default function Horario() {
           const end2 = c2.endH * 60 + c2.endM;
           if (start1 < end2 && start2 < end1) {
             alert(`Conflicto de horario: "${c1.title || 'Clase sin nombre'}" y "${c2.title || 'Clase sin nombre'}" se solapan el ${dayNames[c1.day]}.`);
-            return;
+            return false;
           }
         }
       }
     }
 
     await saveFullSchedule(tempSchedule);
+    return true;
   };
 
   const scrollToEditor = () => {
@@ -101,53 +117,69 @@ export default function Horario() {
           <p className="subtitle">Sube tu horario y deja que la IA organice tu rutina diaria</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {hasChanges && (
-            <div className="unsaved-banner-fadein" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', color: '#eab308', fontWeight: 700 }}>⚠️ Cambios sin guardar</span>
+          {isEditingSchedule ? (
+            <>
               <button 
                 className="btn-secondary" 
-                onClick={handleDiscardChanges}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}
+                onClick={() => {
+                  setTempSchedule(schedule ? JSON.parse(JSON.stringify(schedule)) : []);
+                  setIsEditingSchedule(false);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 700 }}
               >
-                Descartar
+                Cancelar
               </button>
               <button 
                 className="btn-primary" 
-                onClick={handleSaveSchedule}
+                onClick={async () => {
+                  const success = await handleSaveSchedule();
+                  if (success !== false) {
+                    setIsEditingSchedule(false);
+                  }
+                }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
               >
                 <Check size={18} /> Guardar Cambios
               </button>
-            </div>
+            </>
+          ) : (
+            <>
+              {effectiveSchedule && (
+                <button 
+                  className="btn-primary" 
+                  onClick={() => setIsEditingSchedule(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  ✏️ Editar Horario
+                </button>
+              )}
+              {!hasChanges && effectiveSchedule && (
+                <button className="btn-secondary" onClick={handleGenerateRoutine} disabled={isProcessing} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer', transition: '0.3s' }}>
+                  <Wand2 size={18} /> {isProcessing ? 'Planificando...' : 'Generar Rutina con IA'}
+                </button>
+              )}
+              {effectiveSchedule && (
+                <button className="btn-secondary" onClick={clearSchedule} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}>
+                  <Trash2 size={18} /> Limpiar
+                </button>
+              )}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*,.pdf" 
+                style={{ display: 'none' }} 
+              />
+              <button 
+                className="btn-primary" 
+                onClick={() => fileInputRef.current.click()}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img)'}
+                {isProcessing ? <Loader2 size={20} className="spinner" /> : <Upload size={20} />}
+              </button>
+            </>
           )}
-
-          {!hasChanges && effectiveSchedule && (
-            <button className="btn-secondary" onClick={handleGenerateRoutine} disabled={isProcessing} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer', transition: '0.3s' }}>
-              <Wand2 size={18} /> {isProcessing ? 'Planificando...' : 'Generar Rutina con IA'}
-            </button>
-          )}
-
-          {effectiveSchedule && (
-            <button className="btn-secondary" onClick={clearSchedule} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}>
-              <Trash2 size={18} /> Limpiar
-            </button>
-          )}
-
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            accept="image/*,.pdf" 
-            style={{ display: 'none' }} 
-          />
-          <button 
-            className="btn-primary" 
-            onClick={() => fileInputRef.current.click()}
-            disabled={isProcessing}
-          >
-            {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img)'}
-            {isProcessing ? <Loader2 size={20} className="spinner" /> : <Upload size={20} />}
-          </button>
         </div>
       </header>
 
@@ -191,6 +223,281 @@ export default function Horario() {
               <div className="processing-overlay">
                 <Loader2 size={40} className="spinner" />
                 <p>La IA está analizando tu horario y estructurando las clases...</p>
+              </div>
+            )}
+
+            {isEditingSchedule && (
+              <div 
+                className="editor-grid-overlay" 
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  right: 0, 
+                  bottom: 0, 
+                  background: 'rgba(15, 23, 42, 0.96)', 
+                  zIndex: 20, 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(7, 1fr)',
+                  padding: '15px 0'
+                }}
+              >
+                {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
+                  const dayClasses = tempSchedule.filter(c => c.day === dayIndex).sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
+                  return (
+                    <div 
+                      key={dayIndex} 
+                      className={`editor-day-column ${selectedDayMobile === dayIndex ? 'active-day-mobile' : 'inactive-day-mobile'}`}
+                      style={{ 
+                        borderRight: '1px solid var(--border-color)', 
+                        padding: '0 8px', 
+                        position: 'relative',
+                        height: '100%'
+                      }}
+                    >
+                      {dayClasses.map((cls) => {
+                        const idx = tempSchedule.findIndex(c => c.id === cls.id);
+                        if (idx === -1) return null;
+                        const colorType = cls.type || getColorType(cls.title || '');
+                        
+                        return (
+                          <div 
+                            key={cls.id} 
+                            className={`editor-row-card ${colorType}`} 
+                            style={{ 
+                              position: 'absolute',
+                              top: cls.top,
+                              height: cls.height,
+                              minHeight: '100px',
+                              left: '6px',
+                              right: '6px',
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              gap: '6px', 
+                              padding: '8px',
+                              borderRadius: '12px',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--card-bg)',
+                              zIndex: activeColorPickerId === cls.id ? 25 : 5,
+                              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                              transition: 'z-index 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (activeColorPickerId !== cls.id) {
+                                e.currentTarget.style.zIndex = '10';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (activeColorPickerId !== cls.id) {
+                                e.currentTarget.style.zIndex = '5';
+                              }
+                            }}
+                          >
+                            <div>
+                              <input 
+                                type="text" 
+                                placeholder="Asignatura" 
+                                value={cls.title}
+                                onChange={(e) => {
+                                  const newSched = [...tempSchedule];
+                                  newSched[idx].title = e.target.value;
+                                  setTempSchedule(newSched);
+                                }}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', fontWeight: 600 }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                <input 
+                                  type="number" min="0" max="23" placeholder="HH"
+                                  value={cls.startH}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
+                                    const newSched = [...tempSchedule];
+                                    newSched[idx].startH = val;
+                                    const { top, height } = calculateVisuals(val, cls.startM, cls.endH, cls.endM);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
+                                    setTempSchedule(newSched);
+                                  }}
+                                  style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', fontSize: '0.7rem', textAlign: 'center', outline: 'none' }}
+                                />
+                                <span style={{ fontSize: '0.7rem' }}>:</span>
+                                <input 
+                                  type="number" min="0" max="59" placeholder="MM"
+                                  value={cls.startM}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                                    const newSched = [...tempSchedule];
+                                    newSched[idx].startM = val;
+                                    const { top, height } = calculateVisuals(cls.startH, val, cls.endH, cls.endM);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
+                                    setTempSchedule(newSched);
+                                  }}
+                                  style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', fontSize: '0.7rem', textAlign: 'center', outline: 'none' }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                <input 
+                                  type="number" min="0" max="23" placeholder="HH"
+                                  value={cls.endH}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
+                                    const newSched = [...tempSchedule];
+                                    newSched[idx].endH = val;
+                                    const { top, height } = calculateVisuals(cls.startH, cls.startM, val, cls.endM);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
+                                    setTempSchedule(newSched);
+                                  }}
+                                  style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', fontSize: '0.7rem', textAlign: 'center', outline: 'none' }}
+                                />
+                                <span style={{ fontSize: '0.7rem' }}>:</span>
+                                <input 
+                                  type="number" min="0" max="59" placeholder="MM"
+                                  value={cls.endM}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                                    const newSched = [...tempSchedule];
+                                    newSched[idx].endM = val;
+                                    const { top, height } = calculateVisuals(cls.startH, cls.startM, cls.endH, val);
+                                    newSched[idx].top = top;
+                                    newSched[idx].height = height;
+                                    setTempSchedule(newSched);
+                                  }}
+                                  style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', fontSize: '0.7rem', textAlign: 'center', outline: 'none' }}
+                                />
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '5px', position: 'relative' }}>
+                              <div className="color-picker-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Color:</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveColorPickerId(activeColorPickerId === cls.id ? null : cls.id);
+                                  }}
+                                  style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    borderRadius: '50%',
+                                    background: COLOR_PALETTE.find(c => c.type === colorType)?.solid || '#8b5cf6',
+                                    border: '1px solid var(--text-main)',
+                                    cursor: 'pointer',
+                                    padding: 0
+                                  }}
+                                  title="Cambiar color"
+                                />
+
+                                {activeColorPickerId === cls.id && (
+                                  <div 
+                                    style={{
+                                      position: 'absolute',
+                                      bottom: '22px',
+                                      left: '0',
+                                      background: 'var(--card-bg)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '8px',
+                                      padding: '8px',
+                                      display: 'flex',
+                                      gap: '4px',
+                                      flexWrap: 'wrap',
+                                      width: '120px',
+                                      zIndex: 30,
+                                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                                    }}
+                                  >
+                                    {COLOR_PALETTE.map((c) => {
+                                      const isSelected = colorType === c.type;
+                                      return (
+                                        <button
+                                          key={c.type}
+                                          type="button"
+                                          onClick={() => {
+                                            const newSched = [...tempSchedule];
+                                            newSched[idx].type = c.type;
+                                            setTempSchedule(newSched);
+                                            setActiveColorPickerId(null);
+                                          }}
+                                          title={c.label}
+                                          style={{
+                                            width: '18px',
+                                            height: '18px',
+                                            borderRadius: '50%',
+                                            background: c.solid,
+                                            border: isSelected ? '1px solid var(--text-main)' : 'none',
+                                            cursor: 'pointer',
+                                            padding: 0
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  setTempSchedule(tempSchedule.filter((_, i) => i !== idx));
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                                title="Eliminar clase"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const startH = 8, startM = 15, endH = 9, endM = 35;
+                          const { top, height } = calculateVisuals(startH, startM, endH, endM);
+                          setTempSchedule([...tempSchedule, {
+                            id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                            title: '',
+                            day: dayIndex,
+                            startH,
+                            startM,
+                            endH,
+                            endM,
+                            top,
+                            height,
+                            type: 'cultura'
+                          }]);
+                        }}
+                        style={{ 
+                          position: 'absolute',
+                          bottom: '10px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 10,
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px dashed var(--border-color)', 
+                          background: 'var(--card-bg)', 
+                          color: 'var(--text-muted)', 
+                          fontSize: '0.75rem', 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '4px', 
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        ➕ Clase
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
             
@@ -288,291 +595,7 @@ export default function Horario() {
         </div>
       </div>
 
-      {/* === INLINE EDITOR VIEW === */}
-      <div 
-        ref={editorRef}
-        style={{ 
-          background: 'var(--card-bg)', 
-          border: '1px solid var(--border-color)', 
-          borderRadius: '20px', 
-          padding: '20px', 
-          boxShadow: 'var(--shadow-md)', 
-          backdropFilter: 'var(--glass-blur)',
-          marginTop: '25px'
-        }}
-      >
-        {/* Editor header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: '20px',
-          borderBottom: '1px solid var(--border-color)',
-          paddingBottom: '15px'
-        }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            ✏️ Editor de Horario
-          </h3>
-          {hasChanges && (
-            <div className="unsaved-banner-fadein" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', color: '#eab308', fontWeight: 700 }}>⚠️ Cambios sin guardar</span>
-              <button 
-                className="btn-secondary" 
-                onClick={handleDiscardChanges}
-                style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                Descartar
-              </button>
-              <button 
-                className="btn-primary" 
-                onClick={handleSaveSchedule}
-                style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}
-              >
-                Guardar Cambios
-              </button>
-            </div>
-          )}
-        </div>
 
-        {/* Horizontal Day Columns */}
-        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px' }}>
-          {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
-            const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-            const dayClasses = tempSchedule.filter(c => c.day === dayIndex).sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
-            
-            return (
-              <div 
-                key={dayIndex} 
-                style={{ 
-                  minWidth: '260px', 
-                  width: '260px', 
-                  background: 'rgba(255,255,255,0.01)', 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: '16px', 
-                  padding: '12px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '12px',
-                  flexShrink: 0
-                }}
-              >
-                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{dayNames[dayIndex]}</span>
-                  <span style={{ fontSize: '0.8rem', background: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                    {dayClasses.length}
-                  </span>
-                </h4>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                  {dayClasses.map((cls) => {
-                    const idx = tempSchedule.findIndex(c => c.id === cls.id);
-                    if (idx === -1) return null;
-                    const colorType = cls.type || getColorType(cls.title || '');
-                    
-                    return (
-                      <div 
-                        key={cls.id} 
-                        className={`editor-row-card ${colorType}`} 
-                        style={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          gap: '10px', 
-                          padding: '12px 12px 12px 18px',
-                          gridTemplateColumns: 'none'
-                        }}
-                      >
-                        {/* Asignatura */}
-                        <div>
-                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Asignatura</label>
-                          <input 
-                            type="text" 
-                            placeholder="Ej: Álgebra" 
-                            value={cls.title}
-                            onChange={(e) => {
-                              const newSched = [...tempSchedule];
-                              newSched[idx].title = e.target.value;
-                              setTempSchedule(newSched);
-                            }}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none' }}
-                          />
-                        </div>
-                        
-                        {/* Día Select */}
-                        <div>
-                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Día</label>
-                          <select 
-                            value={cls.day}
-                            onChange={(e) => {
-                              const newSched = [...tempSchedule];
-                              newSched[idx].day = parseInt(e.target.value);
-                              setTempSchedule(newSched);
-                            }}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
-                          >
-                            <option value={0}>Lunes</option>
-                            <option value={1}>Martes</option>
-                            <option value={2}>Miércoles</option>
-                            <option value={3}>Jueves</option>
-                            <option value={4}>Viernes</option>
-                            <option value={5}>Sábado</option>
-                            <option value={6}>Domingo</option>
-                          </select>
-                        </div>
-
-                        {/* Hora Inicio y Fin */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Inicio</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                              <input 
-                                type="number" min="0" max="23" placeholder="HH"
-                                value={cls.startH}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
-                                  const newSched = [...tempSchedule];
-                                  newSched[idx].startH = val;
-                                  const { top, height } = calculateVisuals(val, cls.startM, cls.endH, cls.endM);
-                                  newSched[idx].top = top;
-                                  newSched[idx].height = height;
-                                  setTempSchedule(newSched);
-                                }}
-                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                              />
-                              <span style={{ fontWeight: 'bold' }}>:</span>
-                              <input 
-                                type="number" min="0" max="59" placeholder="MM"
-                                value={cls.startM}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                                  const newSched = [...tempSchedule];
-                                  newSched[idx].startM = val;
-                                  const { top, height } = calculateVisuals(cls.startH, val, cls.endH, cls.endM);
-                                  newSched[idx].top = top;
-                                  newSched[idx].height = height;
-                                  setTempSchedule(newSched);
-                                }}
-                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Fin</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                              <input 
-                                type="number" min="0" max="23" placeholder="HH"
-                                value={cls.endH}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
-                                  const newSched = [...tempSchedule];
-                                  newSched[idx].endH = val;
-                                  const { top, height } = calculateVisuals(cls.startH, cls.startM, val, cls.endM);
-                                  newSched[idx].top = top;
-                                  newSched[idx].height = height;
-                                  setTempSchedule(newSched);
-                                }}
-                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                              />
-                              <span style={{ fontWeight: 'bold' }}>:</span>
-                              <input 
-                                type="number" min="0" max="59" placeholder="MM"
-                                value={cls.endM}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                                  const newSched = [...tempSchedule];
-                                  newSched[idx].endM = val;
-                                  const { top, height } = calculateVisuals(cls.startH, cls.startM, cls.endH, val);
-                                  newSched[idx].top = top;
-                                  newSched[idx].height = height;
-                                  setTempSchedule(newSched);
-                                }}
-                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Color Picker */}
-                        <div>
-                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>🎨 Color</label>
-                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                            {COLOR_PALETTE.map((c) => {
-                              const isSelected = colorType === c.type;
-                              return (
-                                <button
-                                  key={c.type}
-                                  type="button"
-                                  onClick={() => {
-                                    const newSched = [...tempSchedule];
-                                    newSched[idx].type = c.type;
-                                    setTempSchedule(newSched);
-                                  }}
-                                  title={c.label}
-                                  style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    borderRadius: '50%',
-                                    background: c.solid,
-                                    border: isSelected ? '2px solid var(--text-main)' : '1px solid rgba(255, 255, 255, 0.15)',
-                                    cursor: 'pointer',
-                                    transform: isSelected ? 'scale(1.25)' : 'scale(1)',
-                                    boxShadow: isSelected ? `0 0 6px ${c.solid}` : 'none',
-                                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                                    padding: 0,
-                                    outline: 'none'
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Acciones */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px', marginTop: '4px' }}>
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              setTempSchedule(tempSchedule.filter((_, i) => i !== idx));
-                            }}
-                            style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
-                            title="Eliminar clase"
-                          >
-                            <Trash2 size={14} /> Eliminar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    const startH = 8, startM = 15, endH = 9, endM = 35;
-                    const { top, height } = calculateVisuals(startH, startM, endH, endM);
-                    setTempSchedule([...tempSchedule, {
-                      id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                      title: '',
-                      day: dayIndex,
-                      startH,
-                      startM,
-                      endH,
-                      endM,
-                      top,
-                      height,
-                      type: 'cultura'
-                    }]);
-                  }}
-                  className="btn-secondary"
-                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: 600, marginTop: '8px' }}
-                >
-                  ➕ Agregar Clase
-                </button>
-              </div>
-          );
-            })}
-          </div>
-        </div>
 
       {/* === CLASS DETAILS MODAL === */}
       {selectedClass && (

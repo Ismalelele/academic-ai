@@ -155,7 +155,7 @@ export default function Home() {
   const handleQuickAdd = async (e) => {
     e.preventDefault();
     if (!newTaskInput.trim()) return;
-    await addTask(newTaskInput, 'todo', 'General', null, 2, 'Tarea', 1);
+    await addTask(newTaskInput, 'inbox', 'General', null, 2, 'Tarea', 1);
     setNewTaskInput('');
   };
 

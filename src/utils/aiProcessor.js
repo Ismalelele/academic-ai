@@ -815,29 +815,18 @@ export const scheduleAiNotifications = async (userId, schedule = [], tasks = [],
       const systemPrompt = `Eres un asistente académico y coach estudiantil proactivo, empático y motivador.
 Tu labor es calendarizar alertas de motivación, estudio y recordatorios personalizadas para el estudiante para las próximas 24 horas.
 Recibirás:
-- La fecha y hora actual del estudiante: ${localNowString}
-- El horario escolar/clases del alumno: ${JSON.stringify(schedule)}
+- La fecha y hora actual: ${localNowString}
+- El horario de clases: ${JSON.stringify(schedule)}
 - Las tareas pendientes: ${JSON.stringify(tasks.filter(t => t.status !== 'done'))}
-- Los bloques de estudio programados: ${JSON.stringify(studyBlocks)}
+- Los bloques de estudio: ${JSON.stringify(studyBlocks)}
 
-Debes proponer entre 2 y 4 notificaciones oportunas y muy motivadoras para el día de hoy y mañana.
-Pautas para programar los horarios:
-- Si hay un bloque de estudio programado, pon la alerta de aliento 5 minutos ANTES de que comience.
-- Si hay una tarea urgente pendiente, pon un recordatorio amigable en algún momento libre (donde no tenga clases).
-- El triggerTime debe ser un ISO String válido de fecha y hora local/UTC correspondiente al momento exacto en que debe sonar.
-- Asegúrate de que triggerTime sea en el FUTURO (después de la hora actual: ${now.toISOString()}).
+REGLAS DE PROGRAMACIÓN ESTRICTAS:
+1. PROHIBICIÓN NOCTURNA: 'triggerTime' DEBE estar entre 08:00 y 20:00. NUNCA programes nada fuera de este horario.
+2. PROHIBICIÓN DE TIEMPO RELATIVO: NUNCA uses frases como "en 1 hora", "en 10 minutos" o "pronto". Usa solo tiempo absoluto, ej: "Tu clase de mañana a las 11:00".
+3. TAREAS DE LA IA: Tu función es solo motivar o recordar estudiar, NO programar el inicio de clases ni eventos de horario, ya que el sistema lo hace automáticamente.
 
-Devuelve EXCLUSIVAMENTE un JSON válido con la siguiente estructura:
-{
-  "alerts": [
-    {
-      "id": "ai-alert-[unique-id]",
-      "title": "[Título corto y llamativo con un emoji, ej: 📚 Hora de Foco, 💡 Hack de Estudio]",
-      "message": "[Mensaje inspirador y contextual, hablándole directamente por su tarea o asignatura. Sé conciso, máximo 2 oraciones. No uses clichés redundantes.]",
-      "triggerTime": "ISO String en el futuro"
-    }
-  ]
-}`;
+Devuelve EXCLUSIVAMENTE un JSON:
+{ "alerts": [{ "id": "ai-alert-id", "title": "Título", "message": "Mensaje en tiempo absoluto", "triggerTime": "ISO String" }] }`;
 
       const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',

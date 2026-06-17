@@ -11,6 +11,7 @@
     --text-main: #1e293b;
     --text-muted: #64748b;
     --border-color: rgba(226, 232, 240, 0.8);
+    --schedule-line-color: rgba(100, 116, 139, 0.25);
     --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
     --glass-blur: blur(20px);
@@ -46,6 +47,7 @@ body.dark-mode {
     --text-main: #e5e7eb;
     --text-muted: #9ca3af;
     --border-color: rgba(55, 65, 81, 0.6);
+    --schedule-line-color: rgba(148, 163, 184, 0.35);
     --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.45);
     --editor-card-overlay: rgba(31, 41, 55, 0.92);
@@ -722,6 +724,10 @@ body.dark-mode .time-header {
     min-width: 700px;
 }
 
+.study-planner-grid .days-container {
+    min-width: 800px !important;
+}
+
 .days-header {
     height: var(--slot-height);
     display: grid;
@@ -749,13 +755,18 @@ body.dark-mode .time-header {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     position: relative;
-    background-image: linear-gradient(var(--border-color) 1px, transparent 1px);
-    background-size: 100% var(--slot-height);
+    background-image: repeating-linear-gradient(
+        to bottom,
+        var(--schedule-line-color),
+        var(--schedule-line-color) 1px,
+        transparent 1px,
+        transparent var(--slot-height)
+    );
 }
 
 .day-track {
     position: relative;
-    border-right: 1px solid var(--border-color);
+    border-right: 1px solid var(--schedule-line-color);
 }
 
 .card {
@@ -2325,7 +2336,7 @@ body.dark-mode .message-wrapper.ai .message-bubble {
 
 .kanban-board {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 25px;
     height: calc(100vh - 200px);
     overflow-y: hidden;
@@ -2335,7 +2346,7 @@ body.dark-mode .message-wrapper.ai .message-bubble {
 
 @media (max-width: 992px) {
     .kanban-board {
-        grid-template-columns: repeat(3, minmax(300px, 1fr));
+        grid-template-columns: repeat(4, minmax(300px, 1fr));
     }
 }
 
@@ -2510,6 +2521,23 @@ body.dark-mode .kanban-card:hover {
 .kanban-tag.low {
     background: rgba(16, 185, 129, 0.1);
     color: #10b981;
+}
+
+.btn-edit-task {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.btn-edit-task:hover {
+    background: var(--primary-light);
+    color: var(--primary);
 }
 
 .btn-delete-task {
@@ -4678,14 +4706,19 @@ body.dark-mode .quiz-review-card {
 .tareas-split-container {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 60px;
     height: auto;
+    margin-bottom: 50px;
 }
 
 .kanban-board-half {
-    max-height: 480px;
-    overflow-y: auto;
+    height: auto;
     padding-bottom: 10px;
+}
+
+.kanban-board-half .kanban-board {
+    height: auto;
+    min-height: 480px;
 }
 
 .study-planner-half {
@@ -6746,15 +6779,15 @@ body.dark-mode .mobile-day-selector {
         display: flex;
     }
 
-    .days-container {
+    .timetable-container:not(.study-planner-grid) .days-container {
         min-width: auto !important;
     }
 
-    .days-header {
+    .timetable-container:not(.study-planner-grid) .days-header {
         grid-template-columns: 1fr !important;
     }
 
-    .grid-content {
+    .timetable-container:not(.study-planner-grid) .grid-content {
         grid-template-columns: 1fr !important;
     }
 
@@ -6809,44 +6842,7 @@ body.dark-mode .mobile-day-selector {
     }
 }
 
-/* Custom styling for compact IA Study Planner Grid on Tasks Page */
-.study-planner-grid {
-    --slot-height: 28px !important;
-    max-height: 380px;
-    overflow-y: auto !important;
-}
 
-.study-planner-grid .time-header,
-.study-planner-grid .time-slot,
-.study-planner-grid .days-header div {
-    font-size: 0.7rem !important;
-}
-
-.study-planner-grid .card {
-    padding: 2px 4px !important;
-    border-radius: 6px !important;
-    font-size: 0.7rem !important;
-    line-height: 1.1 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-}
-
-.study-planner-grid .card strong {
-    font-size: 0.7rem !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    display: block !important;
-}
-
-/* Hide room or secondary status text inside cards in the compact grid to avoid vertical overflow */
-.study-planner-grid .card span:nth-child(2),
-.study-planner-grid .card strong + span {
-    display: none !important;
-}
 
 /* Unsaved changes notification and buttons transition */
 .unsaved-banner-fadein {
