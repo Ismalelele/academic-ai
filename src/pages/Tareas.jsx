@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil } from 'lucide-react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
@@ -30,6 +30,12 @@ export default function Tareas() {
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    if (!isLoading && tasks && tasks.length > 0 && (!studyBlocks || studyBlocks.length === 0) && !isProcessing) {
+      generateStudyRoutine(tasks.filter(t => t.status !== 'done'));
+    }
+  }, [isLoading, tasks, studyBlocks, isProcessing]);
 
   const showToast = (message, icon = '✅') => {
     const id = Date.now().toString();
@@ -308,9 +314,6 @@ export default function Tareas() {
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                   <span className="kanban-tag" style={{ background: 'var(--primary)', color: 'white' }}>{task.tag}</span>
                   <span className="kanban-tag" style={{ background: 'var(--border-color)', color: 'var(--text-main)' }}>{task.type || 'Tarea'}</span>
-                  {task.priorityScore > 80 && <span title="Urgente" style={{ fontSize: '1.2rem' }}>🔥</span>}
-                  {task.priorityScore > 50 && task.priorityScore <= 80 && <span title="Importante" style={{ fontSize: '1.2rem' }}>🟠</span>}
-                  {task.priorityScore <= 50 && <span title="Normal" style={{ fontSize: '1.2rem' }}>🟢</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
                   <button className="btn-edit-task" onClick={() => handleEditTaskClick(task)}><Pencil size={14} /></button>

@@ -183,6 +183,19 @@ export default function Horario() {
         </div>
       </header>
 
+      {/* Day Selector (Mobile Only) */}
+      <div className="mobile-day-selector" style={{ marginBottom: '15px' }}>
+        {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day, idx) => (
+          <button
+            key={idx}
+            onClick={() => setSelectedDayMobile(idx)}
+            className={selectedDayMobile === idx ? 'active' : ''}
+          >
+            {day}
+          </button>
+        ))}
+      </div>
+
       {/* === TIMETABLE VIEW === */}
       <div className="timetable-container" style={{ marginBottom: '35px' }}>
         <div className="time-column">
@@ -195,18 +208,6 @@ export default function Horario() {
         </div>
 
         <div className="days-container" style={{ minWidth: 'auto', width: '100%' }}>
-          {/* Day Selector (Mobile Only) */}
-          <div className="mobile-day-selector">
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedDayMobile(idx)}
-                className={selectedDayMobile === idx ? 'active' : ''}
-              >
-                {day}
-              </button>
-            ))}
-          </div>
 
           <div className="days-header">
             {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dayName, idx) => (
