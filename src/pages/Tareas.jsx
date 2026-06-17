@@ -15,8 +15,7 @@ export default function Tareas() {
     tag: 'General',
     deadline: '',
     estimatedTime: 2,
-    type: 'Tarea',
-    manualPriority: 1
+    type: 'Tarea'
   });
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
@@ -53,7 +52,7 @@ export default function Tareas() {
       newTaskData.deadline, 
       autoHours, 
       newTaskData.type, 
-      newTaskData.manualPriority
+      1 
     );
     
     const updatedTasks = [...tasks.filter(t => t.status !== 'done'), {
@@ -61,11 +60,11 @@ export default function Tareas() {
       status: 'todo',
       tag: newTaskData.tag,
       estimatedTime: autoHours,
-      priorityScore: newTaskData.manualPriority * 20
+      priorityScore: 1 * 20
     }];
     
     setNewTaskData({
-      title: '', tag: 'General', deadline: '', estimatedTime: 2, type: 'Tarea', manualPriority: 1
+      title: '', tag: 'General', deadline: '', estimatedTime: 2, type: 'Tarea'
     });
     setIsModalOpen(false);
     showToast('Evaluación creada y planificada.', '✅');
@@ -429,20 +428,11 @@ export default function Tareas() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <div className="form-group-premium" style={{ flex: 1 }}>
-                  <label>Fecha de Entrega</label>
-                  <div className="premium-input-wrapper">
-                    <Calendar size={18} className="input-icon" />
-                    <input required type="date" className="premium-input" value={newTaskData.deadline} onChange={e => setNewTaskData(prev => ({...prev, deadline: e.target.value}))} />
-                  </div>
-                </div>
-                <div className="form-group-premium" style={{ flex: 1 }}>
-                  <label>Prioridad Manual</label>
-                  <input type="range" min="1" max="5" value={newTaskData.manualPriority} onChange={e => setNewTaskData(prev => ({...prev, manualPriority: parseInt(e.target.value)}))} style={{ width: '100%', marginTop: '12px' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    <span>Baja</span><span>Alta</span>
-                  </div>
+              <div className="form-group-premium">
+                <label>Fecha de Entrega</label>
+                <div className="premium-input-wrapper">
+                  <Calendar size={18} className="input-icon" />
+                  <input required type="date" className="premium-input" value={newTaskData.deadline} onChange={e => setNewTaskData(prev => ({...prev, deadline: e.target.value}))} />
                 </div>
               </div>
 

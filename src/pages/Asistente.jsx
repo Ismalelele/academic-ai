@@ -179,8 +179,8 @@ export default function Asistente() {
         </header>
 
         <div className="messages-container">
-          {currentData.messages.map(msg => (
-            <div key={msg.id} className={`message-wrapper ${msg.sender}`}>
+          {currentData.messages.map((msg, idx) => (
+            <div key={msg.id || `msg-${idx}`} className={`message-wrapper ${msg.sender}`}>
               <div className="message-bubble">
                 {msg.sender === 'ai' ? (
                   <div className="markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(msg.text || '') }} />

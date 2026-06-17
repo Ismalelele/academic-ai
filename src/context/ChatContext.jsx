@@ -22,7 +22,7 @@ export function ChatProvider({ children }) {
   useEffect(() => {
     if (!user) {
       setSubjectData({
-        global: { documents: [], messages: [{ sender: 'ai', text: '¡Hola! Soy tu asistente. Inicia sesión para guardar tus datos.' }] }
+        global: { documents: [], messages: [{ id: 'welcome-no-user', sender: 'ai', text: '¡Hola! Soy tu asistente. Inicia sesión para guardar tus datos.' }] }
       });
       return;
     }
@@ -38,7 +38,7 @@ export function ChatProvider({ children }) {
         setSubjectData(JSON.parse(savedSubjectData));
       } else {
         setSubjectData({
-          global: { documents: [], messages: [{ sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
+          global: { documents: [], messages: [{ id: 'welcome-local-global', sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
         });
       }
       return;
@@ -52,7 +52,7 @@ export function ChatProvider({ children }) {
 
         const fMap = {};
         const newSubjectData = {
-          global: { documents: [], messages: [{ sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
+          global: { documents: [], messages: [{ id: 'welcome-cloud-global', sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
         };
 
         if (carpetas) {
@@ -137,7 +137,7 @@ export function ChatProvider({ children }) {
           setSubjectData(JSON.parse(savedSubjectData));
         } else {
           setSubjectData({
-            global: { documents: [], messages: [{ sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
+            global: { documents: [], messages: [{ id: 'welcome-cloud-global', sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }] }
           });
         }
       }
@@ -159,10 +159,10 @@ export function ChatProvider({ children }) {
       }
       return {
         documents: allDocs,
-        messages: subjectData['global']?.messages || [{ sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }]
+        messages: subjectData['global']?.messages || [{ id: 'welcome-cloud-global', sender: 'ai', text: '¡Hola! Soy tu asistente académico. Sube apuntes aquí para empezar a estudiar de forma global.' }]
       };
     }
-    return subjectData[subjectType] || { documents: [], messages: [{ sender: 'ai', text: `¡Hola! Soy tu asistente para este ramo. Sube apuntes para que te pueda ayudar a estudiar.` }] };
+    return subjectData[subjectType] || { documents: [], messages: [{ id: `welcome-fallback-${subjectType}`, sender: 'ai', text: `¡Hola! Soy tu asistente para este ramo. Sube apuntes para que te pueda ayudar a estudiar.` }] };
   };
 
   const ensureFolderExists = async (subjectType) => {

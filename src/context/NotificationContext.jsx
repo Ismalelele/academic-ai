@@ -215,12 +215,14 @@ export const NotificationProvider = ({ children }) => {
 
       let firedAlert = false;
 
-      // Revisar Horario (Avisar si hay una clase en exactamente 15 minutos)
+      // Revisar Horario (Clase Próxima y Post-Clase)
       if (effectiveSchedule && effectiveSchedule.length > 0) {
         effectiveSchedule.forEach(cls => {
           if (cls.day === currentDay && !cls.isSuspended) {
             const startMins = cls.startH * 60 + cls.startM;
-            // Si la clase empieza en exactamente 15 minutos (para no spamear)
+            const endMins = cls.endH * 60 + cls.endM;
+
+            // 1. Clase Próxima (15 minutos antes)
             if (startMins - currentMins === 15) {
               const msg = `Tu clase de ${cls.title} empieza en 15 minutos en ${cls.room || 'el Aula'}.`;
               // Comprobar si ya existe una alerta similar hoy
@@ -234,17 +236,31 @@ export const NotificationProvider = ({ children }) => {
                 firedAlert = true;
               }
             }
+
+            // 2. Post-Clase (5 minutos después)
+            if (currentMins - endMins === 5) {
+              const msg = `¡Clase de ${cls.title} terminada! Tómale una foto a la pizarra o sube tus apuntes ahora para no perder el contexto.`;
+              const alreadyAlerted = notifications.some(n => 
+                n.title === 'Clase Terminada' && 
+                n.message === msg && 
+                (new Date(n.createdAt).toDateString() === now.toDateString())
+              );
+              if (!alreadyAlerted) {
+                addNotification('Clase Terminada', msg, 'clase_post');
+                firedAlert = true;
+              }
+            }
           }
         });
       }
 
       const [alertH, alertM] = dailyAlertTime.split(':').map(Number);
 
-      // Revisar Tareas (Avisar a la hora configurada si hay tareas urgentes)
+      // Revisar Tareas (Avisar a la hora configurada si hay tareas pendientes)
       if (tasks && tasks.length > 0 && now.getHours() === alertH && now.getMinutes() === alertM) {
-        const urgentes = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
-        if (urgentes.length > 0) {
-          const msg = `Tienes ${urgentes.length} tarea(s) urgente(s) pendiente(s) para hoy.`;
+        const pendientes = tasks.filter(t => t.status !== 'done');
+        if (pendientes.length > 0) {
+          const msg = `Tienes ${pendientes.length} tarea(s) pendiente(s) por realizar.`;
           const alreadyAlerted = notifications.some(n => 
             n.title === 'Recordatorio de Tareas' && 
             n.message === msg &&

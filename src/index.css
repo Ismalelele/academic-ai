@@ -665,9 +665,10 @@ header h1 {
     border-radius: 20px;
     border: 1px solid var(--border-color);
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
     box-shadow: var(--shadow-md);
     backdrop-filter: var(--glass-blur);
+    --slot-height: 50px;
 }
 
 .time-column {
@@ -685,7 +686,7 @@ body.dark-mode .time-column {
 }
 
 .time-header {
-    height: 50px;
+    height: var(--slot-height);
     border-bottom: 1px solid var(--border-color);
     font-size: 0.85rem;
     font-weight: 700;
@@ -693,10 +694,18 @@ body.dark-mode .time-column {
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
+    position: sticky;
+    top: 0;
+    z-index: 12;
+    background: var(--bg);
+}
+
+body.dark-mode .time-header {
+    background: #0f172a;
 }
 
 .time-slot {
-    height: 50px;
+    height: var(--slot-height);
     font-size: 0.85rem;
     border-bottom: 1px dashed var(--border-color);
     display: flex;
@@ -714,10 +723,14 @@ body.dark-mode .time-column {
 }
 
 .days-header {
-    height: 50px;
+    height: var(--slot-height);
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--card-bg);
 }
 
 .days-header div {
@@ -731,13 +744,13 @@ body.dark-mode .time-column {
 }
 
 .grid-content {
-    height: 900px;
-    /* 18 slots * 50px */
+    height: calc(18 * var(--slot-height));
+    /* 18 slots * var(--slot-height) */
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     position: relative;
     background-image: linear-gradient(var(--border-color) 1px, transparent 1px);
-    background-size: 100% 50px;
+    background-size: 100% var(--slot-height);
 }
 
 .day-track {
@@ -6794,4 +6807,48 @@ body.dark-mode .mobile-day-selector {
     .note-textarea {
         font-size: 0.95rem !important;
     }
+}
+
+/* Custom styling for compact IA Study Planner Grid on Tasks Page */
+.study-planner-grid {
+    --slot-height: 28px !important;
+    max-height: 380px;
+    overflow-y: auto !important;
+}
+
+.study-planner-grid .time-header,
+.study-planner-grid .time-slot,
+.study-planner-grid .days-header div {
+    font-size: 0.7rem !important;
+}
+
+.study-planner-grid .card {
+    padding: 2px 4px !important;
+    border-radius: 6px !important;
+    font-size: 0.7rem !important;
+    line-height: 1.1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.study-planner-grid .card strong {
+    font-size: 0.7rem !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: block !important;
+}
+
+/* Hide room or secondary status text inside cards in the compact grid to avoid vertical overflow */
+.study-planner-grid .card span:nth-child(2),
+.study-planner-grid .card strong + span {
+    display: none !important;
+}
+
+/* Unsaved changes notification and buttons transition */
+.unsaved-banner-fadein {
+    animation: fadeIn 0.3s ease-out;
 }

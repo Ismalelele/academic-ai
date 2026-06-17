@@ -1,5 +1,5 @@
 import { RefreshCw, Upload, Loader2, Trash2, Wand2, X, Check } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
 
@@ -26,13 +26,19 @@ export default function Horario() {
   const { schedule, effectiveSchedule, studyBlocks, predefBlocks, isProcessing, uploadAndProcessImage, clearSchedule, saveFullSchedule, generateStudyRoutine, reportClassSuspension, removeClassSuspension, getColorType, calculateVisuals } = useSchedule();
   const { tasks } = useTasks();
   const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
   const [selectedClass, setSelectedClass] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [tempSchedule, setTempSchedule] = useState([]);
   const [selectedDayMobile, setSelectedDayMobile] = useState(() => {
     const today = new Date().getDay();
     return today === 0 ? 6 : today - 1;
   });
+
+  const hasChanges = JSON.stringify(tempSchedule) !== JSON.stringify(schedule || []);
+
+  useEffect(() => {
+    setTempSchedule(schedule ? JSON.parse(JSON.stringify(schedule)) : []);
+  }, [schedule]);
 
   const handleGenerateRoutine = () => {
     const pendingTasks = tasks.filter(t => t.status !== 'done');
@@ -46,13 +52,10 @@ export default function Horario() {
     }
   };
 
-  const enterEditMode = () => {
-    setTempSchedule(schedule ? JSON.parse(JSON.stringify(schedule)) : []);
-    setIsEditing(true);
-  };
-
-  const exitEditMode = () => {
-    setIsEditing(false);
+  const handleDiscardChanges = () => {
+    if (confirm("¿Estás seguro de que deseas descartar todos los cambios no guardados?")) {
+      setTempSchedule(schedule ? JSON.parse(JSON.stringify(schedule)) : []);
+    }
   };
 
   const handleSaveSchedule = async () => {
@@ -61,8 +64,33 @@ export default function Horario() {
       alert("Por favor, ingresa el nombre de todas las asignaturas.");
       return;
     }
+
+    // Validation of overlapping blocks
+    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    for (let i = 0; i < tempSchedule.length; i++) {
+      for (let j = i + 1; j < tempSchedule.length; j++) {
+        const c1 = tempSchedule[i];
+        const c2 = tempSchedule[j];
+        if (c1.day === c2.day) {
+          const start1 = c1.startH * 60 + c1.startM;
+          const end1 = c1.endH * 60 + c1.endM;
+          const start2 = c2.startH * 60 + c2.startM;
+          const end2 = c2.endH * 60 + c2.endM;
+          if (start1 < end2 && start2 < end1) {
+            alert(`Conflicto de horario: "${c1.title || 'Clase sin nombre'}" y "${c2.title || 'Clase sin nombre'}" se solapan el ${dayNames[c1.day]}.`);
+            return;
+          }
+        }
+      }
+    }
+
     await saveFullSchedule(tempSchedule);
-    setIsEditing(false);
+  };
+
+  const scrollToEditor = () => {
+    if (editorRef.current) {
+      editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   return (
@@ -72,15 +100,16 @@ export default function Horario() {
           <h1 className="page-title">Mi Horario Semanal</h1>
           <p className="subtitle">Sube tu horario y deja que la IA organice tu rutina diaria</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {isEditing ? (
-            <>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {hasChanges && (
+            <div className="unsaved-banner-fadein" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: '#eab308', fontWeight: 700 }}>⚠️ Cambios sin guardar</span>
               <button 
                 className="btn-secondary" 
-                onClick={exitEditMode}
+                onClick={handleDiscardChanges}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}
               >
-                📅 Mi Horario
+                Descartar
               </button>
               <button 
                 className="btn-primary" 
@@ -89,48 +118,41 @@ export default function Horario() {
               >
                 <Check size={18} /> Guardar Cambios
               </button>
-            </>
-          ) : (
-            <>
-              <button 
-                className="btn-secondary" 
-                onClick={enterEditMode}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}
-              >
-                ✏️ Corregir Horario
-              </button>
-              {effectiveSchedule && (
-                <>
-                  <button className="btn-secondary" onClick={handleGenerateRoutine} disabled={isProcessing} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer', transition: '0.3s' }}>
-                    <Wand2 size={18} /> {isProcessing ? 'Planificando...' : 'Generar Rutina con IA'}
-                  </button>
-                  <button className="btn-secondary" onClick={clearSchedule} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}>
-                    <Trash2 size={18} /> Limpiar
-                  </button>
-                </>
-              )}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept="image/*,.pdf" 
-                style={{ display: 'none' }} 
-              />
-              <button 
-                className="btn-primary" 
-                onClick={() => fileInputRef.current.click()}
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img)'}
-                {isProcessing ? <Loader2 size={20} className="spinner" /> : <Upload size={20} />}
-              </button>
-            </>
+            </div>
           )}
+
+          {!hasChanges && effectiveSchedule && (
+            <button className="btn-secondary" onClick={handleGenerateRoutine} disabled={isProcessing} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer', transition: '0.3s' }}>
+              <Wand2 size={18} /> {isProcessing ? 'Planificando...' : 'Generar Rutina con IA'}
+            </button>
+          )}
+
+          {effectiveSchedule && (
+            <button className="btn-secondary" onClick={clearSchedule} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}>
+              <Trash2 size={18} /> Limpiar
+            </button>
+          )}
+
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            accept="image/*,.pdf" 
+            style={{ display: 'none' }} 
+          />
+          <button 
+            className="btn-primary" 
+            onClick={() => fileInputRef.current.click()}
+            disabled={isProcessing}
+          >
+            {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img)'}
+            {isProcessing ? <Loader2 size={20} className="spinner" /> : <Upload size={20} />}
+          </button>
         </div>
       </header>
 
       {/* === TIMETABLE VIEW === */}
-      <div className="timetable-container" style={{ marginBottom: isEditing ? '35px' : '0' }}>
+      <div className="timetable-container" style={{ marginBottom: '35px' }}>
         <div className="time-column">
           <div className="time-header">HORAS</div>
           {predefBlocks && predefBlocks.map((b) => (
@@ -177,7 +199,7 @@ export default function Horario() {
                 key={dayIndex} 
                 className={`day-track ${selectedDayMobile === dayIndex ? 'active-day-mobile' : 'inactive-day-mobile'}`}
               >
-                {((isEditing ? tempSchedule : effectiveSchedule) || [])
+                {((hasChanges ? tempSchedule : effectiveSchedule) || [])
                   .filter(cls => cls.day === dayIndex)
                   .map(cls => (
                     <div 
@@ -187,14 +209,14 @@ export default function Horario() {
                         top: cls.top, 
                         height: cls.height,
                         opacity: cls.isSuspended ? 0.5 : 1,
-                        cursor: isEditing ? 'default' : 'pointer',
+                        cursor: hasChanges ? 'default' : 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'center',
                         alignItems: 'center',
                         textAlign: 'center'
                       }}
-                      onClick={() => !isEditing && setSelectedClass(cls)}
+                      onClick={() => !hasChanges && setSelectedClass(cls)}
                     >
                       <span style={{ textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.title}</span> 
                       <span style={{ fontSize: '0.8rem', textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.room || ''}</span>
@@ -205,7 +227,7 @@ export default function Horario() {
                       )}
                     </div>
                 ))}
-                {!isEditing && studyBlocks && studyBlocks
+                {!hasChanges && studyBlocks && studyBlocks
                   .filter(cls => cls.day === dayIndex)
                   .map(cls => (
                     <div 
@@ -234,16 +256,16 @@ export default function Horario() {
               </div>
             ))}
             
-            {!isEditing && !effectiveSchedule && !isProcessing && (
+            {!effectiveSchedule && !isProcessing && (
               <div className="empty-schedule" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '30px', background: 'var(--bg)', zIndex: 10 }}>
                 <div style={{ textAlign: 'center' }}>
                   <span style={{ color: 'var(--text-muted)', fontWeight: '500', display: 'block', marginBottom: '15px' }}>Sube una foto o PDF para que la IA lo organice por ti.</span>
                   <button 
                     className="btn-secondary"
-                    onClick={enterEditMode}
+                    onClick={scrollToEditor}
                     style={{ padding: '10px 20px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', margin: '0 auto', display: 'block' }}
                   >
-                    ✏️ Crear Horario Manualmente
+                    ✏️ O agrégalo manualmente abajo 👇
                   </button>
                 </div>
                 
@@ -267,257 +289,290 @@ export default function Horario() {
       </div>
 
       {/* === INLINE EDITOR VIEW === */}
-      {isEditing && (
-        <div style={{ 
+      <div 
+        ref={editorRef}
+        style={{ 
           background: 'var(--card-bg)', 
           border: '1px solid var(--border-color)', 
           borderRadius: '20px', 
           padding: '20px', 
           boxShadow: 'var(--shadow-md)', 
           backdropFilter: 'var(--glass-blur)',
-          animation: 'fadeUp 0.4s ease-out',
           marginTop: '25px'
+        }}
+      >
+        {/* Editor header */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '20px',
+          borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '15px'
         }}>
-          {/* Horizontal Day Columns */}
-          <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px' }}>
-            {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
-              const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-              const dayClasses = tempSchedule.filter(c => c.day === dayIndex).sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
-              
-              return (
-                <div 
-                  key={dayIndex} 
-                  style={{ 
-                    minWidth: '260px', 
-                    width: '260px', 
-                    background: 'rgba(255,255,255,0.01)', 
-                    border: '1px solid var(--border-color)', 
-                    borderRadius: '16px', 
-                    padding: '12px', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '12px',
-                    flexShrink: 0
-                  }}
-                >
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{dayNames[dayIndex]}</span>
-                    <span style={{ fontSize: '0.8rem', background: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                      {dayClasses.length}
-                    </span>
-                  </h4>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                    {dayClasses.map((cls) => {
-                      const idx = tempSchedule.findIndex(c => c.id === cls.id);
-                      if (idx === -1) return null;
-                      const colorType = cls.type || getColorType(cls.title || '');
-                      
-                      return (
-                        <div 
-                          key={cls.id} 
-                          className={`editor-row-card ${colorType}`} 
-                          style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            gap: '10px', 
-                            padding: '12px 12px 12px 18px',
-                            gridTemplateColumns: 'none'
-                          }}
-                        >
-                          {/* Asignatura */}
-                          <div>
-                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Asignatura</label>
-                            <input 
-                              type="text" 
-                              placeholder="Ej: Álgebra" 
-                              value={cls.title}
-                              onChange={(e) => {
-                                const newSched = [...tempSchedule];
-                                newSched[idx].title = e.target.value;
-                                setTempSchedule(newSched);
-                              }}
-                              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none' }}
-                            />
-                          </div>
-                          
-                          {/* Día Select */}
-                          <div>
-                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Día</label>
-                            <select 
-                              value={cls.day}
-                              onChange={(e) => {
-                                const newSched = [...tempSchedule];
-                                newSched[idx].day = parseInt(e.target.value);
-                                setTempSchedule(newSched);
-                              }}
-                              style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
-                            >
-                              <option value={0}>Lunes</option>
-                              <option value={1}>Martes</option>
-                              <option value={2}>Miércoles</option>
-                              <option value={3}>Jueves</option>
-                              <option value={4}>Viernes</option>
-                              <option value={5}>Sábado</option>
-                              <option value={6}>Domingo</option>
-                            </select>
-                          </div>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            ✏️ Editor de Horario
+          </h3>
+          {hasChanges && (
+            <div className="unsaved-banner-fadein" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: '#eab308', fontWeight: 700 }}>⚠️ Cambios sin guardar</span>
+              <button 
+                className="btn-secondary" 
+                onClick={handleDiscardChanges}
+                style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                Descartar
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={handleSaveSchedule}
+                style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          )}
+        </div>
 
-                          {/* Hora Inicio y Fin */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                            <div>
-                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Inicio</label>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <input 
-                                  type="number" min="0" max="23" placeholder="HH"
-                                  value={cls.startH}
-                                  onChange={(e) => {
-                                    const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
-                                    const newSched = [...tempSchedule];
-                                    newSched[idx].startH = val;
-                                    const { top, height } = calculateVisuals(val, cls.startM, cls.endH, cls.endM);
-                                    newSched[idx].top = top;
-                                    newSched[idx].height = height;
-                                    setTempSchedule(newSched);
-                                  }}
-                                  style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                                />
-                                <span style={{ fontWeight: 'bold' }}>:</span>
-                                <input 
-                                  type="number" min="0" max="59" placeholder="MM"
-                                  value={cls.startM}
-                                  onChange={(e) => {
-                                    const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                                    const newSched = [...tempSchedule];
-                                    newSched[idx].startM = val;
-                                    const { top, height } = calculateVisuals(cls.startH, val, cls.endH, cls.endM);
-                                    newSched[idx].top = top;
-                                    newSched[idx].height = height;
-                                    setTempSchedule(newSched);
-                                  }}
-                                  style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                                />
-                              </div>
-                            </div>
+        {/* Horizontal Day Columns */}
+        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px' }}>
+          {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
+            const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+            const dayClasses = tempSchedule.filter(c => c.day === dayIndex).sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
+            
+            return (
+              <div 
+                key={dayIndex} 
+                style={{ 
+                  minWidth: '260px', 
+                  width: '260px', 
+                  background: 'rgba(255,255,255,0.01)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '16px', 
+                  padding: '12px', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '12px',
+                  flexShrink: 0
+                }}
+              >
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{dayNames[dayIndex]}</span>
+                  <span style={{ fontSize: '0.8rem', background: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                    {dayClasses.length}
+                  </span>
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                  {dayClasses.map((cls) => {
+                    const idx = tempSchedule.findIndex(c => c.id === cls.id);
+                    if (idx === -1) return null;
+                    const colorType = cls.type || getColorType(cls.title || '');
+                    
+                    return (
+                      <div 
+                        key={cls.id} 
+                        className={`editor-row-card ${colorType}`} 
+                        style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: '10px', 
+                          padding: '12px 12px 12px 18px',
+                          gridTemplateColumns: 'none'
+                        }}
+                      >
+                        {/* Asignatura */}
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Asignatura</label>
+                          <input 
+                            type="text" 
+                            placeholder="Ej: Álgebra" 
+                            value={cls.title}
+                            onChange={(e) => {
+                              const newSched = [...tempSchedule];
+                              newSched[idx].title = e.target.value;
+                              setTempSchedule(newSched);
+                            }}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none' }}
+                          />
+                        </div>
+                        
+                        {/* Día Select */}
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Día</label>
+                          <select 
+                            value={cls.day}
+                            onChange={(e) => {
+                              const newSched = [...tempSchedule];
+                              newSched[idx].day = parseInt(e.target.value);
+                              setTempSchedule(newSched);
+                            }}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                          >
+                            <option value={0}>Lunes</option>
+                            <option value={1}>Martes</option>
+                            <option value={2}>Miércoles</option>
+                            <option value={3}>Jueves</option>
+                            <option value={4}>Viernes</option>
+                            <option value={5}>Sábado</option>
+                            <option value={6}>Domingo</option>
+                          </select>
+                        </div>
 
-                            <div>
-                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Fin</label>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <input 
-                                  type="number" min="0" max="23" placeholder="HH"
-                                  value={cls.endH}
-                                  onChange={(e) => {
-                                    const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
-                                    const newSched = [...tempSchedule];
-                                    newSched[idx].endH = val;
-                                    const { top, height } = calculateVisuals(cls.startH, cls.startM, val, cls.endM);
-                                    newSched[idx].top = top;
-                                    newSched[idx].height = height;
-                                    setTempSchedule(newSched);
-                                  }}
-                                  style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                                />
-                                <span style={{ fontWeight: 'bold' }}>:</span>
-                                <input 
-                                  type="number" min="0" max="59" placeholder="MM"
-                                  value={cls.endM}
-                                  onChange={(e) => {
-                                    const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                                    const newSched = [...tempSchedule];
-                                    newSched[idx].endM = val;
-                                    const { top, height } = calculateVisuals(cls.startH, cls.startM, cls.endH, val);
-                                    newSched[idx].top = top;
-                                    newSched[idx].height = height;
-                                    setTempSchedule(newSched);
-                                  }}
-                                  style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
-                                />
-                              </div>
+                        {/* Hora Inicio y Fin */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div>
+                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Inicio</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <input 
+                                type="number" min="0" max="23" placeholder="HH"
+                                value={cls.startH}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
+                                  const newSched = [...tempSchedule];
+                                  newSched[idx].startH = val;
+                                  const { top, height } = calculateVisuals(val, cls.startM, cls.endH, cls.endM);
+                                  newSched[idx].top = top;
+                                  newSched[idx].height = height;
+                                  setTempSchedule(newSched);
+                                }}
+                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
+                              />
+                              <span style={{ fontWeight: 'bold' }}>:</span>
+                              <input 
+                                type="number" min="0" max="59" placeholder="MM"
+                                value={cls.startM}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                                  const newSched = [...tempSchedule];
+                                  newSched[idx].startM = val;
+                                  const { top, height } = calculateVisuals(cls.startH, val, cls.endH, cls.endM);
+                                  newSched[idx].top = top;
+                                  newSched[idx].height = height;
+                                  setTempSchedule(newSched);
+                                }}
+                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
+                              />
                             </div>
                           </div>
 
-                          {/* Color Picker */}
                           <div>
-                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>🎨 Color</label>
-                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                              {COLOR_PALETTE.map((c) => {
-                                const isSelected = colorType === c.type;
-                                return (
-                                  <button
-                                    key={c.type}
-                                    type="button"
-                                    onClick={() => {
-                                      const newSched = [...tempSchedule];
-                                      newSched[idx].type = c.type;
-                                      setTempSchedule(newSched);
-                                    }}
-                                    title={c.label}
-                                    style={{
-                                      width: '20px',
-                                      height: '20px',
-                                      borderRadius: '50%',
-                                      background: c.solid,
-                                      border: isSelected ? '2px solid var(--text-main)' : '1px solid rgba(255, 255, 255, 0.15)',
-                                      cursor: 'pointer',
-                                      transform: isSelected ? 'scale(1.25)' : 'scale(1)',
-                                      boxShadow: isSelected ? `0 0 6px ${c.solid}` : 'none',
-                                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                                      padding: 0,
-                                      outline: 'none'
-                                    }}
-                                  />
-                                );
-                              })}
+                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Fin</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <input 
+                                type="number" min="0" max="23" placeholder="HH"
+                                value={cls.endH}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(23, parseInt(e.target.value) || 0));
+                                  const newSched = [...tempSchedule];
+                                  newSched[idx].endH = val;
+                                  const { top, height } = calculateVisuals(cls.startH, cls.startM, val, cls.endM);
+                                  newSched[idx].top = top;
+                                  newSched[idx].height = height;
+                                  setTempSchedule(newSched);
+                                }}
+                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
+                              />
+                              <span style={{ fontWeight: 'bold' }}>:</span>
+                              <input 
+                                type="number" min="0" max="59" placeholder="MM"
+                                value={cls.endM}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                                  const newSched = [...tempSchedule];
+                                  newSched[idx].endM = val;
+                                  const { top, height } = calculateVisuals(cls.startH, cls.startM, cls.endH, val);
+                                  newSched[idx].top = top;
+                                  newSched[idx].height = height;
+                                  setTempSchedule(newSched);
+                                }}
+                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.15)', color: 'var(--text-main)', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
+                              />
                             </div>
-                          </div>
-
-                          {/* Acciones */}
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px', marginTop: '4px' }}>
-                            <button 
-                              type="button"
-                              onClick={() => {
-                                setTempSchedule(tempSchedule.filter((_, i) => i !== idx));
-                              }}
-                              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
-                              title="Eliminar clase"
-                            >
-                              <Trash2 size={14} /> Eliminar
-                            </button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const startH = 8, startM = 15, endH = 9, endM = 35;
-                      const { top, height } = calculateVisuals(startH, startM, endH, endM);
-                      setTempSchedule([...tempSchedule, {
-                        id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                        title: '',
-                        day: dayIndex,
-                        startH,
-                        startM,
-                        endH,
-                        endM,
-                        top,
-                        height,
-                        type: 'cultura'
-                      }]);
-                    }}
-                    className="btn-secondary"
-                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: 600, marginTop: '8px' }}
-                  >
-                    ➕ Agregar Clase
-                  </button>
+
+                        {/* Color Picker */}
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>🎨 Color</label>
+                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                            {COLOR_PALETTE.map((c) => {
+                              const isSelected = colorType === c.type;
+                              return (
+                                <button
+                                  key={c.type}
+                                  type="button"
+                                  onClick={() => {
+                                    const newSched = [...tempSchedule];
+                                    newSched[idx].type = c.type;
+                                    setTempSchedule(newSched);
+                                  }}
+                                  title={c.label}
+                                  style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    background: c.solid,
+                                    border: isSelected ? '2px solid var(--text-main)' : '1px solid rgba(255, 255, 255, 0.15)',
+                                    cursor: 'pointer',
+                                    transform: isSelected ? 'scale(1.25)' : 'scale(1)',
+                                    boxShadow: isSelected ? `0 0 6px ${c.solid}` : 'none',
+                                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                                    padding: 0,
+                                    outline: 'none'
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Acciones */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px', marginTop: '4px' }}>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setTempSchedule(tempSchedule.filter((_, i) => i !== idx));
+                            }}
+                            style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
+                            title="Eliminar clase"
+                          >
+                            <Trash2 size={14} /> Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    const startH = 8, startM = 15, endH = 9, endM = 35;
+                    const { top, height } = calculateVisuals(startH, startM, endH, endM);
+                    setTempSchedule([...tempSchedule, {
+                      id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                      title: '',
+                      day: dayIndex,
+                      startH,
+                      startM,
+                      endH,
+                      endM,
+                      top,
+                      height,
+                      type: 'cultura'
+                    }]);
+                  }}
+                  className="btn-secondary"
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: 600, marginTop: '8px' }}
+                >
+                  ➕ Agregar Clase
+                </button>
+              </div>
+          );
             })}
           </div>
         </div>
-      )}
 
       {/* === CLASS DETAILS MODAL === */}
       {selectedClass && (

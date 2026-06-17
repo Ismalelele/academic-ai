@@ -69,7 +69,7 @@ export const ScheduleProvider = ({ children }) => {
           .eq('user_id', user.id)
           .order('fecha_subida', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (horarioError && horarioError.code !== 'PGRST116') {
           throw horarioError;

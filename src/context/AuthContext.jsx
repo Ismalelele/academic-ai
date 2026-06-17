@@ -10,30 +10,23 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get current session
+    // Obtener sesión actual real desde Supabase
     const getSession = async () => {
       try {
-        const localUser = localStorage.getItem('sb-local-session-user');
-        if (localUser) {
-          setUser(JSON.parse(localUser));
-          setLoading(false);
-          return;
-        }
-
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
         setUser(session?.user || null);
       } catch (err) {
         console.warn("Fallo al conectar con Supabase Auth en getSession:", err);
-        const localUser = localStorage.getItem('sb-local-session-user');
-        setUser(localUser ? JSON.parse(localUser) : null);
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
-    
+
     getSession();
 
-    // Listen to auth state changes
+    // Escuchar cambios de estado de autenticación
     let subscriptionObj = null;
     try {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -57,13 +50,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const clearAllUserData = async () => {
-    // Si hay una sesión local de respaldo activa, no la borramos a menos que sea un signOut explícito
-    if (localStorage.getItem('sb-local-session-user')) {
-      return;
-    }
-
     console.log("[Auth] Iniciando limpieza total reactiva de almacenamiento y cachés...");
-    
+
     // 1. Limpiar localStorage
     try {
       localStorage.clear();
@@ -109,80 +97,51 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/dashboard',
-          queryParams: {
-            prompt: 'select_account'
-          }
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/dashboard',
+        queryParams: {
+          prompt: 'select_account'
         }
-      });
-      if (error) throw error;
-    } catch (error) {
-      console.warn("Google OAuth falló, usando sesión local de respaldo:", error);
-      const mockUser = {
-        id: `user-local-${Date.now()}`,
-        email: 'google-user@academic-ai.local',
-        user_metadata: {
-          full_name: 'Usuario Google Local',
-          carrera: 'Ingeniería Civil',
-          avatar_url: null
-        }
-      };
-      setUser(mockUser);
-      localStorage.setItem('sb-local-session-user', JSON.stringify(mockUser));
-    }
+      }
+    });
+    if (error) throw error;
+    return data;
   };
 
   const signUpWithEmail = async (email, password, metadata) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata
-        }
-      });
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.warn("Fallo al registrarse en Supabase. Creando usuario local de respaldo.", error);
-      const mockUser = {
-        id: `user-local-${Date.now()}`,
-        email,
-        user_metadata: metadata
-      };
-      setUser(mockUser);
-      localStorage.setItem('sb-local-session-user', JSON.stringify(mockUser));
-      return { user: mockUser, session: { user: mockUser } };
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: metadata
+      }
+    });
+    if (error) {
+      if (error.message === 'User already registered') {
+        throw new Error('Este correo electrónico ya está registrado. Intenta iniciar sesión.');
+      }
+      throw error;
     }
+    return data;
   };
 
   const signInWithEmail = async (email, password) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.warn("Fallo al iniciar sesión con Supabase. Usando sesión local de respaldo.", error);
-      const mockUser = {
-        id: `user-local-${Date.now()}`,
-        email,
-        user_metadata: {
-          full_name: email.split('@')[0],
-          carrera: 'Ingeniería (Local)',
-          avatar_url: null
-        }
-      };
-      setUser(mockUser);
-      localStorage.setItem('sb-local-session-user', JSON.stringify(mockUser));
-      return { user: mockUser, session: { user: mockUser } };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (error) {
+      if (error.message === 'Invalid login credentials') {
+        throw new Error('El correo o la contraseña son incorrectos, o la cuenta no existe. Por favor, regístrate.');
+      }
+      if (error.message === 'Email not confirmed') {
+        throw new Error('Debes confirmar tu correo electrónico antes de iniciar sesión.');
+      }
+      throw error;
     }
+    return data;
   };
 
   const signOut = async () => {
@@ -191,7 +150,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.warn("Error al intentar cerrar sesión en Supabase:", error);
     } finally {
-      localStorage.removeItem('sb-local-session-user');
       setUser(null);
       await clearAllUserData();
     }
@@ -201,42 +159,12 @@ export const AuthProvider = ({ children }) => {
     try {
       if (!user) return { error: new Error("No hay usuario autenticado") };
 
-      if (user.id.startsWith('user-local-')) {
-        const updatedUser = {
-          ...user,
-          user_metadata: {
-            ...user.user_metadata,
-            ...newMetadata
-          }
-        };
-        setUser(updatedUser);
-        localStorage.setItem('sb-local-session-user', JSON.stringify(updatedUser));
-
-        // Sincronizar en memberships locales
-        try {
-          const localMembersKey = `academic_members_${user.id}`;
-          const localMembers = JSON.parse(localStorage.getItem(localMembersKey)) || [];
-          const updatedMembers = localMembers.map(m => m.user_id === user.id ? {
-            ...m,
-            user_name: newMetadata.full_name,
-            user_avatar: newMetadata.avatar_url,
-            user_carrera: newMetadata.carrera,
-            user_universidad: newMetadata.universidad,
-            user_anio: newMetadata.anio_ingreso,
-            user_bio: newMetadata.bio
-          } : m);
-          localStorage.setItem(localMembersKey, JSON.stringify(updatedMembers));
-        } catch (localErr) {
-          console.warn("Fallo al actualizar local memberships:", localErr);
-        }
-
-        return { data: updatedUser, error: null };
-      }
-
       const { data, error } = await supabase.auth.updateUser({
         data: newMetadata
       });
+
       if (error) throw error;
+
       if (data?.user) {
         setUser(data.user);
 
@@ -265,12 +193,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      signInWithGoogle, 
-      signUpWithEmail, 
-      signInWithEmail, 
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      signInWithGoogle,
+      signUpWithEmail,
+      signInWithEmail,
       signOut,
       updateProfile
     }}>
