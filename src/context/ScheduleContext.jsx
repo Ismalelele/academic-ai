@@ -62,6 +62,18 @@ export const ScheduleProvider = ({ children }) => {
         return;
       }
       try {
+        // Cargar planificación de estudio desde Supabase
+        const { data: planData, error: planError } = await supabase
+          .from('planificacion_estudio')
+          .select('bloques_json')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!planError && planData && planData.bloques_json) {
+          setStudyBlocks(planData.bloques_json);
+          localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(planData.bloques_json));
+        }
+
         // Buscar el horario más reciente de este usuario
         const { data: horarioData, error: horarioError } = await supabase
           .from('horarios')
@@ -172,11 +184,28 @@ export const ScheduleProvider = ({ children }) => {
     setEffectiveSchedule(computed);
   }, [schedule, exceptions]);
 
-  // Sync studyBlocks to localStorage
+  // Sync studyBlocks to localStorage and Supabase
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(studyBlocks));
-    }
+    if (!user) return;
+
+    localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(studyBlocks));
+
+    const syncToDb = async () => {
+      if (user.id.startsWith('user-local-')) return;
+      try {
+        await supabase
+          .from('planificacion_estudio')
+          .upsert({
+            user_id: user.id,
+            bloques_json: studyBlocks,
+            updated_at: new Date().toISOString()
+          });
+      } catch (err) {
+        console.warn("Fallo al guardar bloques de estudio en Supabase:", err);
+      }
+    };
+
+    syncToDb();
   }, [studyBlocks, user]);
 
   const reportClassSuspension = async (bloqueId, dateString) => {
@@ -463,8 +492,12 @@ export const ScheduleProvider = ({ children }) => {
   const clearSchedule = async () => {
     if (user) {
       localStorage.removeItem(`academic_${user.id}_schedule`);
+      localStorage.removeItem(`academic_${user.id}_study_blocks`);
       try {
         await supabase.from('horarios').delete().eq('user_id', user.id);
+        if (!user.id.startsWith('user-local-')) {
+          await supabase.from('planificacion_estudio').delete().eq('user_id', user.id);
+        }
       } catch (e) {
         console.warn("No se pudo sincronizar eliminación de horario con Supabase.", e);
       }
@@ -473,10 +506,17 @@ export const ScheduleProvider = ({ children }) => {
     setStudyBlocks([]);
   };
 
-  const clearStudyBlocks = () => {
+  const clearStudyBlocks = async () => {
     setStudyBlocks([]);
     if (user) {
       localStorage.removeItem(`academic_${user.id}_study_blocks`);
+      if (!user.id.startsWith('user-local-')) {
+        try {
+          await supabase.from('planificacion_estudio').delete().eq('user_id', user.id);
+        } catch (e) {
+          console.warn("No se pudo sincronizar eliminación de bloques de estudio con Supabase.", e);
+        }
+      }
     }
   };
 

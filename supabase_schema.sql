@@ -205,3 +205,13 @@ CREATE TABLE IF NOT EXISTS public.pizarras_grupos (
 ALTER TABLE public.clases_grabadas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pizarras_grupos DISABLE ROW LEVEL SECURITY;
 
+-- 17. planificacion_estudio
+CREATE TABLE IF NOT EXISTS public.planificacion_estudio (
+    user_id UUID PRIMARY KEY,
+    bloques_json JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+ALTER TABLE public.planificacion_estudio DISABLE ROW LEVEL SECURITY;
+
+
