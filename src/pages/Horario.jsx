@@ -57,7 +57,7 @@ export default function Horario() {
 
   const handleGenerateRoutine = () => {
     const pendingTasks = tasks.filter(t => t.status !== 'done');
-    generateStudyRoutine(pendingTasks);
+    generateStudyRoutine(pendingTasks, true);
   };
 
   const handleFileChange = (e) => {

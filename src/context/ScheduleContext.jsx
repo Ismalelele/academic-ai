@@ -509,6 +509,7 @@ export const ScheduleProvider = ({ children }) => {
   const clearStudyBlocks = async () => {
     setStudyBlocks([]);
     if (user) {
+      localStorage.setItem(`academic_${user.id}_study_blocks_cleared`, 'true');
       localStorage.removeItem(`academic_${user.id}_study_blocks`);
       if (!user.id.startsWith('user-local-')) {
         try {
@@ -616,7 +617,14 @@ export const ScheduleProvider = ({ children }) => {
     return availableBlocks;
   };
 
-  const generateStudyRoutine = async (pendingTasks) => {
+  const generateStudyRoutine = async (pendingTasks, force = false) => {
+    if (user && force) {
+      localStorage.removeItem(`academic_${user.id}_study_blocks_cleared`);
+    }
+    const isCleared = user ? localStorage.getItem(`academic_${user.id}_study_blocks_cleared`) === 'true' : false;
+    if (isCleared && !force) {
+      return;
+    }
     if (!pendingTasks || pendingTasks.length === 0) {
       setStudyBlocks([]);
       if (user) {

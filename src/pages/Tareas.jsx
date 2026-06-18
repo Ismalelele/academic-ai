@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil, Check } from 'lucide-react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Tareas() {
   const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, isProcessing, clearStudyBlocks, updateStudyBlock, updateClass } = useSchedule();
   const { tasks, isLoading, addTask, updateTaskStatus, updateTask, deleteTask, deleteMultipleTasks } = useTasks();
+  const { user } = useAuth();
 
   const uniqueSubjects = effectiveSchedule ? Array.from(new Set(effectiveSchedule.map(c => c.title))) : [];
 
@@ -39,10 +41,11 @@ export default function Tareas() {
   });
 
   useEffect(() => {
-    if (!isLoading && tasks && tasks.length > 0 && (!studyBlocks || studyBlocks.length === 0) && !isProcessing) {
+    const isCleared = user ? localStorage.getItem(`academic_${user.id}_study_blocks_cleared`) === 'true' : false;
+    if (!isLoading && tasks && tasks.length > 0 && (!studyBlocks || studyBlocks.length === 0) && !isProcessing && !isCleared) {
       generateStudyRoutine(tasks.filter(t => t.status !== 'done'));
     }
-  }, [isLoading, tasks, studyBlocks, isProcessing]);
+  }, [isLoading, tasks, studyBlocks, isProcessing, user]);
 
   const showToast = (message, icon = '✅') => {
     const id = Date.now().toString();
@@ -435,7 +438,7 @@ export default function Tareas() {
               )}
               <button
                 className="btn-secondary"
-                onClick={() => generateStudyRoutine(tasks.filter(t => t.status !== 'done'))}
+                onClick={() => generateStudyRoutine(tasks.filter(t => t.status !== 'done'), true)}
                 disabled={isProcessing}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer', transition: '0.3s', fontSize: '0.85rem', fontWeight: 700 }}
               >
