@@ -70,12 +70,83 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications();
   }, [user]);
 
-  // 1.5 Solicitar permisos para Push Notifications del Sistema Operativo
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission !== "denied" && Notification.permission !== "granted") {
-      Notification.requestPermission();
+  // Helper to convert VAPID public key
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
     }
-  }, []);
+    return outputArray;
+  };
+
+  const registerPushSubscription = useCallback(async () => {
+    if (!user || user.id.startsWith('user-local-')) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn("Push notifications are not supported in this browser.");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Request permission dynamically if not yet granted
+      if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.warn("Notification permission was denied.");
+          return;
+        }
+      }
+
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.warn("VITE_VAPID_PUBLIC_KEY is missing in env variables.");
+        return;
+      }
+
+      const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey
+      });
+
+      // Send subscription to Supabase
+      const dispositivoString = navigator.userAgent;
+      
+      // Upsert subscription into database
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .upsert({
+          user_id: user.id,
+          subscription_json: subscription.toJSON(),
+          dispositivo: dispositivoString,
+          fecha_creacion: new Date().toISOString()
+        }, {
+          onConflict: 'user_id, subscription_json'
+        });
+
+      if (error) {
+        console.error("Error saving push subscription to Supabase:", error);
+      } else {
+        console.log("Successfully registered and saved Push Subscription to Supabase.");
+      }
+    } catch (err) {
+      console.error("Error setting up Web Push subscription:", err);
+    }
+  }, [user]);
+
+  // Hook to register push on login or mount when user exists
+  useEffect(() => {
+    if (user && !user.id.startsWith('user-local-')) {
+      registerPushSubscription();
+    }
+  }, [user, registerPushSubscription]);
 
   // Función interna para lanzar la notificación al Sistema Operativo
   const triggerOSNotification = (title, message) => {
