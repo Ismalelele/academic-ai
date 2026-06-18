@@ -1546,10 +1546,12 @@ body.dark-mode .chat-footer input {
         padding-bottom: 20px;
     }
 
-    header {
+    .main-content > header {
+        padding-left: 52px;
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
+        box-sizing: border-box;
     }
 
     header h1 {

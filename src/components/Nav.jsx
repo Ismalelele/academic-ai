@@ -263,6 +263,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
   const activeTasks = tasks.filter(t => t.status !== 'done');
   const completedTasksCount = tasks.filter(t => t.status === 'done').length;
+  const unreadChatCount = (notifications || []).filter(n => n.type && n.type.startsWith('chat:') && !n.read).length;
+  const unreadRequestCount = (notifications || []).filter(n => n.type && n.type.startsWith('request:') && !n.read).length;
+  const totalComunidadCount = unreadChatCount + unreadRequestCount;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -675,13 +678,42 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               }}
             >
               <MessageCircle size={18} /> <span>Comunidad</span>
+              {totalComunidadCount > 0 && (
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#ef4444',
+                  display: 'inline-block',
+                  marginLeft: '4px',
+                  boxShadow: '0 0 6px #ef4444'
+                }} />
+              )}
               <ChevronDown size={14} className="chevron-icon" />
             </button>
             {activeDropdown === 'comunidad' && (
               <ul className="nav-submenu">
                 <li>
-                  <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                  <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                     <MessageCircle size={16} /> <span>Chats</span>
+                    {unreadChatCount > 0 && (
+                      <span style={{
+                        background: '#ef4444',
+                        color: 'white',
+                        borderRadius: '50%',
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                        width: '18px',
+                        height: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginLeft: '8px',
+                        boxShadow: '0 2px 5px rgba(239, 68, 68, 0.4)'
+                      }}>
+                        {unreadChatCount}
+                      </span>
+                    )}
                     <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
                   </NavLink>
                 </li>
