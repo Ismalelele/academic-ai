@@ -12,6 +12,12 @@ export const useNotifications = () => useContext(NotificationContext);
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
+  const notificationsRef = useRef(notifications);
+
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
   const { user } = useAuth();
   const { effectiveSchedule, studyBlocks } = useSchedule();
   const { tasks } = useTasks();
@@ -95,6 +101,37 @@ export const NotificationProvider = ({ children }) => {
 
     // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
     triggerOSNotification(title, message);
+
+    const isChat = type && type.startsWith('chat:');
+    const existing = isChat ? notificationsRef.current.find(n => n.type === type && !n.read) : null;
+
+    if (existing) {
+      const updatedMessage = `${existing.message}\n${message}`;
+      
+      // Actualizar localmente de inmediato
+      setNotifications(prev => {
+        const updated = prev.map(n => n.id === existing.id ? { ...n, message: updatedMessage, createdAt: new Date().toISOString() } : n);
+        localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
+        return updated;
+      });
+
+      try {
+        if (typeof existing.id === 'string' && existing.id.startsWith('notif-local-')) {
+          return existing;
+        }
+        await supabase
+          .from('notificaciones')
+          .update({
+            mensaje: updatedMessage,
+            fecha_creacion: new Date().toISOString()
+          })
+          .eq('id_notificacion', existing.id);
+      } catch (err) {
+        console.warn("Fallo al actualizar notificación en Supabase:", err);
+      }
+
+      return { ...existing, message: updatedMessage };
+    }
 
     const localNewNotif = {
       id: `notif-local-${Date.now()}`,

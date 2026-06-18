@@ -477,7 +477,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   onClick={() => isClickable && handleNotificationClick(n)}
                 >
                   <h4>{n.title}</h4>
-                  <p>{n.message}</p>
+                  <p style={{ whiteSpace: 'pre-line' }}>{n.message}</p>
                   <span className="notification-time">{formatDate(n.createdAt)}</span>
                 </div>
                 {!isDeleteMode && (
