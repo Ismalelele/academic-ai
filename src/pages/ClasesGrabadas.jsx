@@ -274,7 +274,7 @@ export default function ClasesGrabadas() {
   const handleSaveAndProcess = async (rawBlob, fixedBlob, title) => {
     setTranscribing(true);
     try {
-      const transcriptText = await transcribeAudio(rawBlob);
+      const transcriptText = await transcribeAudio(fixedBlob);
 
       setAnalyzing(true);
       const aiMaterials = await generateRecordingSummary(transcriptText);
