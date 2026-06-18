@@ -812,8 +812,8 @@ export const scheduleAiNotifications = async (userId, schedule = [], tasks = [],
   if (apiKey) {
     try {
       const localNowString = now.toLocaleString('es-ES', { timeZoneName: 'short' });
-      const systemPrompt = `Eres un asistente académico y coach estudiantil proactivo, empático y motivador.
-Tu labor es calendarizar alertas de motivación, estudio y recordatorios personalizadas para el estudiante para las próximas 24 horas.
+      const systemPrompt = `Eres un coach motivacional y mentor de estudio. Tu rol es EXCLUSIVAMENTE inspirar, motivar y dar soporte psicológico/académico al estudiante.
+Tu labor es calendarizar alertas de motivación, consejos de estudio y soporte emocional para el estudiante en las próximas 24 horas.
 Recibirás:
 - La fecha y hora actual: ${localNowString}
 - El horario de clases: ${JSON.stringify(schedule)}
@@ -821,12 +821,13 @@ Recibirás:
 - Los bloques de estudio: ${JSON.stringify(studyBlocks)}
 
 REGLAS DE PROGRAMACIÓN ESTRICTAS:
-1. PROHIBICIÓN NOCTURNA: 'triggerTime' DEBE estar entre 08:00 y 20:00. NUNCA programes nada fuera de este horario.
-2. PROHIBICIÓN DE TIEMPO RELATIVO: NUNCA uses frases como "en 1 hora", "en 10 minutos" o "pronto". Usa solo tiempo absoluto, ej: "Tu clase de mañana a las 11:00".
-3. TAREAS DE LA IA: Tu función es solo motivar o recordar estudiar, NO programar el inicio de clases ni eventos de horario, ya que el sistema lo hace automáticamente.
+1. ROL EXCLUSIVO DE COACH MOTIVACIONAL: Tu mensaje debe ser inspirador y de aliento. No eres un gestor de calendario.
+2. PROHIBICIÓN ABSOLUTA DE HORAS EXACTAS DE EVENTOS ACADÉMICOS: Tienes terminantemente PROHIBIDO programar alertas para avisar del inicio de clases o el inicio/vencimiento exacto de tareas. El sistema de la aplicación se encargará de avisar sobre esos eventos de forma automática y determinista.
+3. RESTRICCIÓN DE HORARIO DIURNO (08:00 A 20:00): El campo 'triggerTime' DEBE estar comprendido estrictamente entre las 08:00 y las 20:00. NUNCA programes una notificación antes de las 08:00 o después de las 20:00.
+4. FORMATO DE TIEMPO ABSOLUTO: Cuando hagas referencia al tiempo en tus mensajes, usa siempre tiempo absoluto (ej: "Hoy a las 14:00", "Mañana a las 10:00"). Nunca uses tiempo relativo ("en 1 hora", "en 15 minutos", "hace poco").
 
 Devuelve EXCLUSIVAMENTE un JSON:
-{ "alerts": [{ "id": "ai-alert-id", "title": "Título", "message": "Mensaje en tiempo absoluto", "triggerTime": "ISO String" }] }`;
+{ "alerts": [{ "id": "ai-alert-id", "title": "⚡ Mensaje Motivacional", "message": "Tu mensaje inspirador con tiempo absoluto", "triggerTime": "ISO String" }] }`;
 
       const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -838,7 +839,7 @@ Devuelve EXCLUSIVAMENTE un JSON:
           model: 'llama-3.1-8b-instant',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: "Genera las alertas motivadoras y calendarizadas para mis próximas 24 horas." }
+            { role: 'user', content: "Genera mis consejos motivacionales y alertas de acompañamiento para las próximas 24 horas." }
           ],
           temperature: 0.6,
           response_format: { type: "json_object" }
@@ -850,11 +851,22 @@ Devuelve EXCLUSIVAMENTE un JSON:
         const content = data.choices[0].message.content;
         const parsed = JSON.parse(content);
         if (parsed.alerts && Array.isArray(parsed.alerts)) {
-          // Add fired: false to all alerts
-          const formattedAlerts = parsed.alerts.map(alert => ({
-            ...alert,
-            fired: false
-          }));
+          // Add fired: false to all alerts and validate boundary constraint
+          const formattedAlerts = parsed.alerts
+            .map(alert => {
+              const trigger = new Date(alert.triggerTime);
+              // Clamp hours between 08:00 and 20:00
+              if (trigger.getHours() < 8) {
+                trigger.setHours(8, 0, 0, 0);
+              } else if (trigger.getHours() >= 20) {
+                trigger.setHours(20, 0, 0, 0);
+              }
+              return {
+                ...alert,
+                triggerTime: trigger.toISOString(),
+                fired: false
+              };
+            });
           localStorage.setItem(key, JSON.stringify(formattedAlerts));
           return formattedAlerts;
         }
@@ -868,16 +880,29 @@ Devuelve EXCLUSIVAMENTE un JSON:
   console.log("Using local heuristic alert generator...");
   const fallbackAlerts = [];
 
+  // Helper to check and clamp time between 08:00 and 20:00
+  const clampToDaytime = (date) => {
+    const hours = date.getHours();
+    if (hours < 8) {
+      date.setHours(8, 0, 0, 0);
+    } else if (hours >= 20) {
+      date.setHours(20, 0, 0, 0);
+    }
+    return date;
+  };
+
   // Alert 1: Study Block reminder if there is one
   if (studyBlocks && studyBlocks.length > 0) {
-    const nextBlock = studyBlocks[0]; // grab the first block
-    const blockTime = new Date();
+    const nextBlock = studyBlocks[0];
+    let blockTime = new Date();
     blockTime.setHours(nextBlock.startH, nextBlock.startM - 5, 0, 0);
+    blockTime = clampToDaytime(blockTime);
+
     if (blockTime > now) {
       fallbackAlerts.push({
         id: `ai-alert-fallback-block-${Date.now()}`,
-        title: `📚 Prepárate para estudiar`,
-        message: `Tu bloque de estudio para "${nextBlock.title}" inicia en 5 minutos. ¡Pon tu teléfono en silencio y concéntrate!`,
+        title: `⚡ Coach Motivacional`,
+        message: `Hoy a las ${nextBlock.startH.toString().padStart(2, '0')}:${nextBlock.startM.toString().padStart(2, '0')} tienes un bloque de estudio programado. ¡Prepara tus materiales y confía en tu capacidad!`,
         triggerTime: blockTime.toISOString(),
         fired: false
       });
@@ -885,11 +910,12 @@ Devuelve EXCLUSIVAMENTE un JSON:
   }
 
   // Alert 2: General focus/motivational reminder in 3 hours
-  const motivTime = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours from now
+  let motivTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  motivTime = clampToDaytime(motivTime);
   const pendingUrgentes = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
   let motivMsg = "¡Hola! Mantén el foco en tus metas de hoy. Recuerda tomar pequeños descansos.";
   if (pendingUrgentes.length > 0) {
-    motivMsg = `Tienes la tarea urgente "${pendingUrgentes[0].title}" pendiente. ¡Un paso a la vez, tú puedes completarla!`;
+    motivMsg = `Hoy a las 20:00: recuerda avanzar en la tarea "${pendingUrgentes[0].title}". ¡Confío en que lograrás completarla paso a paso!`;
   }
 
   fallbackAlerts.push({
@@ -901,11 +927,12 @@ Devuelve EXCLUSIVAMENTE un JSON:
   });
 
   // Alert 3: Check-in reminder in 6 hours
-  const checkTime = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+  let checkTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+  checkTime = clampToDaytime(checkTime);
   fallbackAlerts.push({
     id: `ai-alert-fallback-check-${Date.now()}`,
     title: `🌱 Balance de Estudio`,
-    message: "Hacer un descanso de 10 minutos ahora te ayudará a retener mejor lo aprendido. ¡Respira hondo!",
+    message: "Hacer un descanso ahora te ayudará a retener mejor lo aprendido. ¡El descanso es parte del éxito!",
     triggerTime: checkTime.toISOString(),
     fired: false
   });

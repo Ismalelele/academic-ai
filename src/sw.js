@@ -32,3 +32,29 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// Manejo de notificaciones Push en segundo plano
+self.addEventListener('push', (event) => {
+  console.log('[Service Worker] Notificación Push recibida.');
+  let data = { title: 'AcademicAI', body: 'Nueva notificación recibida' };
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'AcademicAI', body: event.data.text() };
+    }
+  }
+
+  const options = {
+    body: data.body || data.message || '',
+    icon: '/favicon.ico',
+    vibrate: [200, 100, 200],
+    data: data.data || {},
+    requireInteraction: true
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});

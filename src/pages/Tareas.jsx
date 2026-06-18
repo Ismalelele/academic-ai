@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil, Check } from 'lucide-react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
 
@@ -30,6 +30,13 @@ export default function Tareas() {
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
   const [toasts, setToasts] = useState([]);
+
+  const [editingStudyBlock, setEditingStudyBlock] = useState(null);
+  const [editStudyBlockData, setEditStudyBlockData] = useState({
+    day: 0,
+    startTime: '08:15',
+    endTime: '08:55'
+  });
 
   useEffect(() => {
     if (!isLoading && tasks && tasks.length > 0 && (!studyBlocks || studyBlocks.length === 0) && !isProcessing) {
@@ -121,6 +128,27 @@ export default function Tareas() {
       status: editTaskData.status
     } : t).filter(t => t.status !== 'done');
     generateStudyRoutine(updatedTasks);
+  };
+
+  const handleEditStudyBlockClick = (block) => {
+    setEditingStudyBlock(block);
+    setEditStudyBlockData({
+      day: block.day,
+      startTime: `${block.startH.toString().padStart(2, '0')}:${block.startM.toString().padStart(2, '0')}`,
+      endTime: `${block.endH.toString().padStart(2, '0')}:${block.endM.toString().padStart(2, '0')}`
+    });
+  };
+
+  const handleEditStudyBlockSubmit = (e) => {
+    e.preventDefault();
+    if (!editingStudyBlock) return;
+
+    const [startH, startM] = editStudyBlockData.startTime.split(':').map(Number);
+    const [endH, endM] = editStudyBlockData.endTime.split(':').map(Number);
+
+    updateStudyBlock(editingStudyBlock.id, editStudyBlockData.day, startH, startM, endH, endM);
+    setEditingStudyBlock(null);
+    // No toast notified here, per user requirement
   };
 
   const handleDeleteTask = async (id) => {
@@ -237,7 +265,7 @@ export default function Tareas() {
       const newEndM = predefBlocks[newEndIdx].endM;
       
       updateStudyBlock(cardId, dayIndex, newStartH, newStartM, newEndH, newEndM);
-      showToast('Bloque de estudio IA reubicado.', '📚');
+      // No toast notification sent here, per user requirement
     } catch (err) {
       console.error("Error on schedule drop:", err);
     }
@@ -475,6 +503,7 @@ export default function Tareas() {
                           className="card"
                           draggable
                           onDragStart={(e) => handleScheduleCardDragStart(e, cls.id, 'study')}
+                          onClick={() => handleEditStudyBlockClick(cls)}
                           style={{
                             top: cls.top,
                             height: cls.height,
@@ -488,9 +517,9 @@ export default function Tareas() {
                             textAlign: 'center',
                             opacity: 0.95,
                             zIndex: 2,
-                            cursor: 'grab'
+                            cursor: 'pointer'
                           }}
-                          title={`Motivo: ${cls.reason}`}
+                          title={`Motivo: ${cls.reason}. Haz clic para editar manualmente.`}
                         >
                           <strong>📚 {cls.title}</strong>
                           <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Estudio IA</span>
@@ -640,6 +669,71 @@ export default function Tareas() {
               <div className="premium-actions">
                 <button type="button" className="btn-cancel-premium" onClick={() => { setIsEditModalOpen(false); setEditingTask(null); }}>Cancelar</button>
                 <button type="submit" className="btn-submit-premium"><Plus size={18} /> Guardar Cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingStudyBlock && (
+        <div className="modal-overlay" onClick={() => setEditingStudyBlock(null)}>
+          <div className="premium-modal" onClick={e => e.stopPropagation()}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-main)' }}>
+              <Clock size={24} color="var(--primary)" /> Editar Horario de Bloque de Estudio
+            </h3>
+            <form onSubmit={handleEditStudyBlockSubmit}>
+              <div className="form-group-premium">
+                <label>Día de la Semana</label>
+                <div className="premium-input-wrapper">
+                  <Calendar size={18} className="input-icon" />
+                  <select 
+                    className="premium-input" 
+                    value={editStudyBlockData.day} 
+                    onChange={e => setEditStudyBlockData(prev => ({ ...prev, day: Number(e.target.value) }))}
+                  >
+                    <option value={0}>Lunes</option>
+                    <option value={1}>Martes</option>
+                    <option value={2}>Miércoles</option>
+                    <option value={3}>Jueves</option>
+                    <option value={4}>Viernes</option>
+                    <option value={5}>Sábado</option>
+                    <option value={6}>Domingo</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <div className="form-group-premium" style={{ flex: 1 }}>
+                  <label>Hora de Inicio</label>
+                  <div className="premium-input-wrapper">
+                    <Clock size={18} className="input-icon" />
+                    <input 
+                      type="time" 
+                      required 
+                      className="premium-input" 
+                      value={editStudyBlockData.startTime} 
+                      onChange={e => setEditStudyBlockData(prev => ({ ...prev, startTime: e.target.value }))} 
+                    />
+                  </div>
+                </div>
+                <div className="form-group-premium" style={{ flex: 1 }}>
+                  <label>Hora de Fin</label>
+                  <div className="premium-input-wrapper">
+                    <Clock size={18} className="input-icon" />
+                    <input 
+                      type="time" 
+                      required 
+                      className="premium-input" 
+                      value={editStudyBlockData.endTime} 
+                      onChange={e => setEditStudyBlockData(prev => ({ ...prev, endTime: e.target.value }))} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="premium-actions">
+                <button type="button" className="btn-cancel-premium" onClick={() => setEditingStudyBlock(null)}>Cancelar</button>
+                <button type="submit" className="btn-submit-premium"><Check size={18} /> Guardar Horario</button>
               </div>
             </form>
           </div>

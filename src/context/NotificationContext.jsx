@@ -259,7 +259,7 @@ export const NotificationProvider = ({ children }) => {
             const startMins = cls.startH * 60 + cls.startM;
             if (startMins - currentMins === 15) {
               const msg = `Tu clase de ${cls.title} empieza en 15 minutos en ${cls.room || 'el Aula'}.`;
-              const alreadyAlerted = notifications.some(n => 
+              const alreadyAlerted = notificationsRef.current.some(n => 
                 n.title === 'Clase Próxima' && 
                 n.message === msg && 
                 (new Date(n.createdAt).toDateString() === now.toDateString())
@@ -280,7 +280,7 @@ export const NotificationProvider = ({ children }) => {
         const pendientes = tasks ? tasks.filter(t => t.status !== 'done') : [];
         pendientes.forEach(task => {
           const msg = `Tienes la tarea pendiente "${task.title}" del ramo "${task.tag || 'General'}".`;
-          const alreadyAlerted = notifications.some(n => 
+          const alreadyAlerted = notificationsRef.current.some(n => 
             n.title === 'Recordatorio de Tarea' && 
             n.message === msg &&
             (new Date(n.createdAt).toDateString() === now.toDateString())
@@ -300,7 +300,7 @@ export const NotificationProvider = ({ children }) => {
             if (startMins - currentMins === 15) {
               const taskTitle = block.taskTitle || block.title || 'Estudio';
               const msg = `Tu bloque de estudio para '${taskTitle}' empieza en 15 minutos.`;
-              const alreadyAlerted = notifications.some(n => 
+              const alreadyAlerted = notificationsRef.current.some(n => 
                 n.title === 'Bloque de Estudio' && 
                 n.message === msg &&
                 (new Date(n.createdAt).toDateString() === now.toDateString())
@@ -346,7 +346,7 @@ export const NotificationProvider = ({ children }) => {
     checkAlerts();
     const interval = setInterval(checkAlerts, 60000);
     return () => clearInterval(interval);
-  }, [effectiveSchedule, tasks, notifications, user, dailyAlertTime]);
+  }, [effectiveSchedule, tasks, user, dailyAlertTime, studyBlocks]);
 
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
   useEffect(() => {
