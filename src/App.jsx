@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Nav from './components/Nav';
 import Home from './pages/Home';
@@ -20,12 +20,22 @@ import { GroupChatProvider } from './context/GroupChatContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 
+// Componente para restaurar el scroll al cambiar de página (ruta)
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      mainContent.scrollTop = 0;
+    }
+  }, [pathname]);
+  return null;
+}
+
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true';
   });
-
-
 
   useEffect(() => {
     if (isDarkMode) {
@@ -46,6 +56,7 @@ function App() {
             <ChatProvider>
               <GroupChatProvider>
                 <BrowserRouter>
+                  <ScrollToTop />
                   <Routes>
                     <Route path="/" element={<Login />} />
                     <Route path="/*" element={
@@ -62,7 +73,6 @@ function App() {
                             <Route path="/chats" element={<ChatsGrupos />} />
                             <Route path="/analisis" element={<Analisis />} />
                             <Route path="/clases" element={<ClasesGrabadas />} />
-
                           </Routes>
                         </div>
                       </ProtectedRoute>
