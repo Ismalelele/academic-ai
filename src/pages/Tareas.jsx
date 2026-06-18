@@ -40,13 +40,6 @@ export default function Tareas() {
     endTime: '08:55'
   });
 
-  useEffect(() => {
-    const isCleared = user ? localStorage.getItem(`academic_${user.id}_study_blocks_cleared`) === 'true' : false;
-    if (!isLoading && tasks && tasks.length > 0 && (!studyBlocks || studyBlocks.length === 0) && !isProcessing && !isCleared) {
-      generateStudyRoutine(tasks.filter(t => t.status !== 'done'));
-    }
-  }, [isLoading, tasks, studyBlocks, isProcessing, user]);
-
   const showToast = (message, icon = '✅') => {
     const id = Date.now().toString();
     setToasts(prev => [...prev, { id, message, icon }]);
@@ -72,21 +65,11 @@ export default function Tareas() {
       1
     );
 
-    const updatedTasks = [...tasks.filter(t => t.status !== 'done'), {
-      title: newTaskData.title,
-      status: 'todo',
-      tag: newTaskData.tag,
-      estimatedTime: hours,
-      priorityScore: 1 * 20
-    }];
-
     setNewTaskData({
       title: '', tag: 'General', deadline: '', estimatedTime: 2, type: 'Tarea'
     });
     setIsModalOpen(false);
-    showToast('Evaluación creada y planificada.', '✅');
-
-    generateStudyRoutine(updatedTasks);
+    showToast('Evaluación creada.', '✅');
   };
 
   const handleEditTaskClick = (task) => {
@@ -120,17 +103,6 @@ export default function Tareas() {
     setIsEditModalOpen(false);
     setEditingTask(null);
     showToast('Tarea actualizada correctamente.', '📝');
-
-    const updatedTasks = tasks.map(t => t.id === editingTask.id ? {
-      ...t,
-      title: editTaskData.title,
-      tag: editTaskData.tag,
-      type: editTaskData.type,
-      deadline: editTaskData.deadline || null,
-      estimatedTime: hours,
-      status: editTaskData.status
-    } : t).filter(t => t.status !== 'done');
-    generateStudyRoutine(updatedTasks);
   };
 
   const handleEditStudyBlockClick = (block) => {
