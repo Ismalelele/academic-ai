@@ -408,12 +408,12 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         <h3>Notificaciones</h3>
         <span className="badge">{unreadCount} nuevas</span>
       </div>
-      
+
       {notifications.length > 0 && (
         <div className="notification-panel-actions" style={{ padding: '8px 16px', display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', justifyContent: 'space-between', alignItems: 'center' }}>
           {isDeleteMode ? (
-            <button 
-              onClick={handleSelectAllToggle} 
+            <button
+              onClick={handleSelectAllToggle}
               className="premium-action-btn"
               style={{
                 background: 'transparent',
@@ -427,8 +427,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               {selectedIds.size === notifications.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
             </button>
           ) : (
-            <button 
-              onClick={markAllAsRead} 
+            <button
+              onClick={markAllAsRead}
               className="premium-action-btn"
               style={{
                 background: 'transparent',
@@ -442,8 +442,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               Marcar todas leídas
             </button>
           )}
-          
-          <button 
+
+          <button
             onClick={isDeleteMode ? (selectedIds.size > 0 ? performDelete : toggleDeleteMode) : toggleDeleteMode}
             className={selectedIds.size > 0 ? "delete-btn-active" : "delete-btn-inactive"}
             style={{
@@ -473,8 +473,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
             return (
               <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'} ${isSelected ? 'selected' : ''}`} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 {isDeleteMode && (
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={isSelected}
                     onChange={() => {
                       const newSet = new Set(selectedIds);
@@ -484,7 +484,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                         newSet.add(n.id);
                       }
                       setSelectedIds(newSet);
-                    }} 
+                    }}
                     style={{
                       cursor: 'pointer',
                       width: '16px',
@@ -528,8 +528,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   return (
     <>
       {!isSidebarOpen && createPortal(
-        <button 
-          className="sidebar-toggle-btn open-btn mobile-only" 
+        <button
+          className="sidebar-toggle-btn open-btn mobile-only"
           onClick={() => setIsSidebarOpen(true)}
           title="Mostrar menú"
           style={{
@@ -557,8 +557,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
       <nav ref={sidebarRef} className={`sidebar ${!isSidebarOpen ? 'collapsed' : ''}`}>
         {/* Botón para cerrar (solo móvil) */}
-        <button 
-          className="sidebar-toggle-btn close-btn mobile-only" 
+        <button
+          className="sidebar-toggle-btn close-btn mobile-only"
           onClick={() => setIsSidebarOpen(false)}
           title="Ocultar menú"
           style={{
@@ -586,715 +586,716 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           <h2>Academic<span>AI</span></h2>
         </div>
 
-      {/* Navigation Scroll Wrap */}
-      <div className="nav-scroll-wrap">
+        {/* Navigation Scroll Wrap */}
+        <div className="nav-scroll-wrap">
 
-        {/* Links Navigation */}
-        <ul className="nav-links" ref={navLinksRef} style={{ overflow: 'visible' }}>
-          {/* Dashboard */}
-          <li>
-            <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <LayoutDashboard size={18} /> <span>Dashboard</span>
-            </NavLink>
-          </li>
+          {/* Links Navigation */}
+          <ul className="nav-links" ref={navLinksRef} style={{ overflow: 'visible' }}>
+            {/* Dashboard */}
+            <li>
+              <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                <LayoutDashboard size={18} /> <span>Dashboard</span>
+              </NavLink>
+            </li>
 
-          {/* Académico */}
-          <li className="nav-dropdown-container" ref={academicoRef} style={{ position: 'relative' }}>
-            <button
-              className={`nav-dropdown-trigger ${isAcademicoActive ? 'active' : ''} ${activeDropdown === 'academico' ? 'open' : ''}`}
-              onClick={() => handleDropdownToggle('academico')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 14px',
-                borderRadius: '12px',
-                border: 'none',
-                fontSize: '0.95rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <GraduationCap size={18} /> <span>Académico</span>
-              <ChevronDown size={14} className="chevron-icon" />
-            </button>
-            {activeDropdown === 'academico' && (
-              <ul className="nav-submenu">
-                <li>
-                  <NavLink to="/horario" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                    <Calendar size={16} /> <span>Horario</span>
-                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                  </NavLink>
-                </li>
+            {/* Académico */}
+            <li className="nav-dropdown-container" ref={academicoRef} style={{ position: 'relative' }}>
+              <button
+                className={`nav-dropdown-trigger ${isAcademicoActive ? 'active' : ''} ${activeDropdown === 'academico' ? 'open' : ''}`}
+                onClick={() => handleDropdownToggle('academico')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <GraduationCap size={18} /> <span>Académico</span>
+                <ChevronDown size={14} className="chevron-icon" />
+              </button>
+              {activeDropdown === 'academico' && (
+                <ul className="nav-submenu">
+                  <li>
+                    <NavLink to="/horario" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                      <Calendar size={16} /> <span>Horario</span>
+                      <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                    </NavLink>
+                  </li>
 
-                {effectiveSchedule && effectiveSchedule.length > 0 && (
-                  <>
-                    <li>
-                      <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                        <Mic size={16} /> <span>Clases Grabadas</span>
-                        <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                      </NavLink>
-                    </li>
-                    <li>
-                      <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                        <BookOpenText size={16} /> <span>Apuntes</span>
-                        <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                      </NavLink>
-                    </li>
-                    <li>
-                      <NavLink to="/calificaciones" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                        <GraduationCap size={16} /> <span>Promedio</span>
-                        <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                      </NavLink>
-                    </li>
-                  </>
-                )}
-              </ul>
-            )}
-          </li>
-
-          {/* IA */}
-          <li className="nav-dropdown-container" ref={iaRef} style={{ position: 'relative' }}>
-            <button
-              className={`nav-dropdown-trigger ${isIaActive ? 'active' : ''} ${activeDropdown === 'ia' ? 'open' : ''}`}
-              onClick={() => handleDropdownToggle('ia')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 14px',
-                borderRadius: '12px',
-                border: 'none',
-                fontSize: '0.95rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <Bot size={18} /> <span>IA</span>
-              <ChevronDown size={14} className="chevron-icon" />
-            </button>
-            {activeDropdown === 'ia' && (
-              <ul className="nav-submenu">
-                <li>
-                  <NavLink to="/asistente" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                    <MessageSquare size={16} /> <span>Asistente IA</span>
-                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/analisis" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-                    <Sparkles size={16} /> <span>Análisis</span>
-                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                  </NavLink>
-                </li>
-              </ul>
-            )}
-          </li>
-
-          {/* Comunidad */}
-          <li className="nav-dropdown-container" ref={comunidadRef} style={{ position: 'relative' }}>
-            <button
-              className={`nav-dropdown-trigger ${isComunidadActive ? 'active' : ''} ${activeDropdown === 'comunidad' ? 'open' : ''}`}
-              onClick={() => handleDropdownToggle('comunidad')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 14px',
-                borderRadius: '12px',
-                border: 'none',
-                fontSize: '0.95rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <MessageCircle size={18} /> <span>Comunidad</span>
-              {totalComunidadCount > 0 && (
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#ef4444',
-                  display: 'inline-block',
-                  marginLeft: '4px',
-                  boxShadow: '0 0 6px #ef4444'
-                }} />
+                  {effectiveSchedule && effectiveSchedule.length > 0 && (
+                    <>
+                      <li>
+                        <NavLink to="/clases" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                          <Mic size={16} /> <span>Clases Grabadas</span>
+                          <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                        </NavLink>
+                      </li>
+                      <li>
+                        <NavLink to="/apuntes" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                          <BookOpenText size={16} /> <span>Apuntes</span>
+                          <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                        </NavLink>
+                      </li>
+                      <li>
+                        <NavLink to="/calificaciones" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                          <GraduationCap size={16} /> <span>Promedio</span>
+                          <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                        </NavLink>
+                      </li>
+                    </>
+                  )}
+                </ul>
               )}
-              <ChevronDown size={14} className="chevron-icon" />
-            </button>
-            {activeDropdown === 'comunidad' && (
-              <ul className="nav-submenu">
-                <li>
-                  <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                    <MessageCircle size={16} /> <span>Chats</span>
-                    {unreadChatCount > 0 && (
-                      <span style={{
-                        background: '#ef4444',
-                        color: 'white',
-                        borderRadius: '50%',
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
-                        width: '18px',
-                        height: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginLeft: '8px',
-                        boxShadow: '0 2px 5px rgba(239, 68, 68, 0.4)'
-                      }}>
-                        {unreadChatCount}
-                      </span>
-                    )}
-                    <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
-                  </NavLink>
-                </li>
-              </ul>
-            )}
-          </li>
+            </li>
 
-          {/* Tareas */}
-          <li>
-            <NavLink to="/tareas" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
-              <ListTodo size={18} /> <span>Tareas</span>
-            </NavLink>
-          </li>
-        </ul>
-      </div>
+            {/* IA */}
+            <li className="nav-dropdown-container" ref={iaRef} style={{ position: 'relative' }}>
+              <button
+                className={`nav-dropdown-trigger ${isIaActive ? 'active' : ''} ${activeDropdown === 'ia' ? 'open' : ''}`}
+                onClick={() => handleDropdownToggle('ia')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <Bot size={18} /> <span>IA</span>
+                <ChevronDown size={14} className="chevron-icon" />
+              </button>
+              {activeDropdown === 'ia' && (
+                <ul className="nav-submenu">
+                  <li>
+                    <NavLink to="/asistente" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                      <MessageSquare size={16} /> <span>Asistente IA</span>
+                      <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink to="/analisis" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                      <Sparkles size={16} /> <span>Análisis</span>
+                      <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                    </NavLink>
+                  </li>
+                </ul>
+              )}
+            </li>
 
-      {/* Bottom Bar Actions (Right side) */}
-      <div className="dock-actions">
+            {/* Comunidad */}
+            <li className="nav-dropdown-container" ref={comunidadRef} style={{ position: 'relative' }}>
+              <button
+                className={`nav-dropdown-trigger ${isComunidadActive ? 'active' : ''} ${activeDropdown === 'comunidad' ? 'open' : ''}`}
+                onClick={() => handleDropdownToggle('comunidad')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <MessageCircle size={18} /> <span>Comunidad</span>
+                {totalComunidadCount > 0 && (
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#ef4444',
+                    display: 'inline-block',
+                    marginLeft: '4px',
+                    boxShadow: '0 0 6px #ef4444'
+                  }} />
+                )}
+                <ChevronDown size={14} className="chevron-icon" />
+              </button>
+              {activeDropdown === 'comunidad' && (
+                <ul className="nav-submenu">
+                  <li>
+                    <NavLink to="/chats" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <MessageCircle size={16} /> <span>Chats</span>
+                      {unreadChatCount > 0 && (
+                        <span style={{
+                          background: '#ef4444',
+                          color: 'white',
+                          borderRadius: '50%',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          width: '18px',
+                          height: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginLeft: '8px',
+                          boxShadow: '0 2px 5px rgba(239, 68, 68, 0.4)'
+                        }}>
+                          {unreadChatCount}
+                        </span>
+                      )}
+                      <ChevronRight size={12} className="submenu-arrow" style={{ marginLeft: 'auto', opacity: 0.4 }} />
+                    </NavLink>
+                  </li>
+                </ul>
+              )}
+            </li>
 
-        {/* Theme Toggle */}
-        <div className="theme-toggle" onClick={() => { toggleTheme(); closeMenu(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
-          {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {/* Tareas */}
+            <li>
+              <NavLink to="/tareas" className={({ isActive }) => isActive ? 'active' : ''} onClick={closeMenu}>
+                <ListTodo size={18} /> <span>Tareas</span>
+              </NavLink>
+            </li>
+          </ul>
         </div>
 
-        {/* Notifications Bell */}
-        <div className="dock-notification-container" ref={notifRef} style={{ position: 'relative' }}>
-          <button
-            className={`dock-action-btn ${unreadCount > 0 ? 'pulse-alert' : ''}`}
-            onClick={() => {
-              setShowNotifications(!showNotifications);
-              setShowChatbot(false);
-              setShowProfilePopover(false);
-            }}
-            title="Notificaciones"
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              background: showNotifications ? 'var(--primary-light)' : 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border-color)',
-              color: showNotifications ? 'var(--primary)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-              outline: 'none',
-              position: 'relative'
-            }}
-          >
-            <Bell size={18} />
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-2px',
-                right: '-2px',
-                background: '#ef4444',
-                color: 'white',
+        {/* Bottom Bar Actions (Right side) */}
+        <div className="dock-actions">
+
+          {/* Theme Toggle */}
+          <div className="theme-toggle" onClick={() => { toggleTheme(); closeMenu(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </div>
+
+          {/* Notifications Bell */}
+          <div className="dock-notification-container" ref={notifRef} style={{ position: 'relative' }}>
+            <button
+              className={`dock-action-btn ${unreadCount > 0 ? 'pulse-alert' : ''}`}
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowChatbot(false);
+                setShowProfilePopover(false);
+              }}
+              title="Notificaciones"
+              style={{
+                width: '38px',
+                height: '38px',
                 borderRadius: '50%',
-                minWidth: '14px',
-                height: '14px',
-                fontSize: '0.65rem',
+                background: showNotifications ? 'var(--primary-light)' : 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--border-color)',
+                color: showNotifications ? 'var(--primary)' : 'var(--text-muted)',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 'bold',
-                padding: '2px',
-                border: '1px solid var(--card-bg)'
-              }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* AI Chatbot Button */}
-        <div className="dock-chatbot-container" ref={chatbotRef} style={{ position: 'relative' }}>
-          {showChatTooltip && !showProfilePopover && !showNotifications && !showChatbot && (
-            <div className="chatbot-tooltip">
-              ¿Preguntas? ¡Escríbeme!
-            </div>
-          )}
-          <button
-            className={`dock-action-btn ${showChatbot ? 'active' : ''}`}
-            onClick={() => {
-              handleToggleChatbot();
-              setShowNotifications(false);
-              setShowProfilePopover(false);
-            }}
-            title="Asistente de Inteligencia Artificial"
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              background: showChatbot ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border-color)',
-              color: showChatbot ? 'white' : 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-              outline: 'none'
-            }}
-          >
-            {showChatbot ? <X size={18} /> : <Bot size={18} />}
-          </button>
-        </div>
-
-        {/* User Profile popover trigger */}
-        {user && (
-          <div className="user-profile-dock" ref={profileRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => {
-                setShowProfilePopover(!showProfilePopover);
-                setShowNotifications(false);
-                setShowChatbot(false);
+                transition: 'all 0.2s',
+                outline: 'none',
+                position: 'relative'
               }}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  background: '#ef4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  minWidth: '14px',
+                  height: '14px',
+                  fontSize: '0.65rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  padding: '2px',
+                  border: '1px solid var(--card-bg)'
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* AI Chatbot Button */}
+          <div className="dock-chatbot-container" ref={chatbotRef} style={{ position: 'relative' }}>
+            {showChatTooltip && !showProfilePopover && !showNotifications && !showChatbot && (
+              <div className="chatbot-tooltip">
+                ¿Preguntas? ¡Escríbeme!
+              </div>
+            )}
+            <button
+              className={`dock-action-btn ${showChatbot ? 'active' : ''}`}
+              onClick={() => {
+                handleToggleChatbot();
+                setShowNotifications(false);
+                setShowProfilePopover(false);
+              }}
+              title="Asistente de Inteligencia Artificial"
               style={{
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: showChatbot ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--border-color)',
+                color: showChatbot ? 'white' : 'var(--text-muted)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                outline: 'none',
-                borderRadius: '50%'
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                outline: 'none'
               }}
-              title={user.user_metadata?.full_name || 'Perfil'}
             >
-              <div
-                style={{
-                  borderRadius: '50%',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '38px', '1.1rem')}
-              </div>
+              {showChatbot ? <X size={18} /> : <Bot size={18} />}
             </button>
           </div>
-        )}
-      </div>
 
-      {/* Profile Settings Modal */}
-      {showSettingsModal && createPortal(
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100000,
-          backdropFilter: 'blur(5px)',
-          WebkitBackdropFilter: 'blur(5px)'
-        }}>
-          <div className="premium-modal" style={{ maxWidth: '480px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <button
-              onClick={() => setShowSettingsModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '4px'
-              }}
-            >
-              <X size={20} />
-            </button>
+          {/* User Profile popover trigger */}
+          {user && (
+            <div className="user-profile-dock" ref={profileRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => {
+                  setShowProfilePopover(!showProfilePopover);
+                  setShowNotifications(false);
+                  setShowChatbot(false);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  outline: 'none',
+                  borderRadius: '50%'
+                }}
+                title={user.user_metadata?.full_name || 'Perfil'}
+              >
+                <div
+                  style={{
+                    borderRadius: '50%',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '38px', '1.1rem')}
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
 
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Settings size={20} color="var(--primary)" /> Configuración de Perfil
-            </h3>
+        {/* Profile Settings Modal */}
+        {showSettingsModal && createPortal(
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)'
+          }}>
+            <div className="premium-modal" style={{ maxWidth: '480px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={20} />
+              </button>
 
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px', marginBottom: '15px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={20} color="var(--primary)" /> Configuración de Perfil
+              </h3>
 
-                {/* Avatar Picker */}
-                <div className="form-group-premium" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                  <label style={{ width: '100%', textAlign: 'left' }}>Foto de Perfil</label>
-                  <div style={{ position: 'relative' }}>
-                    {renderAvatar(profileAvatar, profileName || user?.user_metadata?.full_name, '80px', '2.2rem')}
-                    <label style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      right: 0,
-                      background: 'var(--primary)',
-                      color: '#fff',
-                      borderRadius: '50%',
-                      padding: '6px',
+              <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px', marginBottom: '15px' }}>
+
+                  {/* Avatar Picker */}
+                  <div className="form-group-premium" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <label style={{ width: '100%', textAlign: 'left' }}>Foto de Perfil</label>
+                    <div style={{ position: 'relative' }}>
+                      {renderAvatar(profileAvatar, profileName || user?.user_metadata?.full_name, '80px', '2.2rem')}
+                      <label style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        background: 'var(--primary)',
+                        color: '#fff',
+                        borderRadius: '50%',
+                        padding: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                      }}>
+                        <Camera size={14} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selecciona un degradado premium:</span>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        {presetGradients.map((grad, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setProfileAvatar(grad)}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              background: grad,
+                              cursor: 'pointer',
+                              border: profileAvatar === grad ? '2px solid #fff' : '2px solid transparent',
+                              boxShadow: profileAvatar === grad ? '0 0 0 2px var(--primary)' : '0 2px 4px rgba(0,0,0,0.1)',
+                              transform: profileAvatar === grad ? 'scale(1.1)' : 'none',
+                              transition: 'all 0.2s'
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>O ingresa una URL de imagen externa:</span>
+                        <input
+                          type="text"
+                          className="premium-input"
+                          style={{ paddingLeft: '10px', fontSize: '0.8rem' }}
+                          placeholder="https://ejemplo.com/tu-foto.jpg"
+                          value={profileAvatar && !profileAvatar.startsWith('linear-gradient') && !profileAvatar.startsWith('data:image') ? profileAvatar : ''}
+                          onChange={(e) => setProfileAvatar(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Nombre Completo */}
+                  <div className="form-group-premium">
+                    <label>Nombre Completo</label>
+                    <input
+                      type="text"
+                      className="premium-input"
+                      style={{ paddingLeft: '15px' }}
+                      placeholder="Ej: Ismael Pérez"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Carrera */}
+                  <div className="form-group-premium">
+                    <label>Carrera / Especialidad</label>
+                    <input
+                      type="text"
+                      className="premium-input"
+                      style={{ paddingLeft: '15px' }}
+                      placeholder="Ej: Ingeniería Civil Informática"
+                      value={profileCarrera}
+                      onChange={(e) => setProfileCarrera(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Universidad */}
+                  <div className="form-group-premium">
+                    <label>Universidad / Institución</label>
+                    <input
+                      type="text"
+                      className="premium-input"
+                      style={{ paddingLeft: '15px' }}
+                      placeholder="Ej: Universidad de Chile"
+                      value={profileUniversidad}
+                      onChange={(e) => setProfileUniversidad(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Año de Ingreso / Semestre */}
+                  <div className="form-group-premium">
+                    <label>Nivel de Estudios / Año</label>
+                    <select
+                      className="premium-input"
+                      style={{ paddingLeft: '15px', background: 'var(--bg)', color: 'var(--text-main)' }}
+                      value={profileAnio}
+                      onChange={(e) => setProfileAnio(e.target.value)}
+                    >
+                      <option value="1er Año">1er Año (Mechón)</option>
+                      <option value="2do Año">2do Año</option>
+                      <option value="3er Año">3er Año</option>
+                      <option value="4to Año">4to Año</option>
+                      <option value="5to Año">5to Año o más</option>
+                      <option value="Egresado / Graduado">Egresado / Graduado</option>
+                    </select>
+                  </div>
+
+                  {/* Biografía Académica */}
+                  <div className="form-group-premium">
+                    <label>Biografía o Nota de Estudio (Opcional)</label>
+                    <textarea
+                      className="premium-input"
+                      style={{ padding: '10px 15px', minHeight: '60px', resize: 'vertical' }}
+                      placeholder="Escribe algo sobre ti o tus objetivos académicos..."
+                      value={profileBio}
+                      onChange={(e) => setProfileBio(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Alarma de Tareas Urgentes */}
+                  <div className="form-group-premium" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', marginTop: '15px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', fontWeight: 'bold' }}>
+                      <BellRing size={16} /> Alarma de Tareas Urgentes
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', marginTop: '8px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Notificar tareas urgentes a las:</span>
+                      <input
+                        type="time"
+                        value={dailyAlertTime}
+                        onChange={(e) => {
+                          setDailyAlertTime(e.target.value);
+                          showToast(`Alarma programada para las ${e.target.value}`);
+                        }}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          border: '2px solid var(--primary)',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontFamily: 'inherit',
+                          fontWeight: 'bold',
+                          fontSize: '1.1rem',
+                          cursor: 'pointer',
+                          outline: 'none'
+                        }}
+                        title="Configurar hora de alerta automática"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Mensaje de Estado */}
+                  {profileStatus && (
+                    <div style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: '500',
+                      marginTop: '12px',
+                      textAlign: 'center',
+                      background: profileStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      color: profileStatus.type === 'success' ? '#10b981' : '#ef4444',
+                      border: profileStatus.type === 'success' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
+                    }}>
+                      {profileStatus.text}
+                    </div>
+                  )}
+
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsModal(false)}
+                    className="btn-secondary"
+                    style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={isSavingProfile}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      borderRadius: '10px',
+                      fontWeight: 'bold',
                       cursor: 'pointer',
+                      background: 'var(--primary)',
+                      border: 'none',
+                      color: '#fff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-                    }}>
-                      <Camera size={14} />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selecciona un degradado premium:</span>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      {presetGradients.map((grad, i) => (
-                        <div
-                          key={i}
-                          onClick={() => setProfileAvatar(grad)}
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            background: grad,
-                            cursor: 'pointer',
-                            border: profileAvatar === grad ? '2px solid #fff' : '2px solid transparent',
-                            boxShadow: profileAvatar === grad ? '0 0 0 2px var(--primary)' : '0 2px 4px rgba(0,0,0,0.1)',
-                            transform: profileAvatar === grad ? 'scale(1.1)' : 'none',
-                            transition: 'all 0.2s'
-                          }}
-                        />
-                      ))}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>O ingresa una URL de imagen externa:</span>
-                      <input
-                        type="text"
-                        className="premium-input"
-                        style={{ paddingLeft: '10px', fontSize: '0.8rem' }}
-                        placeholder="https://ejemplo.com/tu-foto.jpg"
-                        value={profileAvatar && !profileAvatar.startsWith('linear-gradient') && !profileAvatar.startsWith('data:image') ? profileAvatar : ''}
-                        onChange={(e) => setProfileAvatar(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Nombre Completo */}
-                <div className="form-group-premium">
-                  <label>Nombre Completo</label>
-                  <input
-                    type="text"
-                    className="premium-input"
-                    style={{ paddingLeft: '15px' }}
-                    placeholder="Ej: Ismael Pérez"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                {/* Carrera */}
-                <div className="form-group-premium">
-                  <label>Carrera / Especialidad</label>
-                  <input
-                    type="text"
-                    className="premium-input"
-                    style={{ paddingLeft: '15px' }}
-                    placeholder="Ej: Ingeniería Civil Informática"
-                    value={profileCarrera}
-                    onChange={(e) => setProfileCarrera(e.target.value)}
-                  />
-                </div>
-
-                {/* Universidad */}
-                <div className="form-group-premium">
-                  <label>Universidad / Institución</label>
-                  <input
-                    type="text"
-                    className="premium-input"
-                    style={{ paddingLeft: '15px' }}
-                    placeholder="Ej: Universidad de Chile"
-                    value={profileUniversidad}
-                    onChange={(e) => setProfileUniversidad(e.target.value)}
-                  />
-                </div>
-
-                {/* Año de Ingreso / Semestre */}
-                <div className="form-group-premium">
-                  <label>Nivel de Estudios / Año</label>
-                  <select
-                    className="premium-input"
-                    style={{ paddingLeft: '15px', background: 'var(--bg)', color: 'var(--text-main)' }}
-                    value={profileAnio}
-                    onChange={(e) => setProfileAnio(e.target.value)}
+                      gap: '8px'
+                    }}
                   >
-                    <option value="1er Año">1er Año (Mechón)</option>
-                    <option value="2do Año">2do Año</option>
-                    <option value="3er Año">3er Año</option>
-                    <option value="4to Año">4to Año</option>
-                    <option value="5to Año">5to Año o más</option>
-                    <option value="Egresado / Graduado">Egresado / Graduado</option>
-                  </select>
+                    {isSavingProfile ? 'Guardando...' : (
+                      <>
+                        <Check size={16} /> Guardar Cambios
+                      </>
+                    )}
+                  </button>
                 </div>
-
-                {/* Biografía Académica */}
-                <div className="form-group-premium">
-                  <label>Biografía o Nota de Estudio (Opcional)</label>
-                  <textarea
-                    className="premium-input"
-                    style={{ padding: '10px 15px', minHeight: '60px', resize: 'vertical' }}
-                    placeholder="Escribe algo sobre ti o tus objetivos académicos..."
-                    value={profileBio}
-                    onChange={(e) => setProfileBio(e.target.value)}
-                  />
-                </div>
-
-                {/* Alarma de Tareas Urgentes */}
-                <div className="form-group-premium" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', marginTop: '15px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', fontWeight: 'bold' }}>
-                    <BellRing size={16} /> Alarma de Tareas Urgentes
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', marginTop: '8px' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Notificar tareas urgentes a las:</span>
-                    <input
-                      type="time"
-                      value={dailyAlertTime}
-                      onChange={(e) => {
-                        setDailyAlertTime(e.target.value);
-                        showToast(`Alarma programada para las ${e.target.value}`);
-                      }}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: '8px',
-                        border: '2px solid var(--primary)',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontFamily: 'inherit',
-                        fontWeight: 'bold',
-                        fontSize: '1.1rem',
-                        cursor: 'pointer',
-                        outline: 'none'
-                      }}
-                      title="Configurar hora de alerta automática"
-                    />
-                  </div>
-                </div>
-
-                {/* Mensaje de Estado */}
-                {profileStatus && (
-                  <div style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem',
-                    fontWeight: '500',
-                    marginTop: '12px',
-                    textAlign: 'center',
-                    background: profileStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: profileStatus.type === 'success' ? '#10b981' : '#ef4444',
-                    border: profileStatus.type === 'success' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
-                  }}>
-                    {profileStatus.text}
-                  </div>
-                )}
-
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsModal(false)}
-                  className="btn-secondary"
-                  style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={isSavingProfile}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '10px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    background: 'var(--primary)',
-                    border: 'none',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {isSavingProfile ? 'Guardando...' : (
-                    <>
-                      <Check size={16} /> Guardar Cambios
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {showNotifications && createPortal(renderNotificationPanel(), document.body)}
-
-      {showChatbot && createPortal(
-        <div className="chatbot-window" ref={chatbotPanelRef}>
-          <div className="chatbot-header">
-            <div className="chatbot-header-info">
-              <div className="chatbot-avatar">
-                <Bot size={18} />
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Asistente AI</h4>
-                <span className="chatbot-status" style={{ fontSize: '0.7rem' }}>En línea</span>
-              </div>
+              </form>
             </div>
-            <button className="chatbot-close-btn" onClick={() => setShowChatbot(false)}>
-              <X size={16} />
-            </button>
-          </div>
+          </div>,
+          document.body
+        )}
 
-          <div className="chatbot-body" ref={chatbotBodyRef}>
-            {chatHistory.map((msg, i) => (
-              <div key={i} className={`chatbot-bubble ${msg.sender === 'user' ? 'user' : 'ai'}`}>
-                {msg.text}
+        {showNotifications && createPortal(renderNotificationPanel(), document.body)}
+
+        {showChatbot && createPortal(
+          <div className="chatbot-window" ref={chatbotPanelRef}>
+            <div className="chatbot-header">
+              <div className="chatbot-header-info">
+                <div className="chatbot-avatar">
+                  <Bot size={18} />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Asistente AI</h4>
+                  <span className="chatbot-status" style={{ fontSize: '0.7rem' }}>En línea</span>
+                </div>
               </div>
-            ))}
-            {isChatting && (
-              <div className="chatbot-bubble ai loading">
-                <span className="dot"></span>
-                <span className="dot"></span>
-                <span className="dot"></span>
-              </div>
-            )}
-          </div>
+              <button className="chatbot-close-btn" onClick={() => setShowChatbot(false)}>
+                <X size={16} />
+              </button>
+            </div>
 
-          <form className="chatbot-footer" onSubmit={handleChatSubmit}>
-            <input
-              type="text"
-              placeholder="Pregúntame algo..."
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              disabled={isChatting}
-            />
-            <button type="submit" disabled={!chatInput.trim() || isChatting} className="chatbot-send-btn">
-              <Send size={16} />
-            </button>
-          </form>
-        </div>,
-        document.body
-      )}
-
-      {showProfilePopover && createPortal(
-        <div className="profile-popover" ref={profilePopoverRef}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '40px', '1.1rem')}
-            <div style={{ overflow: 'hidden', textAlign: 'left' }}>
-              <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
-                {user.user_metadata?.full_name || 'Alumno'}
-              </p>
-              {(user.user_metadata?.carrera || user.user_metadata?.universidad) && (
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {user.user_metadata.carrera || 'Estudiante'} {user.user_metadata.universidad ? `| ${user.user_metadata.universidad}` : ''}
-                </p>
+            <div className="chatbot-body" ref={chatbotBodyRef}>
+              {chatHistory.map((msg, i) => (
+                <div key={i} className={`chatbot-bubble ${msg.sender === 'user' ? 'user' : 'ai'}`}>
+                  {msg.text}
+                </div>
+              ))}
+              {isChatting && (
+                <div className="chatbot-bubble ai loading">
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                  <span className="dot"></span>
+                </div>
               )}
             </div>
-          </div>
-          <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
-          <button
-            onClick={openSettingsModal}
-            style={{
-              background: 'rgba(139, 92, 246, 0.08)',
-              border: '1px solid rgba(139, 92, 246, 0.2)',
-              color: 'var(--primary)',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              width: '100%',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-            onMouseOver={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.15)'}
-            onMouseOut={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.08)'}
-          >
-            <Settings size={14} /> Configurar Perfil
-          </button>
-          <button
-            onClick={signOut}
-            style={{
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: '#ef4444',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              width: '100%',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-            onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.15)'}
-            onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.08)'}
-          >
-            Cerrar Sesión
-          </button>
-        </div>,
-        document.body
-      )}
 
-      {createPortal(
-        <div className="toast-container" style={{ zIndex: 1000000 }}>
-          {toasts.map(toast => (
-            <div key={toast.id} className="toast-notification">
-              <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
-                <CheckCircle size={18} />
-              </span>
-              <span>{toast.message}</span>
+            <form className="chatbot-footer" onSubmit={handleChatSubmit}>
+              <input
+                type="text"
+                placeholder="Pregúntame algo..."
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                disabled={isChatting}
+              />
+              <button type="submit" disabled={!chatInput.trim() || isChatting} className="chatbot-send-btn">
+                <Send size={16} />
+              </button>
+            </form>
+          </div>,
+          document.body
+        )}
+
+        {showProfilePopover && createPortal(
+          <div className="profile-popover" ref={profilePopoverRef}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {renderAvatar(user.user_metadata?.avatar_url, user.user_metadata?.full_name, '40px', '1.1rem')}
+              <div style={{ overflow: 'hidden', textAlign: 'left' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
+                  {user.user_metadata?.full_name || 'Alumno'}
+                </p>
+                {(user.user_metadata?.carrera || user.user_metadata?.universidad) && (
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                    {user.user_metadata.carrera || 'Estudiante'} {user.user_metadata.universidad ? `| ${user.user_metadata.universidad}` : ''}
+                  </p>
+                )}
+              </div>
             </div>
-          ))}
-        </div>,
-        document.body
-      )}
-    </nav>
-   </>
+            <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
+            <button
+              onClick={openSettingsModal}
+              style={{
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+                color: 'var(--primary)',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                width: '100%',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+              onMouseOver={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.15)'}
+              onMouseOut={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.08)'}
+            >
+              <Settings size={14} /> Configurar Perfil
+            </button>
+            <button
+              onClick={signOut}
+              style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#ef4444',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                width: '100%',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+              onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.15)'}
+              onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.08)'}
+            >
+              Cerrar Sesión
+            </button>
+          </div>,
+          document.body
+        )}
+
+        {createPortal(
+          <div className="toast-container" style={{ zIndex: 1000000 }}>
+            {toasts.map(toast => (
+              <div key={toast.id} className="toast-notification">
+                <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
+                  <CheckCircle size={18} />
+                </span>
+                <span>{toast.message}</span>
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
+      </nav>
+    </>
   );
 }
+
