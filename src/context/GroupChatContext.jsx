@@ -106,9 +106,6 @@ export const GroupChatProvider = ({ children }) => {
         (payload) => {
           const newMsg = payload.new;
           
-          // No reaccionar si el mensaje es enviado por el propio usuario
-          if (newMsg.user_id === user.id) return;
-
           // Buscar si el usuario actual pertenece a este grupo
           const group = groupsRef.current.find(g => g.id_grupo === newMsg.id_grupo);
           if (!group) return; // El usuario no está en este grupo
@@ -121,6 +118,9 @@ export const GroupChatProvider = ({ children }) => {
               return [...prevMsgs, newMsg];
             });
           }
+
+          // No notificar al usuario de sus propios mensajes enviados desde otros dispositivos
+          if (newMsg.user_id === user.id) return;
 
           // Verificar si tiene notificaciones habilitadas
           const notifEnabled = group.membership?.notificaciones_activas !== false;
