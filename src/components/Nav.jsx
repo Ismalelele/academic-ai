@@ -522,17 +522,20 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           onClick={() => setIsSidebarOpen(false)}
           title="Ocultar menú"
           style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-muted)',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-main)',
+            borderRadius: '50%',
+            width: '36px',
+            height: '36px',
             cursor: 'pointer',
-            padding: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             alignSelf: 'center',
             marginBottom: '10px',
-            marginTop: '5px'
+            marginTop: '5px',
+            boxShadow: 'var(--shadow-sm)'
           }}
         >
           <ChevronLeft size={20} />
