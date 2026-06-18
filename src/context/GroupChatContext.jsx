@@ -31,6 +31,47 @@ export const GroupChatProvider = ({ children }) => {
     activeGroupIdRef.current = activeGroupId;
   }, [activeGroupId]);
 
+  // Sincronizar el chat activo y visibilidad de la app con el Service Worker
+  const postToServiceWorker = (message) => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        if (registration.active) {
+          registration.active.postMessage(message);
+        }
+      }).catch(err => console.log('SW not ready yet:', err));
+    }
+  };
+
+  useEffect(() => {
+    postToServiceWorker({
+      type: 'SET_ACTIVE_CHAT',
+      id_grupo: activeGroupId
+    });
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    const notifyVisibility = () => {
+      postToServiceWorker({
+        type: 'SET_APP_VISIBILITY',
+        visible: document.visibilityState === 'visible' && document.hasFocus()
+      });
+    };
+
+    document.addEventListener('visibilitychange', notifyVisibility);
+    window.addEventListener('focus', notifyVisibility);
+    window.addEventListener('blur', notifyVisibility);
+
+    // Notificar estado inicial
+    const timer = setTimeout(notifyVisibility, 1000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', notifyVisibility);
+      window.removeEventListener('focus', notifyVisibility);
+      window.removeEventListener('blur', notifyVisibility);
+      clearTimeout(timer);
+    };
+  }, [activeGroupId]);
+
   useEffect(() => {
     addNotificationRef.current = addNotification;
   }, [addNotification]);
