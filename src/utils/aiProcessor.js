@@ -3,13 +3,13 @@ const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
   while (true) {
     try {
       const response = await fetch(url, options);
-      
+
       if (response.status === 429) {
         retries++;
         if (retries > maxRetries) {
           return response;
         }
-        
+
         let retryAfter = 0;
         const headerVal = response.headers.get('retry-after');
         if (headerVal) {
@@ -28,17 +28,17 @@ const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
             // Ignorar errores al parsear JSON
           }
         }
-        
+
         if (!retryAfter || isNaN(retryAfter)) {
           retryAfter = Math.pow(2, retries) * 1000;
         }
-        
+
         const waitMs = retryAfter + 500;
         console.warn(`[Groq API] rate limit (429) detected. Retrying ${retries}/${maxRetries} in ${waitMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, waitMs));
         continue;
       }
-      
+
       return response;
     } catch (error) {
       retries++;
@@ -54,7 +54,7 @@ const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
 
 export const askGroq = async (question, contextText, unselectedDocs = []) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  
+
   if (!apiKey) {
     return "❌ Error: No se encontró la API Key de Groq. Asegúrate de tener VITE_GROQ_API_KEY en el archivo .env.";
   }
@@ -97,13 +97,13 @@ ${text}
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
-        console.error("Groq Error:", data);
-        if (response.status === 429) {
-          return "⚠️ El servidor de Inteligencia Artificial (Groq) está saturado. Por favor, espera unos segundos e intenta enviar de nuevo su consulta.";
-        }
-        return `❌ Error de Groq: ${data.error?.message || 'Error desconocido'}`;
+      console.error("Groq Error:", data);
+      if (response.status === 429) {
+        return "⚠️ El servidor de Inteligencia Artificial (Groq) está saturado. Por favor, espera unos segundos e intenta enviar de nuevo su consulta.";
+      }
+      return `❌ Error de Groq: ${data.error?.message || 'Error desconocido'}`;
     }
 
     return data.choices[0].message.content;
@@ -151,7 +151,7 @@ Usa este contexto para dar una recomendación. Sé directo, y si hay tareas pend
 export const generateStudyPlan = async (availableBlocks, pendingTasks) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
-  
+
   const systemPrompt = `Eres un planificador académico inteligente.
 Recibirás:
 1. Bloques de tiempo libres
@@ -237,7 +237,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 export const generateToolSuggestions = async (subjects) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
-  
+
   if (!subjects || subjects.length === 0) {
     return [];
   }
@@ -303,7 +303,7 @@ Reglas:
 export const generateQuizFromNotes = async (notesText, subjectName) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("No se encontró la API Key de Groq.");
-  
+
   if (!notesText || notesText.trim() === '') {
     throw new Error("No hay apuntes seleccionados para generar el Quiz.");
   }
@@ -443,7 +443,7 @@ export const generateDocumentSummary = async (documentText, summaryType) => {
   }
 
   const isShort = summaryType === 'short';
-  const systemPrompt = isShort 
+  const systemPrompt = isShort
     ? `Eres un experto en síntesis de información. Genera un resumen CORTITO del texto proporcionado en viñetas Markdown.`
     : `Eres un redactor académico experto. Genera un resumen COMPLETO, detallado y estructurado en Markdown del texto proporcionado.`;
 
@@ -806,7 +806,7 @@ export const scheduleAiNotifications = async (userId, schedule = [], tasks = [],
   if (!userId) return [];
   const key = `academic_${userId}_ai_scheduled_alerts`;
   const now = new Date();
-  
+
   // Try to generate via Groq if API Key is available
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (apiKey) {
@@ -867,7 +867,7 @@ Devuelve EXCLUSIVAMENTE un JSON:
   // Fallback: local heuristic scheduling (if offline or error occurs)
   console.log("Using local heuristic alert generator...");
   const fallbackAlerts = [];
-  
+
   // Alert 1: Study Block reminder if there is one
   if (studyBlocks && studyBlocks.length > 0) {
     const nextBlock = studyBlocks[0]; // grab the first block
@@ -891,7 +891,7 @@ Devuelve EXCLUSIVAMENTE un JSON:
   if (pendingUrgentes.length > 0) {
     motivMsg = `Tienes la tarea urgente "${pendingUrgentes[0].title}" pendiente. ¡Un paso a la vez, tú puedes completarla!`;
   }
-  
+
   fallbackAlerts.push({
     id: `ai-alert-fallback-motiv-${Date.now()}`,
     title: `⚡ Impulso de Enfoque`,
