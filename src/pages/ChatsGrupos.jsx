@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useGroupChat } from '../context/GroupChatContext';
 import { useAuth } from '../context/AuthContext';
+import { useSchedule } from '../context/ScheduleContext';
 import { marked } from 'marked';
 import { supabase } from '../lib/supabase';
 import { analyzeWhiteboardImage } from '../utils/aiVisionProcessor';
@@ -22,6 +23,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.vers
 
 export default function ChatsGrupos() {
   const { user } = useAuth();
+  const { effectiveSchedule } = useSchedule();
   const {
     groups,
     activeGroupId,
@@ -56,6 +58,10 @@ export default function ChatsGrupos() {
   const [newGroupSubject, setNewGroupSubject] = useState('');
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [chatInputText, setChatInputText] = useState('');
+
+  const uniqueSubjects = effectiveSchedule 
+    ? Array.from(new Set(effectiveSchedule.filter(c => c && c.title).map(c => c.title)))
+    : [];
 
   // UI States
   const [copiedCode, setCopiedCode] = useState(false);
@@ -1321,7 +1327,7 @@ export default function ChatsGrupos() {
                   type="text" 
                   className="premium-input"
                   style={{ paddingLeft: '15px' }}
-                  placeholder="Ej: Grupo de Estudio Solemne 2"
+                  placeholder="Ej: Grupo de Estudio"
                   value={newGroupTitle}
                   onChange={(e) => setNewGroupTitle(e.target.value)}
                   required
@@ -1330,15 +1336,30 @@ export default function ChatsGrupos() {
 
               <div className="form-group-premium">
                 <label>Asignatura</label>
-                <input 
-                  type="text" 
-                  className="premium-input"
-                  style={{ paddingLeft: '15px' }}
-                  placeholder="Ej: Cálculo I"
-                  value={newGroupSubject}
-                  onChange={(e) => setNewGroupSubject(e.target.value)}
-                  required
-                />
+                {uniqueSubjects.length > 0 ? (
+                  <select 
+                    className="premium-input"
+                    style={{ paddingLeft: '15px', background: 'var(--bg)', color: 'var(--text-main)' }}
+                    value={newGroupSubject}
+                    onChange={(e) => setNewGroupSubject(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Selecciona una asignatura</option>
+                    {uniqueSubjects.map((sub, idx) => (
+                      <option key={idx} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    className="premium-input"
+                    style={{ paddingLeft: '15px' }}
+                    placeholder="Ej: Cálculo I"
+                    value={newGroupSubject}
+                    onChange={(e) => setNewGroupSubject(e.target.value)}
+                    required
+                  />
+                )}
               </div>
 
               <div className="premium-actions">
