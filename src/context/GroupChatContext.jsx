@@ -37,7 +37,7 @@ export const GroupChatProvider = ({ children }) => {
 
   // Verificar presencia de tablas en Supabase
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
     if (user.id.startsWith('user-local-')) {
       setIsFallbackMode(true);
@@ -79,11 +79,11 @@ export const GroupChatProvider = ({ children }) => {
     };
 
     checkTables();
-  }, [user]);
+  }, [user?.id]);
 
   // Cargar datos (Grupos, Mensajes, Solicitudes)
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       setGroups([]);
       setMessages([]);
       setPendingRequests([]);
@@ -96,11 +96,11 @@ export const GroupChatProvider = ({ children }) => {
     } else {
       loadSupabaseData();
     }
-  }, [user, isFallbackMode, activeGroupId]);
+  }, [user?.id, isFallbackMode, activeGroupId]);
 
   // Suscripción Realtime para Supabase
   useEffect(() => {
-    if (!user || isFallbackMode) return;
+    if (!user?.id || isFallbackMode) return;
 
     // 1. Suscribirse a mensajes nuevos
     const messagesChannel = supabase
@@ -125,7 +125,7 @@ export const GroupChatProvider = ({ children }) => {
           }
 
           // No notificar al usuario de sus propios mensajes enviados desde otros dispositivos
-          if (newMsg.user_id === user.id) return;
+          if (newMsg.user_id === user?.id) return;
 
           // Verificar si tiene notificaciones habilitadas
           const notifEnabled = group.membership?.notificaciones_activas !== false;
@@ -165,7 +165,7 @@ export const GroupChatProvider = ({ children }) => {
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(membersChannel);
     };
-  }, [user, isFallbackMode]);
+  }, [user?.id, isFallbackMode]);
 
   // --- MÉTODOS LOCALES (LOCALSTORAGE FALLBACK) ---
 
