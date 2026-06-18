@@ -138,7 +138,9 @@ export const GroupChatProvider = ({ children }) => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("🔔 REALTIME chat_mensajes status:", status, err || '');
+      });
 
     // 2. Suscribirse a cambios en membresías (para solicitudes aceptadas, etc.)
     const membersChannel = supabase
@@ -150,7 +152,9 @@ export const GroupChatProvider = ({ children }) => {
           loadSupabaseData();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("🔔 REALTIME chat_miembros status:", status, err || '');
+      });
 
     return () => {
       supabase.removeChannel(messagesChannel);

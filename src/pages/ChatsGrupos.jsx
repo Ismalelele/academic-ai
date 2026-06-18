@@ -390,8 +390,33 @@ export default function ChatsGrupos() {
     <main className="main-content height-constrained-page">
       <header style={{ marginBottom: '35px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div>
-          <h1 className="page-title">
+          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <MessageSquare /> Chats de Asignaturas
+            {isFallbackMode ? (
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                padding: '3px 8px',
+                borderRadius: '20px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.3)'
+              }}>
+                Modo Local (Offline)
+              </span>
+            ) : (
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                padding: '3px 8px',
+                borderRadius: '20px',
+                background: 'rgba(34, 197, 94, 0.1)',
+                color: '#22c55e',
+                border: '1px solid rgba(34, 197, 94, 0.3)'
+              }}>
+                Modo Online (Sincronizado)
+              </span>
+            )}
           </h1>
           <p className="subtitle" style={{ color: 'var(--text-muted)' }}>
             Crea salas de estudio para tus asignaturas, comparte códigos de invitación y debate con tus compañeros.
