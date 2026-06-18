@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useSchedule } from './ScheduleContext';
@@ -90,7 +90,7 @@ export const NotificationProvider = ({ children }) => {
   };
 
   // 2. Función para añadir notificación manual o automática
-  const addNotification = async (title, message, type = 'info') => {
+  const addNotification = useCallback(async (title, message, type = 'info') => {
     if (!user) return null;
 
     // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
@@ -150,7 +150,7 @@ export const NotificationProvider = ({ children }) => {
     }
 
     return localNewNotif;
-  };
+  }, [user]);
 
   const markAsRead = async (id) => {
     setNotifications(prev => {

@@ -21,6 +21,7 @@ export const GroupChatProvider = ({ children }) => {
 
   const groupsRef = useRef(groups);
   const activeGroupIdRef = useRef(activeGroupId);
+  const addNotificationRef = useRef(addNotification);
 
   useEffect(() => {
     groupsRef.current = groups;
@@ -29,6 +30,10 @@ export const GroupChatProvider = ({ children }) => {
   useEffect(() => {
     activeGroupIdRef.current = activeGroupId;
   }, [activeGroupId]);
+
+  useEffect(() => {
+    addNotificationRef.current = addNotification;
+  }, [addNotification]);
 
   // Verificar presencia de tablas en Supabase
   useEffect(() => {
@@ -130,7 +135,7 @@ export const GroupChatProvider = ({ children }) => {
           const isChatsTabOpen = window.location.pathname === '/chats';
 
           if (notifEnabled && (!isViewingThisGroupChat || !isChatsTabOpen)) {
-            addNotification(
+            addNotificationRef.current(
               `Nuevo mensaje en ${group.titulo}`,
               `${newMsg.user_name}: "${newMsg.texto.substring(0, 45)}${newMsg.texto.length > 45 ? '...' : ''}"`,
               `chat:${group.id_grupo}`
@@ -160,7 +165,7 @@ export const GroupChatProvider = ({ children }) => {
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(membersChannel);
     };
-  }, [user, isFallbackMode, addNotification]);
+  }, [user, isFallbackMode]);
 
   // --- MÉTODOS LOCALES (LOCALSTORAGE FALLBACK) ---
 
