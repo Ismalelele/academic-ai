@@ -1625,8 +1625,6 @@ body.dark-mode .chat-footer input {
 @media (max-width: 480px) {
     .main-content {
         padding: 15px;
-        padding-left: 88px;
-        /* Offset for left vertical sidebar */
         padding-bottom: 15px;
     }
 
