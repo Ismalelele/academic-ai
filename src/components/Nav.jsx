@@ -49,6 +49,14 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     setSelectedIds(new Set());
   };
 
+  const handleSelectAllToggle = () => {
+    if (selectedIds.size === notifications.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(notifications.map(n => n.id)));
+    }
+  };
+
   const performDelete = () => {
     selectedIds.forEach(id => deleteNotification(id));
     setIsDeleteMode(false);
@@ -403,20 +411,37 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       
       {notifications.length > 0 && (
         <div className="notification-panel-actions" style={{ padding: '8px 16px', display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button 
-            onClick={markAllAsRead} 
-            className="premium-action-btn"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--primary)',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            Marcar todas leídas
-          </button>
+          {isDeleteMode ? (
+            <button 
+              onClick={handleSelectAllToggle} 
+              className="premium-action-btn"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--primary)',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              {selectedIds.size === notifications.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+            </button>
+          ) : (
+            <button 
+              onClick={markAllAsRead} 
+              className="premium-action-btn"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--primary)',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Marcar todas leídas
+            </button>
+          )}
           
           <button 
             onClick={isDeleteMode ? (selectedIds.size > 0 ? performDelete : toggleDeleteMode) : toggleDeleteMode}
