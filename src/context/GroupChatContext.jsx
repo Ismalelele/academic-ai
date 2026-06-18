@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useNotifications } from './NotificationContext';
@@ -18,6 +18,17 @@ export const GroupChatProvider = ({ children }) => {
   const [activeGroupMembers, setActiveGroupMembers] = useState([]);
   const [isFallbackMode, setIsFallbackMode] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const groupsRef = useRef(groups);
+  const activeGroupIdRef = useRef(activeGroupId);
+
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
+
+  useEffect(() => {
+    activeGroupIdRef.current = activeGroupId;
+  }, [activeGroupId]);
 
   // Verificar presencia de tablas en Supabase
   useEffect(() => {
@@ -99,41 +110,32 @@ export const GroupChatProvider = ({ children }) => {
           if (newMsg.user_id === user.id) return;
 
           // Buscar si el usuario actual pertenece a este grupo
-          setGroups((prevGroups) => {
-            const group = prevGroups.find(g => g.id_grupo === newMsg.id_grupo);
-            if (!group) return prevGroups; // El usuario no está en este grupo
+          const group = groupsRef.current.find(g => g.id_grupo === newMsg.id_grupo);
+          if (!group) return; // El usuario no está en este grupo
 
-            // Si está en el grupo activo, lo agregamos al chat en tiempo real
-            setActiveGroupId((currentActiveId) => {
-              if (currentActiveId === newMsg.id_grupo) {
-                setMessages((prevMsgs) => {
-                  if (prevMsgs.some(m => m.id_mensaje === newMsg.id_mensaje)) return prevMsgs;
-                  return [...prevMsgs, newMsg];
-                });
-              }
-              return currentActiveId;
+          // Si está en el grupo activo, lo agregamos al chat en tiempo real
+          const currentActiveId = activeGroupIdRef.current;
+          if (currentActiveId === newMsg.id_grupo) {
+            setMessages((prevMsgs) => {
+              if (prevMsgs.some(m => m.id_mensaje === newMsg.id_mensaje)) return prevMsgs;
+              return [...prevMsgs, newMsg];
             });
+          }
 
-            // Verificar si tiene notificaciones habilitadas
-            const notifEnabled = group.membership?.notificaciones_activas !== false;
+          // Verificar si tiene notificaciones habilitadas
+          const notifEnabled = group.membership?.notificaciones_activas !== false;
 
-            // Determinar si está viendo esta pantalla
-            setActiveGroupId((currentActiveId) => {
-              const isViewingThisGroupChat = currentActiveId === newMsg.id_grupo;
-              const isChatsTabOpen = window.location.pathname === '/chats';
+          // Determinar si está viendo esta pantalla
+          const isViewingThisGroupChat = currentActiveId === newMsg.id_grupo;
+          const isChatsTabOpen = window.location.pathname === '/chats';
 
-              if (notifEnabled && (!isViewingThisGroupChat || !isChatsTabOpen)) {
-                addNotification(
-                  `Nuevo mensaje en ${group.titulo}`,
-                  `${newMsg.user_name}: "${newMsg.texto.substring(0, 45)}${newMsg.texto.length > 45 ? '...' : ''}"`,
-                  `chat:${group.id_grupo}`
-                );
-              }
-              return currentActiveId;
-            });
-
-            return prevGroups;
-          });
+          if (notifEnabled && (!isViewingThisGroupChat || !isChatsTabOpen)) {
+            addNotification(
+              `Nuevo mensaje en ${group.titulo}`,
+              `${newMsg.user_name}: "${newMsg.texto.substring(0, 45)}${newMsg.texto.length > 45 ? '...' : ''}"`,
+              `chat:${group.id_grupo}`
+            );
+          }
         }
       )
       .subscribe();
