@@ -68,6 +68,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const notifPanelRef = useRef();
   const chatbotPanelRef = useRef();
   const profilePopoverRef = useRef();
+  const sidebarRef = useRef();
 
   const isAcademicoActive = ['/horario', '/clases', '/apuntes', '/calificaciones'].includes(currentPath);
   const isIaActive = ['/asistente', '/analisis'].includes(currentPath);
@@ -269,6 +270,17 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Ocultar sidebar si está abierto en móvil y hacemos clic fuera
+      if (
+        window.innerWidth <= 768 &&
+        isSidebarOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target) &&
+        !event.target.closest('.open-btn')
+      ) {
+        setIsSidebarOpen(false);
+      }
+
       if (
         notifRef.current && !notifRef.current.contains(event.target) &&
         (!notifPanelRef.current || !notifPanelRef.current.contains(event.target))
@@ -297,7 +309,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isSidebarOpen]);
 
   useEffect(() => {
     if (chatbotBodyRef.current) {
@@ -518,7 +530,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         document.body
       )}
 
-      <nav className={`sidebar ${!isSidebarOpen ? 'collapsed' : ''}`}>
+      <nav ref={sidebarRef} className={`sidebar ${!isSidebarOpen ? 'collapsed' : ''}`}>
         {/* Botón para cerrar (solo móvil) */}
         <button 
           className="sidebar-toggle-btn close-btn mobile-only" 
