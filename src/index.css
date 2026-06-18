@@ -1541,20 +1541,9 @@ body.dark-mode .chat-footer input {
         pointer-events: none;
     }
 
-    body.sidebar-collapsed .main-content {
-        padding-left: 16px !important;
-    }
-
-    .sidebar {
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
-    }
-
     .main-content {
         padding: 16px;
-        padding-left: 76px;
-        /* Offset for left vertical sidebar */
         padding-bottom: 20px;
-        transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     header {
