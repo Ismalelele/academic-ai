@@ -65,9 +65,32 @@ export default function Asistente() {
       <div className={`chat-layout ${showDocsMobile ? 'show-docs-mobile' : ''}`}>
         {/* Sidebar Repositorio */}
         <aside className="chat-sidebar">
-        <div className="sidebar-header">
-          <BookOpen size={24} color="var(--primary)" />
-          <h2>Repositorio</h2>
+        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BookOpen size={24} color="var(--primary)" />
+            <h2>Repositorio</h2>
+          </div>
+          {showDocsMobile && (
+            <button 
+              type="button"
+              className="btn-back-to-chat" 
+              onClick={() => setShowDocsMobile(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                fontSize: '0.8rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={14} /> Volver
+            </button>
+          )}
         </div>
 
         <div className="subject-selector">
