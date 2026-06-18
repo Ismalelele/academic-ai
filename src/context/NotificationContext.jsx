@@ -94,8 +94,14 @@ export const NotificationProvider = ({ children }) => {
     try {
       const registration = await navigator.serviceWorker.ready;
       
-      // Request permission dynamically if not yet granted
-      if (Notification.permission !== 'granted') {
+      // Si el permiso ya está denegado/bloqueado, salimos para evitar spam en consola
+      if (Notification.permission === 'denied') {
+        console.warn("Notification permission is denied/blocked in browser settings.");
+        return;
+      }
+      
+      // Solicitar permiso dinámicamente si está en estado predeterminado ('default')
+      if (Notification.permission === 'default') {
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
           console.warn("Notification permission was denied.");
