@@ -55,6 +55,23 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Determinar si el usuario está actualmente activo mirando la pantalla de chats
+      const isUserActiveInChat = windowClients.some((client) => {
+        try {
+          const url = new URL(client.url);
+          return client.focused && url.pathname.startsWith('/chats');
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (isUserActiveInChat) {
+        console.log('[Service Worker] El usuario está activo en el chat, omitiendo notificación.');
+        return;
+      }
+
+      return self.registration.showNotification(data.title, options);
+    })
   );
 });
