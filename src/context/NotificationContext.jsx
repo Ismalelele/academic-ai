@@ -139,9 +139,8 @@ export const NotificationProvider = ({ children }) => {
 
       if (error) {
         console.error("Error saving push subscription to Supabase:", error);
-      } else {
-        console.log("Successfully registered and saved Push Subscription to Supabase.");
       }
+      // Suscripción registrada y guardada exitosamente
     } catch (err) {
       console.error("Error setting up Web Push subscription:", err);
     }

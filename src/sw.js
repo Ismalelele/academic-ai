@@ -20,11 +20,9 @@ self.addEventListener('message', (event) => {
   if (event.data) {
     if (event.data.type === 'SET_ACTIVE_CHAT') {
       activeChatId = event.data.id_grupo;
-      console.log('[Service Worker] Chat activo sincronizado:', activeChatId);
     }
     if (event.data.type === 'SET_APP_VISIBILITY') {
       isAppVisible = event.data.visible;
-      console.log('[Service Worker] Visibilidad de app sincronizada:', isAppVisible);
     }
   }
 });

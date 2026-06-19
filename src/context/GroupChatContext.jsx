@@ -62,7 +62,7 @@ export const GroupChatProvider = ({ children }) => {
     window.addEventListener('blur', notifyVisibility);
 
     // Notificar estado inicial
-    const timer = setTimeout(notifyVisibility, 1000);
+    const timer = setTimeout(notifyVisibility, 500);
 
     return () => {
       document.removeEventListener('visibilitychange', notifyVisibility);
@@ -70,7 +70,8 @@ export const GroupChatProvider = ({ children }) => {
       window.removeEventListener('blur', notifyVisibility);
       clearTimeout(timer);
     };
-  }, [activeGroupId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Sin dependencias: los listeners se registran UNA SOLA VEZ al montar
 
   useEffect(() => {
     addNotificationRef.current = addNotification;
@@ -106,11 +107,10 @@ export const GroupChatProvider = ({ children }) => {
           );
           setIsFallbackMode(true);
         } else {
-          // Loguear errores no-fatales (RLS, permisos) pero no cambiar a fallback
+          // Solo loguear errores no-fatales (RLS, permisos)
           [r1, r2, r3].forEach((r, i) => {
             if (r.error) console.warn(`Tabla chat #${i} tiene error (no fatal):`, r.error);
           });
-          console.log("✅ Tablas de chat detectadas en Supabase. Usando modo online.");
           setIsFallbackMode(false);
         }
       } catch (e) {
@@ -185,7 +185,7 @@ export const GroupChatProvider = ({ children }) => {
         }
       )
       .subscribe((status, err) => {
-        console.log("🔔 REALTIME chat_mensajes status:", status, err || '');
+        if (err) console.warn("REALTIME chat_mensajes error:", err);
       });
 
     // 2. Suscribirse a cambios en membresías (para solicitudes aceptadas, etc.)
@@ -199,7 +199,7 @@ export const GroupChatProvider = ({ children }) => {
         }
       )
       .subscribe((status, err) => {
-        console.log("🔔 REALTIME chat_miembros status:", status, err || '');
+        if (err) console.warn("REALTIME chat_miembros error:", err);
       });
 
     return () => {
