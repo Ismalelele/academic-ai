@@ -9,7 +9,7 @@ export const useGroupChat = () => useContext(GroupChatContext);
 
 export const GroupChatProvider = ({ children }) => {
   const { user } = useAuth();
-  const { addNotification } = useNotifications();
+  const { addNotification, notifications, markAsRead } = useNotifications();
 
   const [groups, setGroups] = useState([]);
   const [activeGroupId, setActiveGroupId] = useState(null);
@@ -22,6 +22,16 @@ export const GroupChatProvider = ({ children }) => {
   const groupsRef = useRef(groups);
   const activeGroupIdRef = useRef(activeGroupId);
   const addNotificationRef = useRef(addNotification);
+  const notificationsRef = useRef(notifications);
+  const markAsReadRef = useRef(markAsRead);
+
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
+  useEffect(() => {
+    markAsReadRef.current = markAsRead;
+  }, [markAsRead]);
 
   useEffect(() => {
     groupsRef.current = groups;
@@ -47,6 +57,19 @@ export const GroupChatProvider = ({ children }) => {
       type: 'SET_ACTIVE_CHAT',
       id_grupo: activeGroupId
     });
+
+    if (activeGroupId) {
+      localStorage.setItem('academic_active_chat_id', activeGroupId);
+      
+      if (notificationsRef.current) {
+        const unread = notificationsRef.current.filter(n => !n.read && n.type === `chat:${activeGroupId}`);
+        unread.forEach(n => {
+          if (markAsReadRef.current) markAsReadRef.current(n.id);
+        });
+      }
+    } else {
+      localStorage.removeItem('academic_active_chat_id');
+    }
   }, [activeGroupId]);
 
   useEffect(() => {

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useGroupChat } from '../context/GroupChatContext';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { marked } from 'marked';
 import { supabase } from '../lib/supabase';
@@ -24,6 +25,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.vers
 export default function ChatsGrupos() {
   const { user } = useAuth();
   const { effectiveSchedule } = useSchedule();
+  const { notifications } = useNotifications();
   const {
     groups,
     activeGroupId,
@@ -130,7 +132,14 @@ export default function ChatsGrupos() {
   };
 
   // Library States
-  const [groupSubTab, setGroupSubTab] = useState('chat'); // 'chat' | 'library'
+  const [groupSubTab, setGroupSubTab] = useState(() => {
+    return sessionStorage.getItem('academic_active_subtab') || 'chat';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('academic_active_subtab', groupSubTab);
+  }, [groupSubTab]);
+
   const [libraryItems, setLibraryItems] = useState([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
 
@@ -167,7 +176,7 @@ export default function ChatsGrupos() {
       setGroupSubTab(pendingSubTab);
       localStorage.removeItem('academic_group_pending_subtab');
     } else {
-      setGroupSubTab('chat');
+      setGroupSubTab(sessionStorage.getItem('academic_active_subtab') || 'chat');
     }
     setVersusInvite(null);
 
@@ -484,6 +493,20 @@ export default function ChatsGrupos() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {!isActive && notifications?.filter(n => !n.read && n.type === `chat:${group.id_grupo}`).length > 0 && (
+                          <div style={{
+                            background: 'var(--primary)',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            fontWeight: 'bold',
+                            padding: '2px 6px',
+                            borderRadius: '10px',
+                            minWidth: '18px',
+                            textAlign: 'center'
+                          }}>
+                            {notifications.filter(n => !n.read && n.type === `chat:${group.id_grupo}`).length}
+                          </div>
+                        )}
                         {isAccepted ? (
                           notifEnabled ? (
                             <Bell size={14} color="var(--primary)" title="Alertas activas" />
@@ -2273,6 +2296,8 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
               type: 'broadcast',
               event: 'whiteboard_active',
               payload: { userId: user?.id, groupTitle: activeGroup?.titulo }
+            }).then(() => {
+              supabase.removeChannel(notifyChannel);
             });
           }
         });
@@ -2851,6 +2876,7 @@ export function GroupWhiteboard({ activeGroupId, user, isFallbackMode, activeGro
               display: 'block',
               width: '100%',
               height: '100%',
+              touchAction: 'none',
               cursor: tool === 'pencil' ? 'crosshair' : tool === 'eraser' ? 'cell' : 'default'
             }}
           />

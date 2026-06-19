@@ -184,12 +184,25 @@ export const NotificationProvider = ({ children }) => {
     if (!user) return null;
 
     const isChat = type && type.startsWith('chat:');
-    if (isChat && window.location.pathname === '/chats') {
-      return null;
+    
+    if (isChat) {
+      const activeChatId = type.split(':')[1];
+      const currentActiveChatId = localStorage.getItem('academic_active_chat_id');
+      const isChatsTabOpen = window.location.pathname === '/chats';
+      
+      // Si el mensaje es del chat activo actual, ignorar por completo
+      if (activeChatId === currentActiveChatId) {
+        return null;
+      }
+      
+      // Si estamos en la pestaña de chats, pero es otro chat, NO lanzar Push (solo acumular en DB/Local)
+      if (!isChatsTabOpen) {
+        triggerOSNotification(title, message);
+      }
+    } else {
+      // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
+      triggerOSNotification(title, message);
     }
-
-    // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
-    triggerOSNotification(title, message);
 
     const existing = isChat ? notificationsRef.current.find(n => n.type === type && !n.read) : null;
 
