@@ -715,7 +715,7 @@ export default function Tareas() {
               </div>
 
               <div className="premium-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <button type="button" className="btn-danger" onClick={handleDeleteStudyBlock} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--danger)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button type="button" className="btn-danger" onClick={handleDeleteStudyBlock}>
                   <Trash2 size={16} /> Eliminar Bloque
                 </button>
                 <div style={{ display: 'flex', gap: '10px' }}>
