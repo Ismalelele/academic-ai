@@ -4,6 +4,15 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
 
+const formatDeadlineSafely = (deadlineStr) => {
+  if (!deadlineStr) return 'Sin fecha';
+  const cleanStr = deadlineStr.substring(0, 10);
+  const parts = cleanStr.split('-');
+  if (parts.length !== 3) return deadlineStr;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+};
+
 export default function Tareas() {
   const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, isProcessing, clearStudyBlocks, updateStudyBlock, deleteStudyBlock, updateClass } = useSchedule();
   const { tasks, isLoading, addTask, updateTaskStatus, updateTask, deleteTask, deleteMultipleTasks } = useTasks();
@@ -335,7 +344,7 @@ export default function Tareas() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 {task.deadline ? (
-                  <span>📅 {new Date(task.deadline).toLocaleDateString()}</span>
+                  <span>📅 {formatDeadlineSafely(task.deadline)}</span>
                 ) : <span>Sin fecha</span>}
               </div>
 

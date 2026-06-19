@@ -190,8 +190,9 @@ export const ScheduleProvider = ({ children }) => {
 
     localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(studyBlocks));
 
-    const syncToDb = async () => {
-      if (user.id.startsWith('user-local-')) return;
+    if (user.id.startsWith('user-local-')) return;
+
+    const handler = setTimeout(async () => {
       try {
         await supabase
           .from('planificacion_estudio')
@@ -203,9 +204,9 @@ export const ScheduleProvider = ({ children }) => {
       } catch (err) {
         console.warn("Fallo al guardar bloques de estudio en Supabase:", err);
       }
-    };
+    }, 1200);
 
-    syncToDb();
+    return () => clearTimeout(handler);
   }, [studyBlocks, user]);
 
   const reportClassSuspension = async (bloqueId, dateString) => {
