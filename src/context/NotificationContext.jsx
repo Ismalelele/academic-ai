@@ -68,7 +68,7 @@ export const NotificationProvider = ({ children }) => {
     };
 
     fetchNotifications();
-  }, [user]);
+  }, [user?.id]);
 
   // Helper to convert VAPID public key
   const urlBase64ToUint8Array = (base64String) => {
@@ -145,14 +145,14 @@ export const NotificationProvider = ({ children }) => {
     } catch (err) {
       console.error("Error setting up Web Push subscription:", err);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // Hook to register push on login or mount when user exists
   useEffect(() => {
     if (user && !user.id.startsWith('user-local-')) {
       registerPushSubscription();
     }
-  }, [user, registerPushSubscription]);
+  }, [user?.id, registerPushSubscription]);
 
   // Función interna para lanzar la notificación al Sistema Operativo
   const triggerOSNotification = (title, message) => {
@@ -423,7 +423,7 @@ export const NotificationProvider = ({ children }) => {
     checkAlerts();
     const interval = setInterval(checkAlerts, 60000);
     return () => clearInterval(interval);
-  }, [effectiveSchedule, tasks, user, dailyAlertTime, studyBlocks]);
+  }, [effectiveSchedule, tasks, user?.id, dailyAlertTime, studyBlocks]);
 
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
   useEffect(() => {
@@ -447,7 +447,7 @@ export const NotificationProvider = ({ children }) => {
     // Ejecutar con un pequeño delay para asegurar la carga del horario y tareas
     const timer = setTimeout(runAiScheduling, 4000);
     return () => clearTimeout(timer);
-  }, [user, effectiveSchedule, tasks, studyBlocks]);
+  }, [user?.id, effectiveSchedule, tasks, studyBlocks]);
 
   return (
     <NotificationContext.Provider value={{

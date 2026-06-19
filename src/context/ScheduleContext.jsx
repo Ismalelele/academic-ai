@@ -150,7 +150,7 @@ export const ScheduleProvider = ({ children }) => {
     };
 
     fetchSchedule();
-  }, [user]);
+  }, [user?.id]);
 
   // Computar effectiveSchedule cada vez que cambie el schedule o las excepciones
   useEffect(() => {
@@ -207,7 +207,7 @@ export const ScheduleProvider = ({ children }) => {
     }, 1200);
 
     return () => clearTimeout(handler);
-  }, [studyBlocks, user]);
+  }, [studyBlocks, user?.id]);
 
   const reportClassSuspension = async (bloqueId, dateString) => {
     if (!user) return false;

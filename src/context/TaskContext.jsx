@@ -145,7 +145,7 @@ export const TaskProvider = ({ children }) => {
     };
 
     fetchTasks();
-  }, [user]);
+  }, [user?.id]);
 
   // Añadir una nueva tarea/evaluación inteligente
   const addTask = async (title, status, tag, deadline, estimatedTime, type, manualPriority = 1) => {
