@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil, Check } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil, Check, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,10 +15,36 @@ const formatDeadlineSafely = (deadlineStr) => {
 
 export default function Tareas() {
   const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, isProcessing, clearStudyBlocks, updateStudyBlock, deleteStudyBlock, updateClass } = useSchedule();
-  const { tasks, isLoading, addTask, updateTaskStatus, updateTask, deleteTask, deleteMultipleTasks } = useTasks();
+  const { tasks, isLoading, addTask, updateTaskStatus, updateTask, deleteTask, deleteMultipleTasks, refreshTasks } = useTasks();
   const { user } = useAuth();
 
   const uniqueSubjects = effectiveSchedule ? Array.from(new Set(effectiveSchedule.map(c => c.title))) : [];
+
+  // ── Helper: urgencia de fecha de entrega ─────────────────
+  const getDeadlineInfo = (deadlineStr) => {
+    if (!deadlineStr) return { label: 'Sin fecha', cls: 'deadline-none', icon: '' };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Parsear sin zona horaria para evitar desfase de un día
+    const parts = deadlineStr.substring(0, 10).split('-');
+    const deadline = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const diffDays = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { label: `Vencida hace ${Math.abs(diffDays)}d`, cls: 'deadline-overdue', icon: '🔴' };
+    if (diffDays === 0) return { label: 'Vence hoy', cls: 'deadline-overdue', icon: '🔴' };
+    if (diffDays <= 3) return { label: `En ${diffDays} día${diffDays === 1 ? '' : 's'}`, cls: 'deadline-soon', icon: '🟡' };
+    return { label: formatDeadlineSafely(deadlineStr), cls: 'deadline-ok', icon: '📅' };
+  };
+
+  // ── Cómputo de resumen de tareas ────────────────────────
+  const pendingTasks = tasks.filter(t => t.status !== 'done');
+  const doneTasks = tasks.filter(t => t.status === 'done');
+  const overdueTasks = pendingTasks.filter(t => {
+    if (!t.deadline) return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const parts = t.deadline.substring(0, 10).split('-');
+    const dl = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return dl < today;
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTaskData, setNewTaskData] = useState({
@@ -308,73 +334,108 @@ export default function Tareas() {
         <span className="task-count">{getTasksByStatus(status).length}</span>
       </div>
       <div className="kanban-cards-container">
-        {getTasksByStatus(status).map(task => (
-          <div
-            key={task.id}
-            className={`kanban-card ${selectedTaskIds.has(task.id) ? 'selected' : ''}`}
-            draggable
-            data-id={task.id}
-            onDragStart={(e) => handleDragStart(e, task.id)}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="kanban-card-drag-handle">
-              <GripVertical size={16} color="var(--text-muted)" />
-            </div>
+        {getTasksByStatus(status).map(task => {
+          const dl = getDeadlineInfo(task.deadline);
+          const isDone = task.status === 'done';
+          return (
+            <div
+              key={task.id}
+              className={`kanban-card ${selectedTaskIds.has(task.id) ? 'selected' : ''} ${isDone ? 'done-card' : ''}`}
+              draggable
+              data-id={task.id}
+              onDragStart={(e) => handleDragStart(e, task.id)}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="kanban-card-drag-handle">
+                <GripVertical size={16} color="var(--text-muted)" />
+              </div>
 
-            <div className="kanban-card-checkbox">
-              <input
-                type="checkbox"
-                checked={selectedTaskIds.has(task.id)}
-                onChange={() => toggleSelection(task.id)}
-              />
-            </div>
+              <div className="kanban-card-checkbox">
+                <input
+                  type="checkbox"
+                  checked={selectedTaskIds.has(task.id)}
+                  onChange={() => toggleSelection(task.id)}
+                />
+              </div>
 
-            <div className="kanban-card-content">
-              <div className="kanban-card-tags">
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                  <span className="kanban-tag" style={{ background: 'var(--primary)', color: 'white' }}>{task.tag}</span>
-                  <span className="kanban-tag" style={{ background: 'var(--border-color)', color: 'var(--text-main)' }}>{task.type || 'Tarea'}</span>
+              <div className="kanban-card-content">
+                <div className="kanban-card-tags">
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                    <span className="kanban-tag" style={{ background: 'var(--primary)', color: 'white' }}>{task.tag}</span>
+                    <span className="kanban-tag" style={{ background: 'var(--border-color)', color: 'var(--text-main)' }}>{task.type || 'Tarea'}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    {!isDone && (
+                      <button
+                        className="btn-complete-task"
+                        title="Marcar como completada"
+                        onClick={() => updateTaskStatus(task.id, 'done').then(() => showToast('Tarea completada.', '✅'))}
+                      >
+                        <CheckCircle2 size={14} />
+                      </button>
+                    )}
+                    <button className="btn-edit-task" onClick={() => handleEditTaskClick(task)}><Pencil size={14} /></button>
+                    <button className="btn-delete-task" onClick={() => handleDeleteTask(task.id)}><Trash2 size={14} /></button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                  <button className="btn-edit-task" onClick={() => handleEditTaskClick(task)}><Pencil size={14} /></button>
-                  <button className="btn-delete-task" onClick={() => handleDeleteTask(task.id)}><Trash2 size={14} /></button>
+                <p style={{ fontWeight: 600, margin: '8px 0' }}>{task.title}</p>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                  <span className={`deadline-badge ${dl.cls}`}>
+                    {dl.icon && <span>{dl.icon}</span>} {dl.label}
+                  </span>
+                  {task.estimatedTime && (
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      <Clock size={12} style={{ verticalAlign: 'middle', marginRight: '3px' }} />
+                      {task.estimatedTime}h
+                    </span>
+                  )}
+                </div>
+
+                <div className="mobile-move-actions">
+                  {getPrevStatus(task.status) && (
+                    <button onClick={() => moveTask(task.id, getPrevStatus(task.status))}>
+                      &larr; Mover
+                    </button>
+                  )}
+                  {getNextStatus(task.status) && (
+                    <button onClick={() => moveTask(task.id, getNextStatus(task.status))}>
+                      Mover &rarr;
+                    </button>
+                  )}
                 </div>
               </div>
-              <p style={{ fontWeight: 600, margin: '8px 0' }}>{task.title}</p>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {task.deadline ? (
-                  <span>📅 {formatDeadlineSafely(task.deadline)}</span>
-                ) : <span>Sin fecha</span>}
-              </div>
-
-              <div className="mobile-move-actions">
-                {getPrevStatus(task.status) && (
-                  <button onClick={() => moveTask(task.id, getPrevStatus(task.status))}>
-                    &larr; Mover
-                  </button>
-                )}
-                {getNextStatus(task.status) && (
-                  <button onClick={() => moveTask(task.id, getNextStatus(task.status))}>
-                    Mover &rarr;
-                  </button>
-                )}
-              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 
   return (
     <main className="main-content">
-      <header className="kanban-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
+      <header className="kanban-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '35px' }}>
         <div>
           <h1 className="page-title">Gestor de Evaluaciones</h1>
           <p className="subtitle">Planifica tus entregas y exámenes con IA</p>
+          {/* Resumen de estado de tareas */}
+          {tasks.length > 0 && (
+            <div className="tasks-summary-bar">
+              {overdueTasks.length > 0 && (
+                <span className="summary-item overdue">
+                  🔴 {overdueTasks.length} vencida{overdueTasks.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              <span className="summary-item pending">
+                📋 {pendingTasks.length} pendiente{pendingTasks.length !== 1 ? 's' : ''}
+              </span>
+              <span className="summary-item done">
+                ✅ {doneTasks.length} completada{doneTasks.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {selectedTaskIds.size > 0 && (
             <div className="bulk-actions">
               <span className="selected-count">
@@ -387,6 +448,13 @@ export default function Tareas() {
               </button>
             </div>
           )}
+          <button
+            title="Sincronizar desde la nube"
+            onClick={refreshTasks}
+            style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '8px 12px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', transition: '0.2s' }}
+          >
+            <RefreshCw size={15} /> Sincronizar
+          </button>
           <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ display: 'flex', alignItems: 'center' }}>
             <Plus size={18} style={{ marginRight: '5px' }} /> Nueva Evaluación
           </button>
@@ -551,10 +619,17 @@ export default function Tareas() {
                   <label>Asignatura</label>
                   <div className="premium-input-wrapper">
                     <BookOpen size={18} className="input-icon" />
-                    <select className="premium-input" value={newTaskData.tag} onChange={e => setNewTaskData(prev => ({ ...prev, tag: e.target.value }))}>
-                      <option value="General">General</option>
-                      {uniqueSubjects.map(subSub => <option key={subSub} value={subSub}>{subSub}</option>)}
-                    </select>
+                    <input
+                      list="subjects-list-new"
+                      className="premium-input"
+                      value={newTaskData.tag}
+                      onChange={e => setNewTaskData(prev => ({ ...prev, tag: e.target.value }))}
+                      placeholder="General"
+                    />
+                    <datalist id="subjects-list-new">
+                      <option value="General" />
+                      {uniqueSubjects.map(s => <option key={s} value={s} />)}
+                    </datalist>
                   </div>
                 </div>
                 <div className="form-group-premium" style={{ flex: 1 }}>
@@ -619,10 +694,17 @@ export default function Tareas() {
                   <label>Asignatura</label>
                   <div className="premium-input-wrapper">
                     <BookOpen size={18} className="input-icon" />
-                    <select className="premium-input" value={editTaskData.tag} onChange={e => setEditTaskData(prev => ({ ...prev, tag: e.target.value }))}>
-                      <option value="General">General</option>
-                      {uniqueSubjects.map(subSub => <option key={subSub} value={subSub}>{subSub}</option>)}
-                    </select>
+                    <input
+                      list="subjects-list-edit"
+                      className="premium-input"
+                      value={editTaskData.tag}
+                      onChange={e => setEditTaskData(prev => ({ ...prev, tag: e.target.value }))}
+                      placeholder="General"
+                    />
+                    <datalist id="subjects-list-edit">
+                      <option value="General" />
+                      {uniqueSubjects.map(s => <option key={s} value={s} />)}
+                    </datalist>
                   </div>
                 </div>
                 <div className="form-group-premium" style={{ flex: 1 }}>

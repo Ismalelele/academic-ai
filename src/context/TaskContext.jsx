@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { getSafeLocalStorage } from '../utils/storageSecurity';
@@ -53,6 +53,9 @@ export const TaskProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [activityLog, setActivityLog] = useState([]);
   const { user } = useAuth();
+  // Controla que el spinner solo se muestre en la PRIMERA carga real,
+  // no en cada re-render o cambio de pestaña.
+  const initialLoadDone = useRef(false);
 
   const addActivity = (action, taskTitle) => {
     if (!user) return;
@@ -79,73 +82,82 @@ export const TaskProvider = ({ children }) => {
     });
   };
 
+  // Función de carga extraída para poder exponerla como refreshTasks
+  const fetchTasks = useCallback(async (showSpinner = false) => {
+    if (!user) return;
+
+    // Solo mostrar spinner si se pide explícitamente (carga inicial o refresh manual)
+    if (showSpinner) setIsLoading(true);
+
+    if (user.id.startsWith('user-local-')) {
+      const savedTasks = getSafeLocalStorage(`academic_${user.id}_tasks`, user.id, null);
+      setTasks(savedTasks ? savedTasks : []);
+      setIsLoading(false);
+      initialLoadDone.current = true;
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tareas')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('fecha_creacion', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        const formattedTasks = data.map(t => {
+          const taskObj = {
+            id: t.id_tarea,
+            title: t.titulo,
+            status: t.estado,
+            tag: t.etiqueta,
+            priority: t.prioridad,
+            deadline: t.fecha_entrega,
+            estimatedTime: t.tiempo_estimado,
+            type: t.tipo,
+            manualPriority: t.prioridad_manual
+          };
+          taskObj.priorityScore = calculatePriorityScore(taskObj);
+          return taskObj;
+        });
+        // Ordenar por score de prioridad (mayor urgencia primero)
+        formattedTasks.sort((a, b) => b.priorityScore - a.priorityScore);
+        setTasks(formattedTasks);
+        localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(formattedTasks));
+      }
+    } catch (error) {
+      console.warn("Fallo al conectar con Supabase para tareas. Usando respaldo local. Error:", error?.message || error, "Código:", error?.code || 'N/A');
+      const savedTasks = getSafeLocalStorage(`academic_${user.id}_tasks`, user.id, null);
+      if (savedTasks) {
+        setTasks(savedTasks);
+      } else {
+        setTasks([]);
+      }
+    }
+
+    setIsLoading(false);
+    initialLoadDone.current = true;
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cargar tareas al montar el componente o cambiar el usuario
   useEffect(() => {
     if (!user) {
       setTasks([]);
       setActivityLog([]);
       setIsLoading(false);
+      initialLoadDone.current = false;
       return;
     }
-    
+
     const savedLog = getSafeLocalStorage(`academic_${user.id}_activity_log`, user.id, null);
-    if (savedLog) {
-      setActivityLog(savedLog);
-    } else {
-      setActivityLog([]);
-    }
+    setActivityLog(savedLog ? savedLog : []);
 
-    const fetchTasks = async () => {
-      setIsLoading(true);
-      if (user.id.startsWith('user-local-')) {
-        const savedTasks = getSafeLocalStorage(`academic_${user.id}_tasks`, user.id, null);
-        setTasks(savedTasks ? savedTasks : []);
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const { data, error } = await supabase
-          .from('tareas')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('fecha_creacion', { ascending: true });
-
-        if (error) throw error;
-
-        if (data) {
-          // Mapear la data de BD al formato de la UI
-          const formattedTasks = data.map(t => {
-            const taskObj = {
-              id: t.id_tarea,
-              title: t.titulo,
-              status: t.estado,
-              tag: t.etiqueta,
-              priority: t.prioridad, // keep legacy priority just in case
-              deadline: t.fecha_entrega,
-              estimatedTime: t.tiempo_estimado,
-              type: t.tipo,
-              manualPriority: t.prioridad_manual
-            };
-            taskObj.priorityScore = calculatePriorityScore(taskObj);
-            return taskObj;
-          });
-          setTasks(formattedTasks);
-          localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(formattedTasks));
-        }
-      } catch (error) {
-        console.warn("Fallo al conectar con Supabase para tareas. Usando respaldo local. Error:", error?.message || error, "Código:", error?.code || 'N/A');
-        const savedTasks = getSafeLocalStorage(`academic_${user.id}_tasks`, user.id, null);
-        if (savedTasks) {
-          setTasks(savedTasks);
-        } else {
-          setTasks([]);
-        }
-      }
-      setIsLoading(false);
-    };
-
-    fetchTasks();
-  }, [user?.id]);
+    // Solo activar el spinner si es la primera vez que cargamos para este usuario
+    const isFirstLoad = !initialLoadDone.current;
+    fetchTasks(isFirstLoad);
+  }, [user?.id]); // fetchTasks está memoizado con useCallback, no genera bucle
 
   // Añadir una nueva tarea/evaluación inteligente
   const addTask = async (title, status, tag, deadline, estimatedTime, type, manualPriority = 1) => {
@@ -378,7 +390,8 @@ export const TaskProvider = ({ children }) => {
       updateTask,
       deleteTask,
       deleteMultipleTasks,
-      activityLog
+      activityLog,
+      refreshTasks: () => fetchTasks(true)
     }}>
       {children}
     </TaskContext.Provider>

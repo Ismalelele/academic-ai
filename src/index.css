@@ -2549,12 +2549,105 @@ body.dark-mode .kanban-card:hover {
     color: #ef4444;
 }
 
+/* ── Botón rápido "Completar tarea" ─────────────────────── */
+.btn-complete-task {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.btn-complete-task:hover {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+/* ── Tarjeta de tarea completada ────────────────────────── */
+.kanban-card.done-card {
+    opacity: 0.62;
+}
+
+.kanban-card.done-card .kanban-card-content p {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+/* ── Badges de urgencia en fecha de entrega ─────────────── */
+.deadline-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.2px;
+}
+
+.deadline-overdue {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.deadline-soon {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+}
+
+.deadline-ok {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.deadline-none {
+    background: var(--border-color);
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* ── Resumen de estado en el header ─────────────────────── */
+.tasks-summary-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+.tasks-summary-bar .summary-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+}
+
+.tasks-summary-bar .summary-item.overdue {
+    color: #ef4444;
+}
+
+.tasks-summary-bar .summary-item.pending {
+    color: var(--primary);
+}
+
+.tasks-summary-bar .summary-item.done {
+    color: #10b981;
+}
+
+
 .kanban-card-content p {
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--text-main);
     line-height: 1.4;
 }
+
 
 /* Kanban Add Task Inline Form */
 .kanban-add-task-form {
