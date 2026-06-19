@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSchedule } from '../context/ScheduleContext';
 import { useAuth } from '../context/AuthContext';
 import { getSafeLocalStorage } from '../utils/storageSecurity';
@@ -12,95 +13,35 @@ import { getAcademicRiskAnalysis } from '../utils/aiProcessor';
 
 const parseGrade = (val) => {
   if (!val) return 0;
-  const num = parseFloat(val);
+  const cleaned = val.toString().replace(',', '.');
+  const num = parseFloat(cleaned);
   if (isNaN(num)) return 0;
   if (num >= 10 && num <= 70) {
     return num / 10;
   }
-  if (num >= 1 && num <= 7) {
+  if (num >= 1.0 && num <= 7.0) {
     return num;
   }
   return num / 10;
 };
 
-const formatNote = (val) => {
-  if (val === '') return '';
-  if (val === '0') return '0';
-  
-  let cleaned = val.replace(/[^0-9]/g, '');
-  while (cleaned.length > 2 && cleaned.startsWith('0')) {
-    cleaned = cleaned.substring(1);
-  }
-  if (cleaned.length > 2) {
-    cleaned = cleaned.substring(0, 2);
-  }
-  if (cleaned === '0') {
-    return '0';
-  }
-  while (cleaned.length < 2) {
-    cleaned = '0' + cleaned;
-  }
-  return cleaned;
+const formatGradeOnBlur = (val) => {
+  if (!val || val.toString().trim() === '') return '';
+  let cleaned = val.toString().replace(',', '.');
+  let num = parseFloat(cleaned);
+  if (isNaN(num)) return val;
+  if (num >= 10 && num <= 70) num = num / 10;
+  if (num >= 1.0 && num <= 7.0) return num.toFixed(1).replace('.', ',');
+  return val;
 };
 
-const formatWeight = (val) => {
-  if (val === '') return '';
-  if (val === '0') return '0';
-  
-  let cleaned = val.replace(/[^0-9.,]/g, '');
-  cleaned = cleaned.replace(',', '.');
-  
-  const parts = cleaned.split('.');
-  let intPart = parts[0] || '';
-  let decPart = parts[1] !== undefined ? '.' + parts[1].substring(0, 2) : '';
-  
-  if (parts.length > 2) {
-    intPart = parts[0];
-    decPart = '.' + parts.slice(1).join('');
-  }
-  
-  while (intPart.length > 2 && intPart.startsWith('0')) {
-    intPart = intPart.substring(1);
-  }
-  
-  if (intPart.startsWith('1')) {
-    if (intPart.length > 3) {
-      intPart = intPart.substring(0, 3);
-    }
-  } else {
-    if (intPart.length > 2) {
-      intPart = intPart.substring(0, 2);
-    }
-  }
-  
-  let parsedInt = parseInt(intPart, 10);
-  if (!isNaN(parsedInt) && parsedInt > 100) {
-    intPart = '100';
-    decPart = '';
-  }
-  
-  if (decPart === '') {
-    if (intPart === '0') {
-      return '0';
-    }
-    while (intPart.length < 2) {
-      intPart = '0' + intPart;
-    }
-  }
-  
-  return intPart + decPart;
-};
-
-const getNewCursorPos = (originalVal, rawNewVal, formattedVal, selectionStart) => {
-  if (selectionStart >= rawNewVal.length) {
-    return formattedVal.length;
-  }
-  if (rawNewVal.length < originalVal.length && selectionStart === rawNewVal.length) {
-    return formattedVal.length;
-  }
-  const digitsFromRight = rawNewVal.length - selectionStart;
-  const newPos = formattedVal.length - digitsFromRight;
-  return Math.max(0, newPos);
+const formatWeightOnBlur = (val) => {
+  if (!val || val.toString().trim() === '') return '';
+  let cleaned = val.toString().replace(',', '.');
+  let num = parseFloat(cleaned);
+  if (isNaN(num)) return val;
+  if (num >= 0 && num <= 100) return Number(num.toFixed(2)).toString().replace('.', ',');
+  return val;
 };
 
 const formatCleanAverage = (val) => {
@@ -129,12 +70,13 @@ const parseGeneralGrade = (val) => {
 export default function Calificaciones() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (effectiveSchedule !== null && (!effectiveSchedule || effectiveSchedule.length === 0)) {
-      window.location.href = '/horario';
+      navigate('/horario');
     }
-  }, [effectiveSchedule]);
+  }, [effectiveSchedule, navigate]);
 
   const uniqueSubjects = effectiveSchedule 
     ? Array.from(new Set(effectiveSchedule.map(c => c.title))) 
@@ -154,8 +96,7 @@ export default function Calificaciones() {
   const [simulatedGrade, setSimulatedGrade] = useState(4.0);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState('');
-
-  const [activeCursor, setActiveCursor] = useState(null);
+  const [aiAnalysisOutdated, setAiAnalysisOutdated] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -237,16 +178,7 @@ Generado automáticamente por AcademicAI
     }, 4000);
   };
 
-  useEffect(() => {
-    if (activeCursor) {
-      const { id, field, position } = activeCursor;
-      const input = document.getElementById(`input-${id}-${field}`);
-      if (input) {
-        input.setSelectionRange(position, position);
-      }
-      setActiveCursor(null);
-    }
-  }, [rows, activeCursor]);
+
 
   // Set default subject
   useEffect(() => {
@@ -268,7 +200,18 @@ Generado automáticamente por AcademicAI
           { id: '3', note: '', weight: '' }
         ]);
       }
-      setAiResult('');
+      setAiAnalysisOutdated(false);
+      const savedAnalysisStr = localStorage.getItem(`academic_${user.id}_ai_analysis_${activeSubject}`);
+      if (savedAnalysisStr) {
+        try {
+          const parsed = JSON.parse(savedAnalysisStr);
+          setAiResult(parsed.content || '');
+        } catch(e) {
+          setAiResult(savedAnalysisStr);
+        }
+      } else {
+        setAiResult('');
+      }
     }
   }, [activeSubject, user]);
 
@@ -297,29 +240,24 @@ Generado automáticamente por AcademicAI
     }
   };
 
-  const handleInputChange = (id, field, value, e) => {
-    const originalRow = rows.find(r => r.id === id);
-    const originalVal = originalRow ? originalRow[field] : '';
-    const selectionStart = e ? e.target.selectionStart : value.length;
-
+  const handleInputChange = (id, field, value) => {
     const updated = rows.map(row => {
       if (row.id === id) {
-        if (field === 'note') {
-          const formatted = formatNote(value);
-          if (e) {
-            const newPos = getNewCursorPos(originalVal, value, formatted, selectionStart);
-            setActiveCursor({ id, field, position: newPos });
-          }
-          return { ...row, note: formatted };
-        }
-        if (field === 'weight') {
-          const formatted = formatWeight(value);
-          if (e) {
-            const newPos = getNewCursorPos(originalVal, value, formatted, selectionStart);
-            setActiveCursor({ id, field, position: newPos });
-          }
-          return { ...row, weight: formatted };
-        }
+        return { ...row, [field]: value };
+      }
+      return row;
+    });
+    saveRows(updated);
+    if (aiResult) {
+      setAiAnalysisOutdated(true);
+    }
+  };
+
+  const handleInputBlur = (id, field, value) => {
+    const formatted = field === 'note' ? formatGradeOnBlur(value) : formatWeightOnBlur(value);
+    const updated = rows.map(row => {
+      if (row.id === id) {
+        return { ...row, [field]: formatted };
       }
       return row;
     });
@@ -466,6 +404,7 @@ Generado automáticamente por AcademicAI
   const handleAIAnalysis = async () => {
     setAiLoading(true);
     setAiResult('');
+    setAiAnalysisOutdated(false);
     try {
       const result = await getAcademicRiskAnalysis(
         activeSubject,
@@ -474,6 +413,12 @@ Generado automáticamente por AcademicAI
         gradeNeededToPass
       );
       setAiResult(result);
+      if (user && activeSubject) {
+        localStorage.setItem(`academic_${user.id}_ai_analysis_${activeSubject}`, JSON.stringify({
+          content: result,
+          timestamp: Date.now()
+        }));
+      }
     } catch (err) {
       console.error(err);
       setAlertModal({
@@ -710,8 +655,9 @@ Generado automáticamente por AcademicAI
                             id={`input-${row.id}-note`}
                             type="text" 
                             value={row.note} 
-                            onChange={(e) => handleInputChange(row.id, 'note', e.target.value, e)}
-                            placeholder="Ej: 55"
+                            onChange={(e) => handleInputChange(row.id, 'note', e.target.value)}
+                            onBlur={(e) => handleInputBlur(row.id, 'note', e.target.value)}
+                            placeholder="Ej: 5.5"
                             style={{
                               width: '100%',
                               padding: '12px',
@@ -735,7 +681,8 @@ Generado automáticamente por AcademicAI
                             id={`input-${row.id}-weight`}
                             type="text" 
                             value={row.weight} 
-                            onChange={(e) => handleInputChange(row.id, 'weight', e.target.value, e)}
+                            onChange={(e) => handleInputChange(row.id, 'weight', e.target.value)}
+                            onBlur={(e) => handleInputBlur(row.id, 'weight', e.target.value)}
                             placeholder="%"
                             style={{
                               width: '100%',
@@ -1130,9 +1077,14 @@ Generado automáticamente por AcademicAI
           <h3 style={{ marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.15rem', color: '#c084fc' }}>
             <Sparkles size={20} /> Pronóstico y Mentoría Académica IA
           </h3>
+          {aiAnalysisOutdated && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '0.85rem', marginBottom: '15px', background: 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: '8px' }}>
+              <AlertTriangle size={16} /> <span>⚠️ Notas modificadas. Este análisis fue generado con datos anteriores. Vuelve a analizar para actualizar.</span>
+            </div>
+          )}
           <div 
             className="markdown-body"
-            style={{ color: 'var(--text-main)', fontSize: '0.92rem', lineHeight: '1.6' }}
+            style={{ color: 'var(--text-main)', fontSize: '0.92rem', lineHeight: '1.6', opacity: aiAnalysisOutdated ? 0.7 : 1 }}
             dangerouslySetInnerHTML={{ __html: marked.parse(aiResult) }}
           />
         </div>

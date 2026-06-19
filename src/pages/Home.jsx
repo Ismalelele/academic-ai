@@ -122,8 +122,24 @@ export default function Home() {
   // Calcular métricas de calificaciones
   const getSubjectAverage = (subjectName) => {
     if (!user) return null;
+    const saved = getSafeLocalStorage(`academic_${user.id}_grades_${subjectName}`, user.id, null);
+    if (saved) {
+      const valid = saved.filter(r => {
+        const noteVal = parseGrade(r.note);
+        const weightVal = parseFloat(r.weight);
+        return r.note !== '' && r.weight !== '' && !isNaN(noteVal) && noteVal >= 1.0 && noteVal <= 7.0 && !isNaN(weightVal);
+      });
+      if (valid.length > 0) {
+        const wSum = valid.reduce((sum, r) => sum + (parseGrade(r.note) * parseFloat(r.weight)), 0);
+        const tWeight = valid.reduce((sum, r) => sum + parseFloat(r.weight), 0);
+        if (tWeight > 0) {
+          return { avg: wSum / tWeight, isDetailed: true };
+        }
+      }
+    }
     const rawVal = manualAverages[subjectName];
-    return parseManualAverage(rawVal);
+    const parsed = parseManualAverage(rawVal);
+    return parsed !== null ? { avg: parsed, isDetailed: false } : null;
   };
 
   // Consideramos "completadas" a las tareas en estado "done"
@@ -182,9 +198,9 @@ export default function Home() {
   const totalDetailedGradesCount = getTotalDetailedGradesCount();
   let subjectAverages = [];
   subjects.forEach(sub => {
-    const avg = getSubjectAverage(sub);
-    if (avg !== null) {
-      subjectAverages.push({ subject: sub, average: avg });
+    const data = getSubjectAverage(sub);
+    if (data !== null) {
+      subjectAverages.push({ subject: sub, average: data.avg, isDetailed: data.isDetailed });
     }
   });
 
@@ -658,32 +674,41 @@ export default function Home() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Mis Promedios por Ramo</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px' }}>
-                    {subjects.map((sub, index) => (
-                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                    {subjects.map((sub, index) => {
+                      const subjectData = subjectAverages.find(s => s.subject === sub);
+                      const isDetailed = subjectData ? subjectData.isDetailed : false;
+                      const displayVal = subjectData && subjectData.isDetailed 
+                        ? subjectData.average.toFixed(1).replace('.', ',') 
+                        : (manualAverages[sub] || '');
+                        
+                      return (
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }} title={isDetailed ? "Calculado automáticamente desde el módulo de Calificaciones" : ""}>
                         <span style={{ fontWeight: '700', color: 'var(--text-main)', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sub}>
                           📚 {sub}
                         </span>
                         <input
                           id={`manual-input-${sub}`}
                           type="text"
-                          value={manualAverages[sub] || ''}
-                          onChange={(e) => handleAverageChange(sub, e.target.value, e)}
+                          value={displayVal}
+                          onChange={(e) => !isDetailed && handleAverageChange(sub, e.target.value, e)}
                           placeholder="Nota (Ej: 60)"
+                          disabled={isDetailed}
                           style={{
                             width: '85px',
                             padding: '6px 8px',
                             borderRadius: '8px',
-                            border: '1px solid var(--border-color)',
-                            background: 'rgba(0,0,0,0.15)',
-                            color: 'var(--text-main)',
+                            border: isDetailed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)',
+                            background: isDetailed ? 'rgba(16, 185, 129, 0.05)' : 'rgba(0,0,0,0.15)',
+                            color: isDetailed ? '#10b981' : 'var(--text-main)',
                             fontSize: '0.8rem',
                             fontWeight: '800',
                             textAlign: 'center',
-                            outline: 'none'
+                            outline: 'none',
+                            cursor: isDetailed ? 'not-allowed' : 'text'
                           }}
                         />
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
               </div>
