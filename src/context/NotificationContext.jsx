@@ -22,6 +22,14 @@ export const NotificationProvider = ({ children }) => {
   const { effectiveSchedule, studyBlocks } = useSchedule();
   const { tasks } = useTasks();
 
+  const tasksRef = useRef(tasks);
+  const effectiveScheduleRef = useRef(effectiveSchedule);
+  const studyBlocksRef = useRef(studyBlocks);
+
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { effectiveScheduleRef.current = effectiveSchedule; }, [effectiveSchedule]);
+  useEffect(() => { studyBlocksRef.current = studyBlocks; }, [studyBlocks]);
+
   // 1. Cargar notificaciones de Supabase
   useEffect(() => {
     if (!user) {
@@ -175,10 +183,14 @@ export const NotificationProvider = ({ children }) => {
   const addNotification = useCallback(async (title, message, type = 'info') => {
     if (!user) return null;
 
+    const isChat = type && type.startsWith('chat:');
+    if (isChat && window.location.pathname === '/chats') {
+      return null;
+    }
+
     // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
     triggerOSNotification(title, message);
 
-    const isChat = type && type.startsWith('chat:');
     const existing = isChat ? notificationsRef.current.find(n => n.type === type && !n.read) : null;
 
     if (existing) {
@@ -265,6 +277,11 @@ export const NotificationProvider = ({ children }) => {
     return localNewNotif;
   }, [user]);
 
+  const addNotificationRef = useRef(addNotification);
+  useEffect(() => {
+    addNotificationRef.current = addNotification;
+  }, [addNotification]);
+
   const markAsRead = async (id) => {
     setNotifications(prev => {
       const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
@@ -309,6 +326,11 @@ export const NotificationProvider = ({ children }) => {
     localStorage.setItem('alertTime', dailyAlertTime);
   }, [dailyAlertTime]);
 
+  const dailyAlertTimeRef = useRef(dailyAlertTime);
+  useEffect(() => {
+    dailyAlertTimeRef.current = dailyAlertTime;
+  }, [dailyAlertTime]);
+
   const lastAlertTimeRef = useRef(null);
 
   // 3. Lógica automática (Comprobar horario y tareas cada minuto)
@@ -321,16 +343,20 @@ export const NotificationProvider = ({ children }) => {
       
       // Evitar que se dispare dos veces en el mismo minuto por re-renders de React
       if (lastAlertTimeRef.current === currentMinuteString) return;
+      lastAlertTimeRef.current = currentMinuteString;
 
       const jsDay = now.getDay();
       const currentDay = jsDay === 0 ? 6 : jsDay - 1; 
       const currentMins = now.getHours() * 60 + now.getMinutes();
 
-      let firedAlert = false;
+      const currentSchedule = effectiveScheduleRef.current;
+      const currentTasks = tasksRef.current;
+      const currentStudyBlocks = studyBlocksRef.current;
+      const currentDailyAlertTime = dailyAlertTimeRef.current;
 
       // 1. Clases: Avisar 15 minutos antes
-      if (effectiveSchedule && effectiveSchedule.length > 0) {
-        effectiveSchedule.forEach(cls => {
+      if (currentSchedule && currentSchedule.length > 0) {
+        currentSchedule.forEach(cls => {
           if (cls.day === currentDay && !cls.isSuspended) {
             const startMins = cls.startH * 60 + cls.startM;
             if (startMins - currentMins === 15) {
@@ -341,8 +367,7 @@ export const NotificationProvider = ({ children }) => {
                 (new Date(n.createdAt).toDateString() === now.toDateString())
               );
               if (!alreadyAlerted) {
-                addNotification('Clase Próxima', msg, 'clase');
-                firedAlert = true;
+                addNotificationRef.current('Clase Próxima', msg, 'clase');
               }
             }
           }
@@ -350,27 +375,28 @@ export const NotificationProvider = ({ children }) => {
       }
 
       // 2. Tareas: Avisar 15 minutos antes de la hora establecida (dailyAlertTime)
-      const [alertH, alertM] = dailyAlertTime.split(':').map(Number);
-      const alertMins = alertH * 60 + alertM;
-      if (alertMins - currentMins === 15) {
-        const pendientes = tasks ? tasks.filter(t => t.status !== 'done') : [];
-        pendientes.forEach(task => {
-          const msg = `Tienes la tarea pendiente "${task.title}" del ramo "${task.tag || 'General'}".`;
-          const alreadyAlerted = notificationsRef.current.some(n => 
-            n.title === 'Recordatorio de Tarea' && 
-            n.message === msg &&
-            (new Date(n.createdAt).toDateString() === now.toDateString())
-          );
-          if (!alreadyAlerted) {
-            addNotification('Recordatorio de Tarea', msg, 'urgente');
-            firedAlert = true;
-          }
-        });
+      if (currentDailyAlertTime) {
+        const [alertH, alertM] = currentDailyAlertTime.split(':').map(Number);
+        const alertMins = alertH * 60 + alertM;
+        if (alertMins - currentMins === 15) {
+          const pendientes = currentTasks ? currentTasks.filter(t => t.status !== 'done') : [];
+          pendientes.forEach(task => {
+            const msg = `Tienes la tarea pendiente "${task.title}" del ramo "${task.tag || 'General'}".`;
+            const alreadyAlerted = notificationsRef.current.some(n => 
+              n.title === 'Recordatorio de Tarea' && 
+              n.message === msg &&
+              (new Date(n.createdAt).toDateString() === now.toDateString())
+            );
+            if (!alreadyAlerted) {
+              addNotificationRef.current('Recordatorio de Tarea', msg, 'urgente');
+            }
+          });
+        }
       }
 
       // 3. Bloques de Estudio (IA): Avisar 15 minutos antes
-      if (studyBlocks && studyBlocks.length > 0) {
-        studyBlocks.forEach(block => {
+      if (currentStudyBlocks && currentStudyBlocks.length > 0) {
+        currentStudyBlocks.forEach(block => {
           if (block.day === currentDay) {
             const startMins = block.startH * 60 + block.startM;
             if (startMins - currentMins === 15) {
@@ -382,8 +408,7 @@ export const NotificationProvider = ({ children }) => {
                 (new Date(n.createdAt).toDateString() === now.toDateString())
               );
               if (!alreadyAlerted) {
-                addNotification('Bloque de Estudio', msg, 'estudio');
-                firedAlert = true;
+                addNotificationRef.current('Bloque de Estudio', msg, 'estudio');
               }
             }
           }
@@ -399,7 +424,7 @@ export const NotificationProvider = ({ children }) => {
           
           alerts.forEach(alert => {
             if (!alert.fired && new Date(alert.triggerTime) <= now) {
-              addNotification(alert.title || '💡 Asistente Académico', alert.message, 'info');
+              addNotificationRef.current(alert.title || '💡 Asistente Académico', alert.message, 'info');
               alert.fired = true;
               updated = true;
             }
@@ -412,17 +437,13 @@ export const NotificationProvider = ({ children }) => {
           console.error("Error checking AI scheduled alerts:", e);
         }
       }
-
-      if (firedAlert) {
-        lastAlertTimeRef.current = currentMinuteString;
-      }
     };
 
     // Ejecutar inmediatamente y luego cada 1 minuto
     checkAlerts();
     const interval = setInterval(checkAlerts, 60000);
     return () => clearInterval(interval);
-  }, [effectiveSchedule, tasks, user?.id, dailyAlertTime, studyBlocks]);
+  }, [user?.id]);
 
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
   useEffect(() => {
@@ -434,8 +455,7 @@ export const NotificationProvider = ({ children }) => {
 
       if (lastScheduledDay !== todayStr) {
         try {
-          console.log("Scheduling AI notifications for today...");
-          await scheduleAiNotifications(user.id, effectiveSchedule, tasks, studyBlocks);
+          await scheduleAiNotifications(user.id, effectiveScheduleRef.current, tasksRef.current, studyBlocksRef.current);
           localStorage.setItem(`academic_ai_last_schedule_date_${user.id}`, todayStr);
         } catch (e) {
           console.error("Error scheduling AI notifications:", e);
@@ -446,7 +466,7 @@ export const NotificationProvider = ({ children }) => {
     // Ejecutar con un pequeño delay para asegurar la carga del horario y tareas
     const timer = setTimeout(runAiScheduling, 4000);
     return () => clearTimeout(timer);
-  }, [user?.id, effectiveSchedule, tasks, studyBlocks]);
+  }, [user?.id]);
 
   return (
     <NotificationContext.Provider value={{

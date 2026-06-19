@@ -6942,3 +6942,97 @@ body.dark-mode .mobile-day-selector {
 .unsaved-banner-fadein {
     animation: fadeIn 0.3s ease-out;
 }
+
+/* Filter tabs in notification panel */
+.notif-filter-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color);
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.notif-filter-tab {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s ease-in-out;
+    padding: 0;
+}
+
+.notif-filter-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    border-color: var(--primary);
+}
+
+.notif-filter-tab.active {
+    background: var(--primary-light, rgba(14, 165, 233, 0.1));
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+/* Type color bar on left side of notification item */
+.notification-type-bar {
+    width: 4px;
+    align-self: stretch;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+
+.notification-type-bar.chat {
+    background: var(--primary);
+}
+
+.notification-type-bar.urgente {
+    background: #ef4444;
+}
+
+.notification-type-bar.clase {
+    background: #10b981;
+}
+
+.notification-type-bar.estudio {
+    background: #8b5cf6;
+}
+
+.notification-type-bar.info {
+    background: #6b7280;
+}
+
+/* Notification Empty State */
+.notification-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    gap: 12px;
+}
+
+.notification-empty-state svg {
+    color: var(--text-muted);
+    opacity: 0.4;
+}
+
+.notification-empty-state p {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.notification-empty-state span {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}

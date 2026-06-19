@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import {
   LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, BellRing,
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
-  ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic, ChevronUp, ChevronDown
+  ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic, ChevronUp, ChevronDown,
+  AlertTriangle
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
@@ -30,6 +31,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const [toasts, setToasts] = useState([]);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [notifFilter, setNotifFilter] = useState('all');
   const showToast = (message) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message }]);
@@ -402,128 +404,192 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString();
   };
 
-  const renderNotificationPanel = () => (
-    <div className="notification-panel" ref={notifPanelRef}>
-      <div className="notification-header">
-        <h3>Notificaciones</h3>
-        <span className="badge">{unreadCount} nuevas</span>
-      </div>
+  const renderNotificationPanel = () => {
+    const displayedNotifications = notifications.filter(n => {
+      if (notifFilter === 'all') return true;
+      const isChat = n.type && n.type.startsWith('chat:');
+      if (notifFilter === 'chat') return isChat;
+      if (notifFilter === 'warning') return !isChat;
+      return true;
+    });
 
-      {notifications.length > 0 && (
-        <div className="notification-panel-actions" style={{ padding: '8px 16px', display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', justifyContent: 'space-between', alignItems: 'center' }}>
-          {isDeleteMode ? (
-            <button
-              onClick={handleSelectAllToggle}
-              className="premium-action-btn"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--primary)',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              {selectedIds.size === notifications.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
-            </button>
-          ) : (
-            <button
-              onClick={markAllAsRead}
-              className="premium-action-btn"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--primary)',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              Marcar todas leídas
-            </button>
-          )}
+    return (
+      <div className="notification-panel" ref={notifPanelRef}>
+        <div className="notification-header">
+          <h3>Notificaciones</h3>
+          <span className="badge">{unreadCount} nuevas</span>
+        </div>
 
+        <div className="notif-filter-tabs">
           <button
-            onClick={isDeleteMode ? (selectedIds.size > 0 ? performDelete : toggleDeleteMode) : toggleDeleteMode}
-            className={selectedIds.size > 0 ? "delete-btn-active" : "delete-btn-inactive"}
-            style={{
-              background: isDeleteMode ? (selectedIds.size > 0 ? '#ef4444' : 'rgba(239,68,68,0.1)') : 'rgba(255,255,255,0.05)',
-              border: isDeleteMode ? (selectedIds.size > 0 ? 'none' : '1px solid rgba(239,68,68,0.2)') : '1px solid var(--border-color)',
-              color: isDeleteMode ? (selectedIds.size > 0 ? 'white' : '#ef4444') : 'var(--text-muted)',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
+            className={`notif-filter-tab ${notifFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setNotifFilter('all')}
+            title="Todas las notificaciones"
           >
-            {isDeleteMode ? (selectedIds.size > 0 ? `Eliminar (${selectedIds.size})` : "Cancelar") : "Eliminar"}
+            <Bell size={16} />
+          </button>
+          <button
+            className={`notif-filter-tab ${notifFilter === 'chat' ? 'active' : ''}`}
+            onClick={() => setNotifFilter('chat')}
+            title="Chats"
+          >
+            <MessageCircle size={16} />
+          </button>
+          <button
+            className={`notif-filter-tab ${notifFilter === 'warning' ? 'active' : ''}`}
+            onClick={() => setNotifFilter('warning')}
+            title="Alertas y Sistema"
+          >
+            <AlertTriangle size={16} />
           </button>
         </div>
-      )}
 
-      <div className="notification-list">
-        {notifications.length === 0 ? (
-          <div className="notification-empty">No tienes notificaciones</div>
-        ) : (
-          notifications.map(n => {
-            const isClickable = n.type && (n.type.startsWith('pizarra:') || n.type.startsWith('chat:') || n.type.startsWith('request:'));
-            const isSelected = selectedIds.has(n.id);
-            return (
-              <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'} ${isSelected ? 'selected' : ''}`} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {isDeleteMode && (
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => {
-                      const newSet = new Set(selectedIds);
-                      if (newSet.has(n.id)) {
-                        newSet.delete(n.id);
-                      } else {
-                        newSet.add(n.id);
-                      }
-                      setSelectedIds(newSet);
-                    }}
-                    style={{
-                      cursor: 'pointer',
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: '4px',
-                      border: '2px solid var(--border-color)',
-                      flexShrink: 0
-                    }}
-                  />
-                )}
-                <div className="notification-icon">{getIconForType(n.type)}</div>
-                <div
-                  className="notification-content"
-                  style={{ cursor: isClickable ? 'pointer' : 'default', flexGrow: 1 }}
-                  onClick={() => isClickable && handleNotificationClick(n)}
-                >
-                  <h4>{n.title}</h4>
-                  <p style={{ whiteSpace: 'pre-line' }}>{n.message}</p>
-                  <span className="notification-time">{formatDate(n.createdAt)}</span>
-                </div>
-                {!isDeleteMode && (
-                  <div className="notification-actions">
-                    {!n.read && (
-                      <button onClick={() => markAsRead(n.id)} title="Marcar como leída">
-                        <CheckCircle size={16} />
-                      </button>
-                    )}
-                    <button onClick={() => deleteNotification(n.id)} title="Eliminar" className="btn-delete">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })
+        {notifications.length > 0 && (
+          <div className="notification-panel-actions" style={{ padding: '8px 16px', display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', justifyContent: 'space-between', alignItems: 'center' }}>
+            {isDeleteMode ? (
+              <button
+                onClick={() => {
+                  const visibleIds = displayedNotifications.map(n => n.id);
+                  const allVisibleSelected = visibleIds.every(id => selectedIds.has(id));
+                  if (allVisibleSelected) {
+                    setSelectedIds(prev => {
+                      const next = new Set(prev);
+                      visibleIds.forEach(id => next.delete(id));
+                      return next;
+                    });
+                  } else {
+                    setSelectedIds(prev => {
+                      const next = new Set(prev);
+                      visibleIds.forEach(id => next.add(id));
+                      return next;
+                    });
+                  }
+                }}
+                className="premium-action-btn"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                {displayedNotifications.map(n => n.id).every(id => selectedIds.has(id)) ? 'Deseleccionar todo' : 'Seleccionar todo'}
+              </button>
+            ) : (
+              <button
+                onClick={markAllAsRead}
+                className="premium-action-btn"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Marcar todas leídas
+              </button>
+            )}
+
+            <button
+              onClick={isDeleteMode ? (selectedIds.size > 0 ? performDelete : toggleDeleteMode) : toggleDeleteMode}
+              className={selectedIds.size > 0 ? "delete-btn-active" : "delete-btn-inactive"}
+              style={{
+                background: isDeleteMode ? (selectedIds.size > 0 ? '#ef4444' : 'rgba(239,68,68,0.1)') : 'rgba(255,255,255,0.05)',
+                border: isDeleteMode ? (selectedIds.size > 0 ? 'none' : '1px solid rgba(239,68,68,0.2)') : '1px solid var(--border-color)',
+                color: isDeleteMode ? (selectedIds.size > 0 ? 'white' : '#ef4444') : 'var(--text-muted)',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              {isDeleteMode ? (selectedIds.size > 0 ? `Eliminar (${selectedIds.size})` : "Cancelar") : "Eliminar"}
+            </button>
+          </div>
         )}
+
+        <div className="notification-list">
+          {displayedNotifications.length === 0 ? (
+            <div className="notification-empty-state">
+              {notifFilter === 'chat' ? <MessageCircle size={40} /> : notifFilter === 'warning' ? <AlertTriangle size={40} /> : <Bell size={40} />}
+              <p>{notifFilter === 'chat' ? 'No hay chats nuevos' : notifFilter === 'warning' ? 'No hay alertas' : 'Sin notificaciones'}</p>
+              <span>{notifFilter === 'chat' ? 'Aquí verás los mensajes de tus grupos de estudio.' : notifFilter === 'warning' ? 'Aquí se muestran tus avisos de clases y recordatorios.' : 'Te mantendremos al tanto de tus clases y tareas.'}</span>
+            </div>
+          ) : (
+            displayedNotifications.map(n => {
+              const isClickable = n.type && (n.type.startsWith('pizarra:') || n.type.startsWith('chat:') || n.type.startsWith('request:'));
+              const isSelected = selectedIds.has(n.id);
+              
+              // Determinar color bar
+              const prefix = n.type ? n.type.split(':')[0] : 'info';
+              let typeClass = 'info';
+              if (prefix === 'chat') typeClass = 'chat';
+              else if (prefix === 'urgente' || prefix === 'tarea') typeClass = 'urgente';
+              else if (prefix === 'clase') typeClass = 'clase';
+              else if (prefix === 'estudio') typeClass = 'estudio';
+
+              return (
+                <div key={n.id} className={`notification-item ${n.read ? 'read' : 'unread'} ${isSelected ? 'selected' : ''}`} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div className={`notification-type-bar ${typeClass}`} />
+                  {isDeleteMode && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        const newSet = new Set(selectedIds);
+                        if (newSet.has(n.id)) {
+                          newSet.delete(n.id);
+                        } else {
+                          newSet.add(n.id);
+                        }
+                        setSelectedIds(newSet);
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        border: '2px solid var(--border-color)',
+                        flexShrink: 0
+                      }}
+                    />
+                  )}
+                  <div className="notification-icon">{getIconForType(n.type)}</div>
+                  <div
+                    className="notification-content"
+                    style={{ cursor: isClickable ? 'pointer' : 'default', flexGrow: 1 }}
+                    onClick={() => isClickable && handleNotificationClick(n)}
+                  >
+                    <h4>{n.title}</h4>
+                    <p style={{ whiteSpace: 'pre-line' }}>{n.message}</p>
+                    <span className="notification-time">{formatDate(n.createdAt)}</span>
+                  </div>
+                  {!isDeleteMode && (
+                    <div className="notification-actions">
+                      {!n.read && (
+                        <button onClick={() => markAsRead(n.id)} title="Marcar como leída">
+                          <CheckCircle size={16} />
+                        </button>
+                      )}
+                      <button onClick={() => deleteNotification(n.id)} title="Eliminar" className="btn-delete">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>

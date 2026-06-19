@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import webpush from "npm:web-push@3.6.7";
 
@@ -17,7 +18,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   // Only allow POST requests
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const userIds = miembros?.map((m) => m.user_id) || [];
+    const userIds = miembros?.map((m: { user_id: string }) => m.user_id) || [];
     if (userIds.length === 0) {
       console.log("No members to notify (excluding the sender).");
       return new Response(JSON.stringify({ message: "No members to notify" }), {
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
     });
 
     // Send notifications concurrently
-    const pushPromises = subs.map(async (sub) => {
+    const pushPromises = subs.map(async (sub: { id_suscripcion: any; user_id: string; subscription_json: any }) => {
       try {
         const subJson = typeof sub.subscription_json === "string" 
           ? JSON.parse(sub.subscription_json) 
