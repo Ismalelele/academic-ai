@@ -5,7 +5,7 @@ import { useTasks } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
 
 export default function Tareas() {
-  const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, isProcessing, clearStudyBlocks, updateStudyBlock, updateClass } = useSchedule();
+  const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, isProcessing, clearStudyBlocks, updateStudyBlock, deleteStudyBlock, updateClass } = useSchedule();
   const { tasks, isLoading, addTask, updateTaskStatus, updateTask, deleteTask, deleteMultipleTasks } = useTasks();
   const { user } = useAuth();
 
@@ -124,6 +124,14 @@ export default function Tareas() {
     updateStudyBlock(editingStudyBlock.id, editStudyBlockData.day, startH, startM, endH, endM);
     setEditingStudyBlock(null);
     // No toast notified here, per user requirement
+  };
+
+  const handleDeleteStudyBlock = () => {
+    if (editingStudyBlock) {
+      deleteStudyBlock(editingStudyBlock.id);
+      setEditingStudyBlock(null);
+      showToast('Bloque de estudio eliminado.', '🗑️');
+    }
   };
 
   const handleDeleteTask = async (id) => {
@@ -706,9 +714,14 @@ export default function Tareas() {
                 </div>
               </div>
 
-              <div className="premium-actions">
-                <button type="button" className="btn-cancel-premium" onClick={() => setEditingStudyBlock(null)}>Cancelar</button>
-                <button type="submit" className="btn-submit-premium"><Check size={18} /> Guardar Horario</button>
+              <div className="premium-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <button type="button" className="btn-danger" onClick={handleDeleteStudyBlock} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--danger)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <Trash2 size={16} /> Eliminar Bloque
+                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" className="btn-cancel-premium" onClick={() => setEditingStudyBlock(null)}>Cancelar</button>
+                  <button type="submit" className="btn-submit-premium"><Check size={18} /> Guardar Horario</button>
+                </div>
               </div>
             </form>
           </div>

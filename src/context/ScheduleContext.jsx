@@ -540,6 +540,11 @@ export const ScheduleProvider = ({ children }) => {
     }));
   };
 
+  const deleteStudyBlock = (blockId) => {
+    setStudyBlocks(prev => prev.filter(b => b.id !== blockId));
+  };
+
+
   const updateClass = async (classId, newDay, newStartH, newStartM, newEndH, newEndM) => {
     const { top, height } = calculateVisuals(newStartH, newStartM, newEndH, newEndM);
     let updatedSchedule = null;
@@ -748,6 +753,7 @@ export const ScheduleProvider = ({ children }) => {
       clearSchedule,
       clearStudyBlocks,
       updateStudyBlock,
+      deleteStudyBlock,
       updateClass,
       saveFullSchedule,
       generateStudyRoutine,
