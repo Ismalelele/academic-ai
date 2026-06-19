@@ -6868,6 +6868,21 @@ body.dark-mode .mobile-day-selector {
     box-shadow: 0 4px 10px rgba(14, 165, 233, 0.25);
 }
 
+/* ================= EDITOR GRID OVERLAY ================= */
+.editor-grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--editor-card-overlay, rgba(15, 23, 42, 0.96));
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 15px 0;
+    overflow-y: auto;
+}
+
 @media (max-width: 768px) {
     .mobile-day-selector {
         display: flex;
@@ -6882,6 +6897,10 @@ body.dark-mode .mobile-day-selector {
     }
 
     .timetable-container:not(.study-planner-grid) .grid-content {
+        grid-template-columns: 1fr !important;
+    }
+
+    .editor-grid-overlay {
         grid-template-columns: 1fr !important;
     }
 

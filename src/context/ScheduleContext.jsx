@@ -4,6 +4,7 @@ import { generateStudyPlan } from '../utils/aiProcessor';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { getSafeLocalStorage } from '../utils/storageSecurity';
+import { parseICS } from '../utils/calendarParser';
 
 export const predefBlocks = [
   { index: 1, start: '08:15', end: '08:55', startH: 8, startM: 15, endH: 8, endM: 55 },
@@ -279,7 +280,7 @@ export const ScheduleProvider = ({ children }) => {
   };
 
   const getColorType = (title) => {
-    const types = ['cultura', 'tecnologias', 'ciber', 'proy-colab', 'formulacion', 'competencias', 'procesos', 'proy-noche'];
+    const types = ['cultura', 'tecnologias', 'ciber', 'proy-colab', 'formulacion', 'competencias', 'procesos', 'proy-noche', 'clr-rosa', 'clr-rojo', 'clr-cyan', 'clr-lima', 'clr-ambar', 'clr-fuchsia', 'clr-teal', 'clr-slate'];
     let hash = 0;
     for (let i = 0; i < title.length; i++) {
       hash = title.charCodeAt(i) + ((hash << 5) - hash);
@@ -331,7 +332,13 @@ export const ScheduleProvider = ({ children }) => {
     
     setIsProcessing(true);
     try {
-      const extractedData = await processScheduleImage(file);
+      let extractedData = [];
+      if (file.name.endsWith('.ics') || file.type === 'text/calendar') {
+        const text = await file.text();
+        extractedData = parseICS(text);
+      } else {
+        extractedData = await processScheduleImage(file);
+      }
       
       if (Array.isArray(extractedData) && extractedData.length > 0) {
         const finalSchedule = extractedData.map((cls, idx) => {

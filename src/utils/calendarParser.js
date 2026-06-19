@@ -1,5 +1,9 @@
 import ICAL from 'ical.js';
 
+const dayMap = {
+  'MO': 0, 'TU': 1, 'WE': 2, 'TH': 3, 'FR': 4, 'SA': 5, 'SU': 6
+};
+
 /**
  * Parses an RFC 5545 standard .ics file content into a unified event format.
  * @param {string} icsText - Raw string contents of the .ics file.
@@ -11,15 +15,16 @@ export const parseICS = (icsText) => {
     const jcalData = ICAL.parse(icsText);
     const comp = new ICAL.Component(jcalData);
     const vevents = comp.getAllSubcomponents('vevent');
+    
+    const parsedEvents = [];
 
-    return vevents.map(vevent => {
+    vevents.forEach(vevent => {
       const event = new ICAL.Event(vevent);
       
       const title = event.summary || 'Sin título';
       const description = event.description || '';
       const location = event.location || '';
       
-      // Convert to JS dates
       let start = null;
       let end = null;
       if (event.startDate) {
@@ -29,11 +34,9 @@ export const parseICS = (icsText) => {
         end = event.endDate.toJSDate();
       }
 
-      // Fallbacks for start/end in case parsing fails
       if (!start) start = new Date();
-      if (!end) end = new Date(start.getTime() + 60 * 60 * 1000); // +1 hour
+      if (!end) end = new Date(start.getTime() + 60 * 60 * 1000);
 
-      // Lógica de clasificación
       let type = 'clase';
       const lowerTitle = title.toLowerCase();
       const lowerDesc = description.toLowerCase();
@@ -43,17 +46,41 @@ export const parseICS = (icsText) => {
       } else if (/estudio|repaso|quiz|taller|ayudantia|ayudantía|practica|práctica/i.test(lowerTitle) || /estudio|repaso|quiz|taller|ayudantia|ayudantía|practica|práctica/i.test(lowerDesc)) {
         type = 'estudio';
       }
-
-      return {
-        id: event.uid || Math.random().toString(36).substr(2, 9),
-        title,
-        start,
-        end,
-        description,
-        location,
-        type
-      };
+      
+      // Determine base day and times
+      const startH = start.getHours();
+      const startM = start.getMinutes();
+      const endH = end.getHours();
+      const endM = end.getMinutes();
+      
+      let baseDay = start.getDay() === 0 ? 6 : start.getDay() - 1;
+      let days = [baseDay];
+      
+      const rruleProp = vevent.getFirstPropertyValue('rrule');
+      if (rruleProp && rruleProp.freq === 'WEEKLY' && rruleProp.parts && rruleProp.parts.BYDAY) {
+        const byday = Array.isArray(rruleProp.parts.BYDAY) ? rruleProp.parts.BYDAY : [rruleProp.parts.BYDAY];
+        days = byday.map(d => dayMap[d]).filter(d => d !== undefined);
+      }
+      
+      days.forEach(d => {
+        parsedEvents.push({
+          id: event.uid ? `${event.uid}-${d}` : Math.random().toString(36).substr(2, 9),
+          title,
+          start,
+          end,
+          day: d,
+          startH,
+          startM,
+          endH,
+          endM,
+          description,
+          location,
+          type
+        });
+      });
     });
+
+    return parsedEvents;
   } catch (error) {
     console.error('Error al parsear el archivo ICS:', error);
     return [];

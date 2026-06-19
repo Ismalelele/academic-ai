@@ -167,7 +167,7 @@ export default function Horario() {
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleFileChange} 
-                accept="image/*,.pdf" 
+                accept="image/*,.pdf,.ics" 
                 style={{ display: 'none' }} 
               />
               <button 
@@ -175,7 +175,7 @@ export default function Horario() {
                 onClick={() => fileInputRef.current.click()}
                 disabled={isProcessing}
               >
-                {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img)'}
+                {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img/ICS)'}
                 {isProcessing ? <Loader2 size={20} className="spinner" /> : <Upload size={20} />}
               </button>
             </>
@@ -228,21 +228,7 @@ export default function Horario() {
             )}
 
             {isEditingSchedule && (
-              <div 
-                className="editor-grid-overlay" 
-                style={{ 
-                  position: 'absolute', 
-                  top: 0, 
-                  left: 0, 
-                  right: 0, 
-                  bottom: 0, 
-                  background: 'rgba(15, 23, 42, 0.96)', 
-                  zIndex: 20, 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  padding: '15px 0'
-                }}
-              >
+              <div className="editor-grid-overlay">
                 {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
                   const dayClasses = tempSchedule.filter(c => c.day === dayIndex).sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
                   return (
