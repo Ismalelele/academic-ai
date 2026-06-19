@@ -126,10 +126,35 @@ export default function ClasesGrabadas() {
   const activeObjectUrlRef = useRef(null);
 
   useEffect(() => {
+    let active = true;
     if (user && activeSubject) {
-      loadRecordings();
+      loadRecordings(active);
     }
+    return () => {
+      active = false;
+    };
   }, [user, activeSubject]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (recordingTab !== 'flashcards' || !selectedRecording?.flashcards?.length) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setRecordingFlashcardFlipped(prev => {
+          if (!prev) addStudyMinutes(user?.id, 1);
+          return !prev;
+        });
+      } else if (e.code === 'ArrowRight') {
+        setActiveRecordingFlashcardIdx(prev => Math.min(prev + 1, selectedRecording.flashcards.length - 1));
+        setRecordingFlashcardFlipped(false);
+      } else if (e.code === 'ArrowLeft') {
+        setActiveRecordingFlashcardIdx(prev => Math.max(prev - 1, 0));
+        setRecordingFlashcardFlipped(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [recordingTab, selectedRecording, user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -164,14 +189,14 @@ export default function ClasesGrabadas() {
     };
   }, [selectedRecording]);
 
-  const loadRecordings = async () => {
+  const loadRecordings = async (active = true) => {
     if (!user?.id) return;
     // 1. Cargar desde localStorage
     const localSaved = getSafeLocalStorage(`academic_${user.id}_recordings_${activeSubject}`, user.id, null);
     if (localSaved) {
-      setRecordings(localSaved);
+      if (active) setRecordings(localSaved);
     } else {
-      setRecordings([]);
+      if (active) setRecordings([]);
     }
 
     // 2. Cargar desde Supabase si está disponible
@@ -185,8 +210,10 @@ export default function ClasesGrabadas() {
           .order('fecha_creacion', { ascending: false });
 
         if (!error && data) {
-          setRecordings(data);
-          localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(data));
+          if (active) {
+            setRecordings(data);
+            localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(data));
+          }
         }
       } catch (err) {
         console.warn("Fallo al sincronizar grabaciones desde Supabase:", err);
@@ -272,49 +299,93 @@ export default function ClasesGrabadas() {
   };
 
   const handleSaveAndProcess = async (rawBlob, fixedBlob, title) => {
-    setTranscribing(true);
-    try {
-      const transcriptText = await transcribeAudio(fixedBlob);
+    const id = generateUUID();
+    const pendingRecording = {
+      id_grabacion: id,
+      user_id: user?.id || 'local-user',
+      asignatura: activeSubject,
+      titulo: title,
+      transcripcion: '',
+      resumen: '',
+      conceptos_clave: [],
+      preguntas_prueba: [],
+      flashcards: [],
+      fecha_creacion: new Date().toISOString(),
+      estado: 'pending' // 'pending' | 'error' | 'completed'
+    };
 
+    await saveAudioBlob(id, fixedBlob);
+
+    setRecordings(prev => {
+      const updated = [pendingRecording, ...prev];
+      if (user?.id) {
+        localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+    setSelectedRecording(pendingRecording);
+    setRecordingTab('summary');
+    setRecordingChatHistory([]);
+
+    processRecording(pendingRecording, fixedBlob);
+  };
+
+  const processRecording = async (recording, blobParam = null) => {
+    setTranscribing(true);
+    let blob = blobParam;
+    if (!blob) {
+      blob = await getAudioBlob(recording.id_grabacion);
+      if (!blob) {
+        alert("No se encontró el audio de esta grabación.");
+        setTranscribing(false);
+        return;
+      }
+    }
+
+    try {
+      const transcriptText = await transcribeAudio(blob);
       setAnalyzing(true);
       const aiMaterials = await generateRecordingSummary(transcriptText);
 
-      const newRecording = {
-        id_grabacion: generateUUID(),
-        user_id: user?.id || 'local-user',
-        asignatura: activeSubject,
-        titulo: title,
+      const completedRecording = {
+        ...recording,
         transcripcion: transcriptText,
         resumen: aiMaterials.resumen,
         conceptos_clave: aiMaterials.conceptosClave,
         preguntas_prueba: aiMaterials.preguntasPrueba,
         flashcards: aiMaterials.flashcards,
-        fecha_creacion: new Date().toISOString()
+        estado: 'completed'
       };
-
-      await saveAudioBlob(newRecording.id_grabacion, fixedBlob);
 
       if (supabase && user && user.id && !user.id.startsWith('user-local-')) {
         try {
-          const { error } = await supabase.from('clases_grabadas').insert([newRecording]);
+          const { error } = await supabase.from('clases_grabadas').upsert([completedRecording]);
           if (error) throw error;
         } catch (dbErr) {
           console.warn("Fallo al guardar grabación en Supabase, se mantiene en localStorage:", dbErr);
         }
       }
 
-      const updatedRecordings = [newRecording, ...recordings];
-      setRecordings(updatedRecordings);
-      if (user?.id) {
-        localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(updatedRecordings));
-      }
-      setSelectedRecording(newRecording);
-      setRecordingTab('summary');
-      setRecordingChatHistory([]);
-      addStudyMinutes(user?.id, 15); // 15 study minutes for recording and transcribing a class
+      setRecordings(prev => {
+        const updated = prev.map(r => r.id_grabacion === recording.id_grabacion ? completedRecording : r);
+        if (user?.id) {
+          localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(updated));
+        }
+        return updated;
+      });
+      setSelectedRecording(prev => prev?.id_grabacion === recording.id_grabacion ? completedRecording : prev);
+      addStudyMinutes(user?.id, 15);
     } catch (error) {
       console.error("Error al procesar la grabación:", error);
-      alert("Error al transcribir o procesar la grabación de clase: " + (error.message || error));
+      const errorRecording = { ...recording, estado: 'error' };
+      setRecordings(prev => {
+        const updated = prev.map(r => r.id_grabacion === recording.id_grabacion ? errorRecording : r);
+        if (user?.id) {
+          localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(updated));
+        }
+        return updated;
+      });
+      setSelectedRecording(prev => prev?.id_grabacion === recording.id_grabacion ? errorRecording : prev);
     } finally {
       setTranscribing(false);
       setAnalyzing(false);
@@ -494,8 +565,14 @@ export default function ClasesGrabadas() {
                       <div style={{ fontWeight: 'bold', fontSize: '0.85rem', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>
                         {rec.titulo}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', gap: '5px', alignItems: 'center' }}>
                         {new Date(rec.fecha_creacion).toLocaleDateString()}
+                        {rec.estado === 'error' && (
+                          <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>Fallo IA</span>
+                        )}
+                        {rec.estado === 'pending' && (
+                          <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.65rem', background: 'var(--primary-light)', padding: '2px 6px', borderRadius: '4px' }}>Procesando...</span>
+                        )}
                       </div>
                     </div>
                     <button
@@ -512,19 +589,7 @@ export default function ClasesGrabadas() {
           </aside>
 
           <section className="notes-details-section" style={{ flexGrow: 1, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-            {transcribing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', gap: '15px' }}>
-                <Loader size={48} className="spinner" style={{ color: 'var(--primary)' }} />
-                <div style={{ textAlign: 'center' }}>
-                  <h3>{analyzing ? 'Generando materiales de estudio con IA...' : 'Transcribiendo audio de la clase...'}</h3>
-                  <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>
-                    {analyzing
-                      ? 'Groq está construyendo el resumen, conceptos clave, cuestionarios y flashcards...'
-                      : 'Groq Whisper está procesando el archivo de voz para generar el texto completo...'}
-                  </p>
-                </div>
-              </div>
-            ) : selectedRecording ? (
+            {selectedRecording ? (
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                 <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -641,7 +706,31 @@ export default function ClasesGrabadas() {
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px', minHeight: 0 }}>
                   {recordingTab === 'summary' && (
-                    <div style={{ lineHeight: '1.6' }} className="markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(selectedRecording.resumen || '') }}></div>
+                    <div style={{ lineHeight: '1.6' }}>
+                      {selectedRecording.estado === 'pending' || (transcribing && !selectedRecording.resumen) ? (
+                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', color: 'var(--text-muted)', gap: '15px' }}>
+                           <Loader size={40} className="spinner" style={{ color: 'var(--primary)' }} />
+                           <div style={{ textAlign: 'center' }}>
+                             <h3>{analyzing ? 'Generando materiales de estudio con IA...' : 'Transcribiendo audio de la clase...'}</h3>
+                             <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>
+                               {analyzing
+                                 ? 'Groq está construyendo el resumen, conceptos clave, cuestionarios y flashcards...'
+                                 : 'Groq Whisper está procesando el archivo de voz para generar el texto completo...'}
+                             </p>
+                           </div>
+                         </div>
+                      ) : selectedRecording.estado === 'error' ? (
+                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', color: 'var(--text-muted)', gap: '15px' }}>
+                           <Brain size={40} style={{ color: '#ef4444' }} />
+                           <p>Ocurrió un error al procesar esta grabación. Asegúrate de tener conexión a internet o intenta más tarde.</p>
+                           <button className="btn-primary" onClick={() => processRecording(selectedRecording)} style={{ display: 'flex', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
+                             Reintentar Procesamiento de IA
+                           </button>
+                         </div>
+                      ) : (
+                         <div className="markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(selectedRecording.resumen || '') }}></div>
+                      )}
+                    </div>
                   )}
 
                   {recordingTab === 'concepts' && (
@@ -740,10 +829,10 @@ export default function ClasesGrabadas() {
                         })}
                       </div>
 
-                      {!recordingShowQuizScore && (
+                      {!recordingShowQuizScore ? (
                         <button
                           className="btn-primary"
-                          disabled={Object.keys(recordingQuizAnswers).length !== selectedRecording.preguntas_prueba.length}
+                          disabled={Object.keys(recordingQuizAnswers).length !== selectedRecording.preguntas_prueba?.length}
                           onClick={() => {
                             setRecordingShowQuizScore(true);
                             addStudyMinutes(user?.id, 10); // 10 study minutes for quiz completion
@@ -751,6 +840,17 @@ export default function ClasesGrabadas() {
                           style={{ alignSelf: 'flex-start', padding: '10px 20px', borderRadius: '8px' }}
                         >
                           Enviar Respuestas
+                        </button>
+                      ) : (
+                        <button
+                          className="btn-secondary"
+                          onClick={() => {
+                            setRecordingQuizAnswers({});
+                            setRecordingShowQuizScore(false);
+                          }}
+                          style={{ alignSelf: 'flex-start', padding: '10px 20px', borderRadius: '8px' }}
+                        >
+                          Intentar de nuevo
                         </button>
                       )}
                     </div>
