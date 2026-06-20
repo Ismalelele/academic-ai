@@ -347,23 +347,6 @@ export default function Horario() {
                                 }}
                                 style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', fontWeight: 600, marginBottom: '4px' }}
                               />
-                              <select
-                                value={cls.day}
-                                onChange={(e) => {
-                                  const newSched = [...tempSchedule];
-                                  newSched[idx].day = parseInt(e.target.value);
-                                  setTempSchedule(newSched);
-                                }}
-                                style={{ width: '100%', padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-main)', fontSize: '0.8rem', outline: 'none' }}
-                              >
-                                <option value={0}>Lunes</option>
-                                <option value={1}>Martes</option>
-                                <option value={2}>Miércoles</option>
-                                <option value={3}>Jueves</option>
-                                <option value={4}>Viernes</option>
-                                <option value={5}>Sábado</option>
-                                <option value={6}>Domingo</option>
-                              </select>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignItems: 'center' }}>
