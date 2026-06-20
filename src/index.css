@@ -1434,13 +1434,10 @@ body.dark-mode .chat-footer input {
     }
 
     .sidebar {
-        position: fixed;
-        top: 8px;
-        bottom: 8px;
-        left: 8px;
-        transform: none;
+        position: relative;
+        margin: 8px 0 8px 8px;
         width: 56px;
-        height: auto;
+        height: calc(100% - 16px);
         padding: 10px 0;
         border-radius: 16px;
         border: 1px solid var(--border-color);
@@ -1450,6 +1447,7 @@ body.dark-mode .chat-footer input {
         justify-content: space-between;
         align-items: center;
         box-sizing: border-box;
+        flex-shrink: 0;
     }
 
     .sidebar::-webkit-scrollbar {
@@ -1540,20 +1538,12 @@ body.dark-mode .chat-footer input {
     }
 
     body.sidebar-collapsed .sidebar {
-        transform: translateX(-120%);
-        opacity: 0;
-        pointer-events: none;
+        display: none !important;
     }
 
     .main-content {
-        padding: 76px 16px 20px 80px !important;
-        /* Make room for open sidebar on mobile and clear buttons cleanly */
+        padding: 60px 16px 20px 16px !important; /* Constant padding on mobile */
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    body.sidebar-collapsed .main-content {
-        padding-left: 16px !important;
-        /* Content uses full screen width when sidebar is collapsed */
     }
 
     .main-content>header {
@@ -1565,8 +1555,7 @@ body.dark-mode .chat-footer input {
     }
 
     body.sidebar-collapsed .main-content>header {
-        padding-left: 48px !important;
-        /* Shift title slightly to make room for toggle button */
+        padding-left: 44px !important; /* Shift title slightly to make room for toggle button */
     }
 
     header h1 {
@@ -1641,18 +1630,11 @@ body.dark-mode .chat-footer input {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 76px 15px 15px 80px !important;
-        /* Make room for open sidebar and clear buttons cleanly */
-    }
-
-    body.sidebar-collapsed .main-content {
-        padding-left: 15px !important;
-        /* Content uses full screen width when sidebar is collapsed */
+        padding: 60px 15px 15px 15px !important; /* Constant padding on mobile */
     }
 
     body.sidebar-collapsed .main-content>header {
-        padding-left: 48px !important;
-        /* Shift title slightly to make room for toggle button */
+        padding-left: 44px !important; /* Shift title slightly to make room for toggle button */
     }
 
     header h1 {
