@@ -252,7 +252,7 @@ export default function Horario() {
       </div>
 
       {/* === TIMETABLE VIEW === */}
-      <div className="timetable-container" style={{ marginBottom: '35px' }}>
+      <div className="timetable-container" style={{ marginBottom: '35px', ...(isEditingSchedule ? { '--slot-height': '140px' } : {}) }}>
         <div className="time-column">
           <div className="time-header">HORAS</div>
           {predefBlocks && predefBlocks.map((b) => (

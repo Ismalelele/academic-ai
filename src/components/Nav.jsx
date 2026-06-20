@@ -533,20 +533,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 {displayedNotifications.map(n => n.id).every(id => selectedIds.has(id)) ? 'Deseleccionar todo' : 'Seleccionar todo'}
               </button>
             ) : (
-              <button
-                onClick={markAllAsRead}
-                className="premium-action-btn"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--primary)',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                Marcar todas leídas
-              </button>
+              <div />
             )}
 
             <button
