@@ -437,7 +437,11 @@ export const NotificationProvider = ({ children }) => {
           
           alerts.forEach(alert => {
             if (!alert.fired && new Date(alert.triggerTime) <= now) {
-              addNotificationRef.current(alert.title || '💡 Asistente Académico', alert.message, 'info');
+              const ageInMs = now.getTime() - new Date(alert.triggerTime).getTime();
+              // Solo mostrar si tiene menos de 1 hora de antigüedad
+              if (ageInMs < 60 * 60 * 1000) {
+                addNotificationRef.current(alert.title || '💡 Asistente Académico', alert.message, 'info');
+              }
               alert.fired = true;
               updated = true;
             }

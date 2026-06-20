@@ -855,12 +855,21 @@ Devuelve EXCLUSIVAMENTE un JSON:
           const formattedAlerts = parsed.alerts
             .map(alert => {
               const trigger = new Date(alert.triggerTime);
-              // Clamp hours between 08:00 and 20:00
               if (trigger.getHours() < 8) {
                 trigger.setHours(8, 0, 0, 0);
               } else if (trigger.getHours() >= 20) {
                 trigger.setHours(20, 0, 0, 0);
               }
+              
+              // Evitar que la alerta sea en el pasado
+              if (trigger <= now) {
+                trigger.setTime(now.getTime() + Math.random() * 2 * 60 * 60 * 1000 + 30 * 60 * 1000); // 30 mins a 2.5 hrs
+                if (trigger.getHours() >= 20) {
+                  trigger.setDate(trigger.getDate() + 1);
+                  trigger.setHours(8, 0, 0, 0);
+                }
+              }
+
               return {
                 ...alert,
                 triggerTime: trigger.toISOString(),
