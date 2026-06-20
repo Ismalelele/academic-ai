@@ -15,6 +15,7 @@ import { useTasks } from '../context/TaskContext';
 import { useGroupChat } from '../context/GroupChatContext';
 import { askDashboardGroq } from '../utils/aiProcessor';
 import { addStudyMinutes } from '../utils/studyTracker';
+import { supabase } from '../lib/supabase';
 
 export default function Nav({ isDarkMode, toggleTheme }) {
   const location = useLocation();
@@ -45,6 +46,12 @@ export default function Nav({ isDarkMode, toggleTheme }) {
       if (!n.read) markAsRead(n.id);
     });
   };
+
+  useEffect(() => {
+    if (showNotifications && unreadCount > 0) {
+      markAllAsRead();
+    }
+  }, [showNotifications, unreadCount]);
 
   const toggleDeleteMode = () => {
     setIsDeleteMode(!isDeleteMode);
@@ -101,6 +108,49 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const [profileBio, setProfileBio] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileStatus, setProfileStatus] = useState(null);
+
+  // Admin testing states
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminNotifTitle, setAdminNotifTitle] = useState('Prueba del Sistema');
+  const [adminNotifMessage, setAdminNotifMessage] = useState('Esta es una notificación de prueba.');
+  const [adminNotifType, setAdminNotifType] = useState('info');
+  const [adminStatus, setAdminStatus] = useState('');
+
+  const handleAdminSend = async (e) => {
+    e.preventDefault();
+    setAdminStatus('Enviando...');
+    try {
+      let userIds = [];
+      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
+      if (subs && subs.length > 0) {
+         userIds = [...new Set(subs.map(s => s.user_id))];
+      } else {
+         const { data: members } = await supabase.from('chat_miembros').select('user_id');
+         if (members) userIds = [...new Set(members.map(m => m.user_id))];
+      }
+      
+      if (!userIds.length) {
+         setAdminStatus('Error: no se encontraron usuarios.');
+         return;
+      }
+      
+      const insertData = userIds.map(id => ({
+         user_id: id,
+         titulo: adminNotifTitle,
+         mensaje: adminNotifMessage,
+         tipo: adminNotifType,
+         leida: false
+      }));
+      
+      const { error: insErr } = await supabase.from('notificaciones').insert(insertData);
+      if (insErr) throw insErr;
+      
+      setAdminStatus('¡Enviado a ' + userIds.length + ' usuarios!');
+      setTimeout(() => setShowAdminModal(false), 2000);
+    } catch (err) {
+      setAdminStatus('Error: ' + err.message);
+    }
+  };
 
   const presetGradients = [
     'linear-gradient(135deg, #8b5cf6, #38bdf8)', // Violet-Blue
@@ -1231,6 +1281,117 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           document.body
         )}
 
+        {/* Admin Testing Modal */}
+        {showAdminModal && createPortal(
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100000,
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)'
+          }}>
+            <div className="premium-modal" style={{ maxWidth: '400px', width: '90%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+              <button
+                onClick={() => setShowAdminModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={20} />
+              </button>
+
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={20} color="#eab308" /> Pruebas Globales
+              </h3>
+
+              <form onSubmit={handleAdminSend} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div className="form-group-premium">
+                  <label>Título de Notificación</label>
+                  <input
+                    type="text"
+                    className="premium-input"
+                    value={adminNotifTitle}
+                    onChange={(e) => setAdminNotifTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group-premium">
+                  <label>Mensaje</label>
+                  <textarea
+                    className="premium-input"
+                    value={adminNotifMessage}
+                    onChange={(e) => setAdminNotifMessage(e.target.value)}
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div className="form-group-premium">
+                  <label>Tipo (simulación)</label>
+                  <select
+                    className="premium-input"
+                    value={adminNotifType}
+                    onChange={(e) => setAdminNotifType(e.target.value)}
+                  >
+                    <option value="info">Información General</option>
+                    <option value="chat:test">Chat (Mensaje Nuevo)</option>
+                    <option value="urgente">Urgente / Alerta</option>
+                    <option value="clase">Clase Grabada</option>
+                    <option value="tarea">Tarea Pendiente</option>
+                    <option value="request:test">Solicitud de Grupo</option>
+                  </select>
+                </div>
+
+                {adminStatus && (
+                  <div style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    textAlign: 'center',
+                    background: adminStatus.includes('Error') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                    color: adminStatus.includes('Error') ? '#ef4444' : '#10b981'
+                  }}>
+                    {adminStatus}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{
+                    padding: '12px',
+                    borderRadius: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    background: '#eab308',
+                    border: 'none',
+                    color: '#000',
+                    marginTop: '10px'
+                  }}
+                >
+                  Enviar a Todos
+                </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {showNotifications && createPortal(renderNotificationPanel(), document.body)}
 
         {showChatbot && createPortal(
@@ -1296,7 +1457,38 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 )}
               </div>
             </div>
-            <div style={{ height: '1px', background: 'var(--border-color)' }}></div>
+            <div style={{ height: '1px', background: 'var(--border-color)', margin: '10px 0' }}></div>
+            
+            {user?.email === 'jeshuacosta48@gmail.com' && (
+              <button
+                onClick={() => {
+                  setShowProfilePopover(false);
+                  setShowAdminModal(true);
+                }}
+                style={{
+                  background: 'rgba(234, 179, 8, 0.08)',
+                  border: '1px solid rgba(234, 179, 8, 0.2)',
+                  color: '#eab308',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  width: '100%',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '10px'
+                }}
+                onMouseOver={(e) => e.target.style.background = 'rgba(234, 179, 8, 0.15)'}
+                onMouseOut={(e) => e.target.style.background = 'rgba(234, 179, 8, 0.08)'}
+              >
+                <AlertTriangle size={14} /> Pruebas Globales
+              </button>
+            )}
+
             <button
               onClick={openSettingsModal}
               style={{
