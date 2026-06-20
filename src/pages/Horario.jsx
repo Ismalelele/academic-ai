@@ -2,6 +2,7 @@ import { RefreshCw, Upload, Loader2, Trash2, Wand2, X, Check } from 'lucide-reac
 import { useRef, useState, useEffect } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
+import { generateICS } from '../utils/calendarGenerator';
 
 const COLOR_PALETTE = [
   { type: 'cultura', label: 'Violeta', solid: '#8b5cf6' },
@@ -103,6 +104,51 @@ export default function Horario() {
     return true;
   };
 
+  const handleExportICS = () => {
+    if (!schedule || schedule.length === 0) {
+      alert("No hay horario para exportar.");
+      return;
+    }
+    
+    const now = new Date();
+    const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const monday = new Date(now);
+    monday.setDate(monday.getDate() - currentDay);
+    
+    // Generar instancias por 12 semanas (un semestre)
+    const exportEvents = [];
+    
+    for (let week = 0; week < 12; week++) {
+      schedule.forEach(cls => {
+        const eventStart = new Date(monday);
+        eventStart.setDate(eventStart.getDate() + cls.day + (week * 7));
+        eventStart.setHours(cls.startH, cls.startM, 0, 0);
+        
+        const eventEnd = new Date(monday);
+        eventEnd.setDate(eventEnd.getDate() + cls.day + (week * 7));
+        eventEnd.setHours(cls.endH, cls.endM, 0, 0);
+        
+        exportEvents.push({
+          id: `${cls.id}-${week}`,
+          title: cls.title,
+          start: eventStart,
+          end: eventEnd,
+          location: 'Universidad',
+          description: `Generado por AcademicAI`
+        });
+      });
+    }
+    
+    const icsString = generateICS(exportEvents);
+    const blob = new Blob([icsString], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'horario_academic_ai.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const scrollToEditor = () => {
     if (editorRef.current) {
       editorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -178,6 +224,15 @@ export default function Horario() {
                 {isProcessing ? 'Analizando...' : effectiveSchedule ? 'Subir Nuevo Horario' : 'Cargar Horario (PDF/Img/ICS)'}
                 {isProcessing ? <Loader2 size={20} className="spinner" /> : <Upload size={20} />}
               </button>
+              {effectiveSchedule && (
+                <button 
+                  className="btn-secondary" 
+                  onClick={handleExportICS}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer', transition: '0.3s' }}
+                >
+                  Exportar (.ics)
+                </button>
+              )}
             </>
           )}
         </div>
@@ -290,8 +345,25 @@ export default function Horario() {
                                   newSched[idx].title = e.target.value;
                                   setTempSchedule(newSched);
                                 }}
-                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', fontWeight: 600 }}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', fontWeight: 600, marginBottom: '4px' }}
                               />
+                              <select
+                                value={cls.day}
+                                onChange={(e) => {
+                                  const newSched = [...tempSchedule];
+                                  newSched[idx].day = parseInt(e.target.value);
+                                  setTempSchedule(newSched);
+                                }}
+                                style={{ width: '100%', padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-main)', fontSize: '0.8rem', outline: 'none' }}
+                              >
+                                <option value={0}>Lunes</option>
+                                <option value={1}>Martes</option>
+                                <option value={2}>Miércoles</option>
+                                <option value={3}>Jueves</option>
+                                <option value={4}>Viernes</option>
+                                <option value={5}>Sábado</option>
+                                <option value={6}>Domingo</option>
+                              </select>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', alignItems: 'center' }}>
