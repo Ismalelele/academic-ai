@@ -82,7 +82,17 @@ export default function ClasesGrabadas() {
   const { effectiveSchedule } = useSchedule();
   const { user } = useAuth();
   const [audioSrc, setAudioSrc] = useState(null);
-  const [activeSubject, setActiveSubject] = useState(null);
+  const [activeSubject, setActiveSubject] = useState(() => {
+    return sessionStorage.getItem('active_subject_recordings') || null;
+  });
+
+  useEffect(() => {
+    if (activeSubject) {
+      sessionStorage.setItem('active_subject_recordings', activeSubject);
+    } else {
+      sessionStorage.removeItem('active_subject_recordings');
+    }
+  }, [activeSubject]);
 
   const [customSubjects, setCustomSubjects] = useState(() => {
     if (!user) return [];
@@ -222,6 +232,17 @@ export default function ClasesGrabadas() {
   };
 
   const startRecording = async () => {
+    // Check if page has been open for more than 15 minutes to prevent the Chromium timebase offset bug
+    if (performance.now() > 900000) {
+      const confirmReload = window.confirm(
+        "La aplicación ha estado abierta durante bastante tiempo. Para evitar que la grabación se desincronice (bug de Chrome en Android que distorsiona la duración) y falle el procesamiento de la IA, se recomienda recargar la página.\n\n¿Deseas recargar ahora? (Mantendremos abierto tu cuaderno actual)"
+      );
+      if (confirmReload) {
+        window.location.reload();
+        return;
+      }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
