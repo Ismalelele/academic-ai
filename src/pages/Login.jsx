@@ -14,10 +14,46 @@ export default function Login() {
   const [carrera, setCarrera] = useState('');
   const [avatarBase64, setAvatarBase64] = useState('');
   
+  // Validation and focus states
+  const [errors, setErrors] = useState({ email: '' });
+  const [emailFocused, setEmailFocused] = useState(false);
+  
   // Status states
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const validateEmail = (emailVal) => {
+    if (!emailVal || !emailVal.trim()) {
+      return 'El correo electrónico es obligatorio.';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailVal)) {
+      return 'Formato de correo no válido. Asegúrate de incluir el @ y el dominio (ej. .com, .cl).';
+    }
+    return '';
+  };
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    if (errors.email) {
+      const emailError = validateEmail(val);
+      setErrors(prev => ({ ...prev, email: emailError }));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    const emailError = validateEmail(email);
+    setErrors(prev => ({ ...prev, email: emailError }));
+  };
+
+  const handleToggleMode = (registerMode) => {
+    setIsRegister(registerMode);
+    setError('');
+    setSuccessMsg('');
+    setErrors({ email: '' });
+  };
 
   if (user) {
     const pendingEvent = sessionStorage.getItem('pending_event_uri');
@@ -54,6 +90,12 @@ export default function Login() {
     setError('');
     setSuccessMsg('');
     setLoading(false);
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrors(prev => ({ ...prev, email: emailError }));
+      return;
+    }
 
     if (!email.trim() || !password.trim()) {
       setError('Por favor, completa todos los campos obligatorios.');
@@ -98,6 +140,8 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  const isSubmitDisabled = loading || !!errors.email || !email.trim() || validateEmail(email) !== '';
 
   return (
     <div style={{
@@ -188,7 +232,7 @@ export default function Login() {
         }}>
           <button
             type="button"
-            onClick={() => { setIsRegister(false); setError(''); setSuccessMsg(''); }}
+            onClick={() => handleToggleMode(false)}
             style={{
               flex: 1,
               padding: '10px',
@@ -206,7 +250,7 @@ export default function Login() {
           </button>
           <button
             type="button"
-            onClick={() => { setIsRegister(true); setError(''); setSuccessMsg(''); }}
+            onClick={() => handleToggleMode(true)}
             style={{
               flex: 1,
               padding: '10px',
@@ -392,13 +436,21 @@ export default function Login() {
                 type="email"
                 placeholder="usuario@gmail.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
+                onBlur={() => {
+                  setEmailFocused(false);
+                  handleEmailBlur();
+                }}
+                onFocus={() => setEmailFocused(true)}
                 required
+                autoComplete="email"
                 style={{
                   width: '100%',
                   padding: '12px 12px 12px 40px',
                   background: 'rgba(0, 0, 0, 0.2)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  border: errors.email 
+                    ? '1px solid #ef4444' 
+                    : (emailFocused ? '1px solid var(--primary, #8b5cf6)' : '1px solid rgba(255, 255, 255, 0.1)'),
                   borderRadius: '12px',
                   color: '#fff',
                   fontSize: '0.9rem',
@@ -406,10 +458,13 @@ export default function Login() {
                   transition: 'border-color 0.2s',
                   boxSizing: 'border-box'
                 }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--primary, #8b5cf6)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
               />
             </div>
+            {errors.email && (
+              <span style={{ color: '#f87171', fontSize: '0.75rem', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertCircle size={12} style={{ flexShrink: 0 }} /> {errors.email}
+              </span>
+            )}
           </div>
 
           {/* Contraseña */}
@@ -445,29 +500,33 @@ export default function Login() {
           {/* Botón de Submit */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitDisabled}
             style={{
               padding: '14px',
               borderRadius: '12px',
               border: 'none',
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-              color: '#fff',
+              background: isSubmitDisabled 
+                ? 'rgba(255, 255, 255, 0.05)' 
+                : 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+              color: isSubmitDisabled ? '#64748b' : '#fff',
               fontSize: '1rem',
               fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: isSubmitDisabled ? 'not-allowed' : 'pointer',
               transition: 'transform 0.2s, box-shadow 0.2s',
               marginTop: '10px',
-              boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)'
+              boxShadow: isSubmitDisabled ? 'none' : '0 4px 15px rgba(139, 92, 246, 0.3)'
             }}
             onMouseOver={(e) => {
-              if(!loading) {
+              if(!isSubmitDisabled) {
                 e.target.style.transform = 'translateY(-1px)';
                 e.target.style.boxShadow = '0 6px 20px rgba(139, 92, 246, 0.4)';
               }
             }}
             onMouseOut={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.3)';
+              if (!isSubmitDisabled) {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.3)';
+              }
             }}
           >
             {loading ? 'Procesando...' : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
