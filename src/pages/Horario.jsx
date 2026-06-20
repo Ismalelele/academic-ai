@@ -252,7 +252,7 @@ export default function Horario() {
       </div>
 
       {/* === TIMETABLE VIEW === */}
-      <div className="timetable-container" style={{ marginBottom: '35px', ...(isEditingSchedule ? { '--slot-height': '140px' } : {}) }}>
+      <div className="timetable-container" style={{ marginBottom: '35px' }}>
         <div className="time-column">
           <div className="time-header">HORAS</div>
           {predefBlocks && predefBlocks.map((b) => (
@@ -565,7 +565,7 @@ export default function Horario() {
                 key={dayIndex} 
                 className={`day-track ${selectedDayMobile === dayIndex ? 'active-day-mobile' : 'inactive-day-mobile'}`}
               >
-                {((hasChanges ? tempSchedule : effectiveSchedule) || [])
+                {!isEditingSchedule && ((hasChanges ? tempSchedule : effectiveSchedule) || [])
                   .filter(cls => cls.day === dayIndex)
                   .map(cls => (
                     <div 
