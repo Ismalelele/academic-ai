@@ -120,33 +120,25 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     e.preventDefault();
     setAdminStatus('Enviando...');
     try {
-      let userIds = [];
-      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
-      if (subs && subs.length > 0) {
-         userIds = [...new Set(subs.map(s => s.user_id))];
-      } else {
-         const { data: members } = await supabase.from('chat_miembros').select('user_id');
-         if (members) userIds = [...new Set(members.map(m => m.user_id))];
-      }
-      
-      if (!userIds.length) {
-         setAdminStatus('Error: no se encontraron usuarios.');
-         return;
-      }
-      
-      const insertData = userIds.map(id => ({
-         user_id: id,
-         titulo: adminNotifTitle,
-         mensaje: adminNotifMessage,
-         tipo: adminNotifType,
-         leida: false
-      }));
-      
-      const { error: insErr } = await supabase.from('notificaciones').insert(insertData);
-      if (insErr) throw insErr;
-      
-      setAdminStatus('¡Enviado a ' + userIds.length + ' usuarios!');
-      setTimeout(() => setShowAdminModal(false), 2000);
+      const channel = supabase.channel('admin_broadcast');
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.send({
+            type: 'broadcast',
+            event: 'admin_notification',
+            payload: {
+              titulo: adminNotifTitle,
+              mensaje: adminNotifMessage,
+              tipo: adminNotifType
+            }
+          });
+          setAdminStatus('¡Enviado a todos los usuarios conectados al instante!');
+          setTimeout(() => {
+            setShowAdminModal(false);
+            supabase.removeChannel(channel);
+          }, 2000);
+        }
+      });
     } catch (err) {
       setAdminStatus('Error: ' + err.message);
     }

@@ -161,6 +161,24 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [user?.id, registerPushSubscription]);
 
+  // Escuchar notificaciones globales de Administrador (Pruebas) en tiempo real
+  useEffect(() => {
+    if (!user || user.id.startsWith('user-local-')) return;
+    
+    const adminChannel = supabase.channel('admin_broadcast')
+      .on('broadcast', { event: 'admin_notification' }, (payload) => {
+        if (payload.payload) {
+          const { titulo, mensaje, tipo } = payload.payload;
+          addNotificationRef.current(titulo, mensaje, tipo);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(adminChannel);
+    };
+  }, [user?.id]);
+
   // Función interna para lanzar la notificación al Sistema Operativo
   const triggerOSNotification = (title, message) => {
     if ("Notification" in window && Notification.permission === "granted") {
