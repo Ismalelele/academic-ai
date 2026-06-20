@@ -769,11 +769,11 @@ export default function Tareas() {
                 </div>
               </div>
 
-              <div className="premium-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div className="premium-actions study-block-actions">
                 <button type="button" className="btn-danger" onClick={handleDeleteStudyBlock}>
                   <Trash2 size={16} /> Eliminar Bloque
                 </button>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="actions-right">
                   <button type="button" className="btn-cancel-premium" onClick={() => setEditingStudyBlock(null)}>Cancelar</button>
                   <button type="submit" className="btn-submit-premium"><Check size={18} /> Guardar Horario</button>
                 </div>

@@ -7065,3 +7065,52 @@ body.dark-mode .mobile-day-selector {
     font-size: 0.8rem;
     opacity: 0.7;
 }
+
+/* Responsive improvements for Study Block Edit modal and premium modals in general */
+.study-block-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+.study-block-actions .actions-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+@media (max-width: 480px) {
+    .premium-modal {
+        padding: 24px 20px !important;
+        width: 92% !important;
+        max-width: calc(100% - 24px) !important;
+    }
+    
+    .study-block-actions {
+        flex-direction: column-reverse;
+        gap: 12px;
+        align-items: stretch;
+    }
+    
+    .study-block-actions button.btn-danger {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+    }
+    
+    .study-block-actions .actions-right {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+        align-items: stretch;
+    }
+    
+    .study-block-actions .actions-right button {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+    }
+}
