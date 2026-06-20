@@ -93,7 +93,7 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
 
   * *Barra Lateral Izquierda (Mobile):* En celulares, la barra se transforma en un menú vertical compacto fijado al lateral izquierdo. Los submenús, popovers de perfil y el asistente de chat se despliegan hacia la derecha con transiciones fluidas.
 
-  * *Ajuste Inteligente de Padding:* Modificación responsiva dinámica del área de visualización (`padding-left: 80px` con menú lateral abierto, y colapso completo a `padding-left: 16px/15px` al cerrarlo) para que las tarjetas de contenido y listas aprovechen el 100% de la pantalla. El encabezado de la página cuenta con un offset automático de `44px` para no solaparse con el botón flotante `>`.
+  * *Ajuste Inteligente de Padding:* Modificación responsiva dinámica del área de visualización (`padding-left: 80px` con menú lateral abierto, y colapso completo a `padding-left: 16px/15px` al cerrarlo) para que las cabeceras, tarjetas de contenido y listas aprovechen el 100% de la pantalla de forma simétrica y perfectamente alineadas.
 
   * *Flexbox de Alto Constante:* Extracción de la regla `.height-constrained-page` al ámbito global para obligar a que las páginas interactivas complejas (Asistente IA, Chats) se ajusten al viewport del teléfono (`height: 100%; overflow: hidden`), previniendo que el teclado del celular o los scroll-to-view desplacen y corten las cabeceras principales de la interfaz.
 

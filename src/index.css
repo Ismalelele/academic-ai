@@ -1434,13 +1434,13 @@ body.dark-mode .chat-footer input {
     }
 
     .sidebar {
-        position: relative;
-        height: calc(100vh - 16px);
-        margin: 8px;
-        margin-right: 0;
+        position: fixed;
+        top: 8px;
+        bottom: 8px;
+        left: 8px;
         transform: none;
         width: 56px;
-        flex-shrink: 0;
+        height: auto;
         padding: 10px 0;
         border-radius: 16px;
         border: 1px solid var(--border-color);
@@ -1450,10 +1450,6 @@ body.dark-mode .chat-footer input {
         justify-content: space-between;
         align-items: center;
         box-sizing: border-box;
-        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                    margin 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                    border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .sidebar::-webkit-scrollbar {
@@ -1544,16 +1540,13 @@ body.dark-mode .chat-footer input {
     }
 
     body.sidebar-collapsed .sidebar {
-        width: 0;
-        margin: 8px 0;
-        border-width: 0;
+        transform: translateX(-120%);
         opacity: 0;
         pointer-events: none;
-        overflow: hidden;
     }
 
     .main-content {
-        padding: 60px 16px 20px 16px !important; /* Normal padding, layout handles sidebar width! */
+        padding: 60px 16px 20px 80px !important; /* Make room for open sidebar on mobile */
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -1569,9 +1562,6 @@ body.dark-mode .chat-footer input {
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    body.sidebar-collapsed .main-content>header {
-        padding-left: 44px !important; /* Shift title slightly to make room for toggle button */
-    }
 
     header h1 {
         font-size: 1.8rem;
@@ -1645,12 +1635,13 @@ body.dark-mode .chat-footer input {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 60px 15px 15px 15px !important; /* Normal padding, layout handles sidebar width! */
+        padding: 60px 15px 15px 80px !important; /* Make room for open sidebar */
     }
 
-    body.sidebar-collapsed .main-content>header {
-        padding-left: 44px !important; /* Shift title slightly to make room for toggle button */
+    body.sidebar-collapsed .main-content {
+        padding-left: 15px !important; /* Content uses full screen width when sidebar is collapsed */
     }
+
 
     header h1 {
         font-size: 1.5rem;
