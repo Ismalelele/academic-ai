@@ -72,54 +72,7 @@ export default function Home() {
   const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications();
   const [newTaskInput, setNewTaskInput] = useState('');
 
-  const [manualAverages, setManualAverages] = useState(() => {
-    if (!user) return {};
-    return getSafeLocalStorage(`academic_${user.id}_manual_averages`, user.id, {});
-  });
-
-  const saveManualAverages = (updated) => {
-    setManualAverages(updated);
-    if (user) {
-      localStorage.setItem(`academic_${user.id}_manual_averages`, JSON.stringify(updated));
-    }
-  };
-
-  const [activeCursor, setActiveCursor] = useState(null);
-
-  useEffect(() => {
-    if (activeCursor) {
-      const { field, position } = activeCursor;
-      const input = document.getElementById(`manual-input-${field}`);
-      if (input) {
-        input.setSelectionRange(position, position);
-      }
-      setActiveCursor(null);
-    }
-  }, [manualAverages, activeCursor]);
-
-  useEffect(() => {
-    if (user?.id) {
-      const saved = getSafeLocalStorage(`academic_${user.id}_manual_averages`, user.id, {});
-      setManualAverages(saved);
-    } else {
-      setManualAverages({});
-    }
-  }, [user]);
-
-  const handleAverageChange = (subject, value, e) => {
-    const originalVal = manualAverages[subject] || '';
-    const selectionStart = e ? e.target.selectionStart : value.length;
-    const formatted = formatNote(value);
-
-    if (e) {
-      const newPos = getNewCursorPos(originalVal, value, formatted, selectionStart);
-      setActiveCursor({ field: subject, position: newPos });
-    }
-
-    saveManualAverages({ ...manualAverages, [subject]: formatted });
-  };
-
-  // Calcular métricas de calificaciones
+  // Calcular métricas de calificaciones (únicamente desde Calificaciones/Boletín)
   const getSubjectAverage = (subjectName) => {
     if (!user) return null;
     const saved = getSafeLocalStorage(`academic_${user.id}_grades_${subjectName}`, user.id, null);
@@ -137,9 +90,7 @@ export default function Home() {
         }
       }
     }
-    const rawVal = manualAverages[subjectName];
-    const parsed = parseManualAverage(rawVal);
-    return parsed !== null ? { avg: parsed, isDetailed: false } : null;
+    return null;
   };
 
   // Consideramos "completadas" a las tareas en estado "done"
@@ -623,36 +574,17 @@ export default function Home() {
             <div className="grade-summary-card">
               <div className="grade-summary-header">
                 <h3>Rendimiento Académico</h3>
-                <p className="kpi-subtitle">Resumen general, promedios manuales y últimas calificaciones</p>
+                <p className="kpi-subtitle">Resumen general, calificaciones y promedio general</p>
               </div>
 
               <div className="grade-summary-layout">
-                {/* Columna Izquierda: Promedio General y Últimas Calificaciones */}
+                {/* Columna Izquierda: Últimas Calificaciones */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  <div className="promedio-display" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <div className="promedio-val-container">
-                      <span className="promedio-big-val">
-                        {overallAverage !== null ? overallAverage.toFixed(1).replace('.', ',') : '—'}
-                      </span>
-                      <span className="promedio-scale">de 7,0</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <span className={`status-badge ${overallAverage >= 5.0 ? 'green' : (overallAverage >= 4.0 ? 'orange' : (overallAverage ? 'red' : 'gray'))}`}>
-                        {academicStatus}
-                      </span>
-                      {totalDetailedGradesCount <= 1 && (
-                        <span style={{ fontSize: '0.78rem', color: '#fb923c', fontWeight: '800', lineHeight: '1.2' }}>
-                          ⚠️ Ingrese más notas para tener su promedio completo
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="latest-grades-section" style={{ marginTop: '10px' }}>
+                  <div className="latest-grades-section">
                     <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Últimas 3 Calificaciones</h4>
                     {getLatestGrades().length === 0 ? (
                       <div className="empty-grades-msg" style={{ fontSize: '0.8rem' }}>
-                        No hay notas registradas. Ingresa tus calificaciones en <strong>Académico &gt; Notas</strong>.
+                        No hay notas registradas. Ingresa tus calificaciones en <strong>Académico &gt; Promedio</strong>.
                       </div>
                     ) : (
                       <div className="latest-grades-list">
@@ -670,45 +602,65 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Columna Derecha: Apartado de Promedios por Ramo (Ingreso Manual) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Columna Derecha: Promedios de Ramos y Promedio General al final */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>Mis Promedios por Ramo</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '5px' }}>
                     {subjects.map((sub, index) => {
                       const subjectData = subjectAverages.find(s => s.subject === sub);
-                      const isDetailed = subjectData ? subjectData.isDetailed : false;
-                      const displayVal = subjectData && subjectData.isDetailed 
-                        ? subjectData.average.toFixed(1).replace('.', ',') 
-                        : (manualAverages[sub] || '');
+                      const displayVal = subjectData
+                        ? subjectData.average.toFixed(1).replace('.', ',')
+                        : '';
                         
                       return (
-                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }} title={isDetailed ? "Calculado automáticamente desde el módulo de Calificaciones" : ""}>
-                        <span style={{ fontWeight: '700', color: 'var(--text-main)', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sub}>
-                          📚 {sub}
-                        </span>
-                        <input
-                          id={`manual-input-${sub}`}
-                          type="text"
-                          value={displayVal}
-                          onChange={(e) => !isDetailed && handleAverageChange(sub, e.target.value, e)}
-                          placeholder="Nota (Ej: 60)"
-                          disabled={isDetailed}
-                          style={{
-                            width: '85px',
-                            padding: '6px 8px',
+                        <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--text-main)', maxWidth: '75%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sub}>
+                            📚 {sub}
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            fontWeight: '800', 
+                            color: displayVal ? '#10b981' : 'var(--text-muted)',
+                            background: displayVal ? 'rgba(16, 185, 129, 0.05)' : 'rgba(0,0,0,0.15)',
+                            border: displayVal ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)',
+                            padding: '4px 10px',
                             borderRadius: '8px',
-                            border: isDetailed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)',
-                            background: isDetailed ? 'rgba(16, 185, 129, 0.05)' : 'rgba(0,0,0,0.15)',
-                            color: isDetailed ? '#10b981' : 'var(--text-main)',
-                            fontSize: '0.8rem',
-                            fontWeight: '800',
-                            textAlign: 'center',
-                            outline: 'none',
-                            cursor: isDetailed ? 'not-allowed' : 'text'
-                          }}
-                        />
+                            minWidth: '40px',
+                            textAlign: 'center'
+                          }}>
+                            {displayVal || '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Divisor */}
+                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
+
+                  {/* Promedio General */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '850', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Promedio General
+                    </div>
+                    <div className="promedio-display" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                      <div className="promedio-val-container">
+                        <span className="promedio-big-val">
+                          {overallAverage !== null ? overallAverage.toFixed(1).replace('.', ',') : '—'}
+                        </span>
+                        <span className="promedio-scale">de 7,0</span>
                       </div>
-                    )})}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <span className={`status-badge ${overallAverage >= 5.0 ? 'green' : (overallAverage >= 4.0 ? 'orange' : (overallAverage ? 'red' : 'gray'))}`}>
+                          {academicStatus}
+                        </span>
+                        {totalDetailedGradesCount <= 1 && (
+                          <span style={{ fontSize: '0.72rem', color: '#fb923c', fontWeight: '800', lineHeight: '1.2' }}>
+                            ⚠️ Ingrese más notas en el módulo de calificaciones para tener su promedio completo
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
