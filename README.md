@@ -65,7 +65,9 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
 
 
 
-* Resiliencia Offline (Local-First Mirroring)
+* Resiliencia Offline (Local-First Mirroring) & Sincronización en Tiempo Real
+
+  * *Sincronización Híbrida:* Soporte para sincronización bidireccional en tiempo real con Supabase. Permite el funcionamiento cooperativo de pizarras colaborativas (`GroupWhiteboard`), hilos de conversación y salas de juego competitivas multiplayer (`GroupVersus`).
 
   * *Mitigación de Errores de Red:* La aplicación implementa bloques de control try-catch robustos en todas las llamadas externas para evitar alertas molestas y excepciones "Failed to fetch".
 
@@ -75,15 +77,25 @@ AcademicAI es una plataforma web moderna y premium de gestión académica diseñ
 
 
 
+* Gestión Determinista de Notificaciones (Relevancia de Evento)
+
+  * *Sin Reprogramaciones Aleatorias:* Se eliminó el uso de tiempos aleatorios (`Math.random()`) para el re-agendamiento de notificaciones vencidas. Si una alerta se genera para una hora en el pasado (incluso después del ajuste diurno), se descarta de forma silenciosa para asegurar el determinismo.
+
+  * *Ventana de Expiración Estricta:* Las notificaciones retrasadas o almacenadas en LocalStorage que tienen más de 10 minutos de antigüedad se consideran vencidas y se marcan como disparadas sin molestar al usuario.
+
+  * *Horario Diurno Protegido:* Validación a nivel de motor de alertas que restringe el disparo de notificaciones físicas al horario comprendido estrictamente entre las 08:00 AM y las 08:00 PM.
+
+
+
 * UI de Navegación Adaptable (Responsive Glassmorphism)
 
   * *Dock Flotante Premium (Desktop):* Menú inferior flotante estilo macOS/iOS con efecto de cristal esmerilado (backdrop-filter) y centrado suave.
 
   * *Barra Lateral Izquierda (Mobile):* En celulares, la barra se transforma en un menú vertical compacto fijado al lateral izquierdo. Los submenús, popovers de perfil y el asistente de chat se despliegan hacia la derecha con transiciones fluidas.
 
-  * *Corrección de Visibilidad en Submenús:* Se optimizó la especificidad de CSS en móviles para garantizar que los textos descriptivos de los submenús de Academia, IA y Comunidad sean totalmente legibles.
+  * *Ajuste Inteligente de Padding:* Modificación responsiva dinámica del área de visualización (`padding-left: 80px` con menú lateral abierto, y colapso completo a `padding-left: 16px/15px` al cerrarlo) para que las tarjetas de contenido y listas aprovechen el 100% de la pantalla. El encabezado de la página cuenta con un offset automático de `44px` para no solaparse con el botón flotante `>`.
 
-  * *Desplazamiento de Contenido Principal:* Ajuste automático del área de visualización (`padding-left: 88px` en móvil) para evitar solapamientos con la barra de navegación lateral.
+  * *Flexbox de Alto Constante:* Extracción de la regla `.height-constrained-page` al ámbito global para obligar a que las páginas interactivas complejas (Asistente IA, Chats) se ajusten al viewport del teléfono (`height: 100%; overflow: hidden`), previniendo que el teclado del celular o los scroll-to-view desplacen y corten las cabeceras principales de la interfaz.
 
 
 

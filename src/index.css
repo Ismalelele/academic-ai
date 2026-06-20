@@ -1546,12 +1546,14 @@ body.dark-mode .chat-footer input {
     }
 
     .main-content {
-        padding: 60px 16px 20px 80px !important; /* Make room for open sidebar on mobile */
+        padding: 76px 16px 20px 80px !important;
+        /* Make room for open sidebar on mobile and clear buttons cleanly */
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     body.sidebar-collapsed .main-content {
-        padding-left: 16px !important; /* Content uses full screen width when sidebar is collapsed */
+        padding-left: 16px !important;
+        /* Content uses full screen width when sidebar is collapsed */
     }
 
     .main-content>header {
@@ -1563,7 +1565,8 @@ body.dark-mode .chat-footer input {
     }
 
     body.sidebar-collapsed .main-content>header {
-        padding-left: 44px !important; /* Shift title slightly to make room for toggle button */
+        padding-left: 48px !important;
+        /* Shift title slightly to make room for toggle button */
     }
 
     header h1 {
@@ -1638,15 +1641,18 @@ body.dark-mode .chat-footer input {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 60px 15px 15px 80px !important; /* Make room for open sidebar */
+        padding: 76px 15px 15px 80px !important;
+        /* Make room for open sidebar and clear buttons cleanly */
     }
 
     body.sidebar-collapsed .main-content {
-        padding-left: 15px !important; /* Content uses full screen width when sidebar is collapsed */
+        padding-left: 15px !important;
+        /* Content uses full screen width when sidebar is collapsed */
     }
 
     body.sidebar-collapsed .main-content>header {
-        padding-left: 44px !important; /* Shift title slightly to make room for toggle button */
+        padding-left: 48px !important;
+        /* Shift title slightly to make room for toggle button */
     }
 
     header h1 {
