@@ -120,25 +120,38 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     e.preventDefault();
     setAdminStatus('Enviando...');
     try {
+      // Usar un canal con un sufijo único o el mismo si lo permite
       const channel = supabase.channel('admin_broadcast');
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          channel.send({
-            type: 'broadcast',
-            event: 'admin_notification',
-            payload: {
-              titulo: adminNotifTitle,
-              mensaje: adminNotifMessage,
-              tipo: adminNotifType
-            }
-          });
-          setAdminStatus('¡Enviado a todos los usuarios conectados al instante!');
-          setTimeout(() => {
-            setShowAdminModal(false);
-            supabase.removeChannel(channel);
-          }, 2000);
-        }
-      });
+      
+      const sendPayload = async () => {
+        await channel.send({
+          type: 'broadcast',
+          event: 'admin_notification',
+          payload: {
+            titulo: adminNotifTitle,
+            mensaje: adminNotifMessage,
+            tipo: adminNotifType
+          }
+        });
+        setAdminStatus('¡Enviado a todos los usuarios conectados al instante!');
+        setTimeout(() => {
+          setShowAdminModal(false);
+        }, 2000);
+      };
+
+      // Si el canal ya fue abierto por NotificationContext, su state será 'joined'
+      if (channel.state === 'joined') {
+        await sendPayload();
+      } else {
+        channel.subscribe(async (status, err) => {
+          if (status === 'SUBSCRIBED') {
+            await sendPayload();
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+            setAdminStatus(`Error del canal: ${status}`);
+            console.error('Channel error:', err);
+          }
+        });
+      }
     } catch (err) {
       setAdminStatus('Error: ' + err.message);
     }
