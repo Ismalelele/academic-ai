@@ -454,12 +454,24 @@ export const NotificationProvider = ({ children }) => {
           let updated = false;
           
           alerts.forEach(alert => {
-            if (!alert.fired && new Date(alert.triggerTime) <= now) {
-              const ageInMs = now.getTime() - new Date(alert.triggerTime).getTime();
-              // Solo mostrar si tiene menos de 1 hora de antigüedad
-              if (ageInMs < 60 * 60 * 1000) {
-                addNotificationRef.current(alert.title || '💡 Asistente Académico', alert.message, 'info');
+            if (alert.fired) return;
+
+            const triggerTime = new Date(alert.triggerTime);
+            if (triggerTime <= now) {
+              const ageInMs = now.getTime() - triggerTime.getTime();
+              
+              // 1. Si la alerta es vieja (más de 10 min), descártala automáticamente.
+              if (ageInMs > 10 * 60 * 1000) { 
+                 alert.fired = true; 
+                 updated = true;
+                 return;
               }
+
+              // 3. Solo dispara si estamos en horario diurno (08:00 - 20:00)
+              if (now.getHours() >= 8 && now.getHours() < 20) {
+                  addNotificationRef.current(alert.title || '💡 Asistente Académico', alert.message, 'info');
+              }
+              
               alert.fired = true;
               updated = true;
             }

@@ -863,11 +863,7 @@ Devuelve EXCLUSIVAMENTE un JSON:
               
               // Evitar que la alerta sea en el pasado
               if (trigger <= now) {
-                trigger.setTime(now.getTime() + Math.random() * 2 * 60 * 60 * 1000 + 30 * 60 * 1000); // 30 mins a 2.5 hrs
-                if (trigger.getHours() >= 20) {
-                  trigger.setDate(trigger.getDate() + 1);
-                  trigger.setHours(8, 0, 0, 0);
-                }
+                return null;
               }
 
               return {
@@ -875,7 +871,8 @@ Devuelve EXCLUSIVAMENTE un JSON:
                 triggerTime: trigger.toISOString(),
                 fired: false
               };
-            });
+            })
+            .filter(alert => alert !== null);
           localStorage.setItem(key, JSON.stringify(formattedAlerts));
           return formattedAlerts;
         }
