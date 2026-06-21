@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil, Check, CheckCircle2 } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Loader, BookOpen, Clock, Calendar, Tag, Sparkles, AlignLeft, Pencil, Check, CheckCircle2, RotateCcw, ArrowUp, ArrowDown, Ban } from 'lucide-react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
@@ -50,7 +50,9 @@ export default function Tareas() {
     status: 'todo'
   });
   const [draggedTaskId, setDraggedTaskId] = useState(null);
-  const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
+  const [draggedStudyBlockId, setDraggedStudyBlockId] = useState(null);
+  const [hoveredDay, setHoveredDay] = useState(null);
+  const [hoveredSlot, setHoveredSlot] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   const [editingStudyBlock, setEditingStudyBlock] = useState(null);
@@ -141,9 +143,12 @@ export default function Tareas() {
     const [startH, startM] = editStudyBlockData.startTime.split(':').map(Number);
     const [endH, endM] = editStudyBlockData.endTime.split(':').map(Number);
 
-    updateStudyBlock(editingStudyBlock.id, editStudyBlockData.day, startH, startM, endH, endM);
+    const result = updateStudyBlock(editingStudyBlock.id, editStudyBlockData.day, startH, startM, endH, endM);
+    if (result && !result.success) {
+      showToast(result.reason, '⚠️');
+      return;
+    }
     setEditingStudyBlock(null);
-    // No toast notified here, per user requirement
   };
 
   const handleDeleteStudyBlock = () => {
@@ -157,35 +162,9 @@ export default function Tareas() {
   const handleDeleteTask = async (id) => {
     const success = await deleteTask(id);
     if (success) {
-      setSelectedTaskIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
       showToast('Se eliminó 1 tarea.', '🗑️');
     } else {
       showToast('Error al eliminar la tarea.', '❌');
-    }
-  };
-
-  const toggleSelection = (id) => {
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleDeleteSelectedTasks = async () => {
-    const count = selectedTaskIds.size;
-    const taskIdsArray = Array.from(selectedTaskIds);
-    const success = await deleteMultipleTasks(taskIdsArray);
-    if (success) {
-      setSelectedTaskIds(new Set());
-      showToast(count === 1 ? 'Se eliminó 1 tarea.' : `Se eliminaron ${count} tareas.`, '🗑️');
-    } else {
-      showToast('Error al eliminar las tareas.', '❌');
     }
   };
 
@@ -194,13 +173,18 @@ export default function Tareas() {
     e.dataTransfer.setData('text/plain', id);
     e.dataTransfer.effectAllowed = 'move';
     setTimeout(() => {
-      e.target.classList.add('is-dragging');
+      const el = document.querySelector(`[data-id="${id}"]`);
+      if (el) el.classList.add('is-dragging');
     }, 0);
   };
 
   const handleDragEnd = (e) => {
-    e.target.classList.remove('is-dragging');
+    const el = document.querySelector(`[data-id="${draggedTaskId}"]`);
+    if (el) el.classList.remove('is-dragging');
     setDraggedTaskId(null);
+    setHoveredDay(null);
+    setHoveredSlot(null);
+    setDraggedStudyBlockId(null);
   };
 
   const handleDragOver = (e) => {
@@ -223,7 +207,6 @@ export default function Tareas() {
     if (draggedTaskId) {
       const draggedTask = tasks.find(t => t.id === draggedTaskId);
       if (draggedTask && draggedTask.status !== status) {
-        // Siempre mover directamente, sin abrir modal
         await updateTaskStatus(draggedTaskId, status);
       }
     }
@@ -231,6 +214,21 @@ export default function Tareas() {
 
   const handleScheduleCardDragStart = (e, cardId, cardType) => {
     e.dataTransfer.setData('application/json', JSON.stringify({ cardId, cardType }));
+    if (cardType === 'study') {
+      setDraggedStudyBlockId(cardId);
+    }
+  };
+
+  const handleDragOverTrack = (e, dayIndex) => {
+    e.preventDefault();
+    const trackElement = e.currentTarget;
+    const rect = trackElement.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const slotIndex = Math.floor(relativeY / 50);
+    if (slotIndex >= 0 && slotIndex < predefBlocks.length) {
+      setHoveredDay(dayIndex);
+      setHoveredSlot(slotIndex);
+    }
   };
 
   const handleScheduleCardDrop = (e, dayIndex) => {
@@ -252,8 +250,8 @@ export default function Tareas() {
       const draggedCard = studyBlocks.find(c => c.id === cardId);
       if (!draggedCard) return;
       
-      const startIdx = predefBlocks.findIndex(b => b.startH === draggedCard.startH && b.startM === draggedCard.startM);
-      const endIdx = predefBlocks.findIndex(b => b.endH === draggedCard.endH && b.endM === draggedCard.endM);
+      const startIdx = predefBlocks.findIndex(b => Number(b.startH) === Number(draggedCard.startH) && Number(b.startM) === Number(draggedCard.startM));
+      const endIdx = predefBlocks.findIndex(b => Number(b.endH) === Number(draggedCard.endH) && Number(b.endM) === Number(draggedCard.endM));
       const slotSpan = (startIdx !== -1 && endIdx !== -1) ? (endIdx - startIdx + 1) : 1;
       
       const newStartIdx = slotIndex;
@@ -265,6 +263,7 @@ export default function Tareas() {
       const newEndM = predefBlocks[newEndIdx].endM;
       
       updateStudyBlock(cardId, dayIndex, newStartH, newStartM, newEndH, newEndM);
+      setDraggedStudyBlockId(null);
       // No toast notification sent here, per user requirement
     } catch (err) {
       console.error("Error on schedule drop:", err);
@@ -317,23 +316,17 @@ export default function Tareas() {
           return (
             <div
               key={task.id}
-              className={`kanban-card ${selectedTaskIds.has(task.id) ? 'selected' : ''} ${isDone ? 'done-card' : ''}`}
-              draggable
+              className={`kanban-card ${isDone ? 'done-card' : ''}`}
+              draggable={!isDone}
               data-id={task.id}
               onDragStart={(e) => handleDragStart(e, task.id)}
               onDragEnd={handleDragEnd}
             >
-              <div className="kanban-card-drag-handle">
-                <GripVertical size={16} color="var(--text-muted)" />
-              </div>
-
-              <div className="kanban-card-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedTaskIds.has(task.id)}
-                  onChange={() => toggleSelection(task.id)}
-                />
-              </div>
+              {!isDone && (
+                <div className="kanban-card-drag-handle">
+                  <GripVertical size={16} color="var(--text-muted)" />
+                </div>
+              )}
 
               <div className="kanban-card-content">
                 <div className="kanban-card-tags">
@@ -342,6 +335,34 @@ export default function Tareas() {
                     <span className="kanban-tag" style={{ background: 'var(--border-color)', color: 'var(--text-main)' }}>{task.type || 'Tarea'}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    {isDone && (
+                      <button
+                        className="btn-undo-task"
+                        title="Deshacer / Mover a En progreso"
+                        onClick={() => updateTaskStatus(task.id, 'in-progress').then(() => showToast('Tarea devuelta a progreso.', '🔄'))}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          borderRadius: '6px',
+                          transition: '0.2s',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = 'rgba(14, 165, 233, 0.1)';
+                          e.currentTarget.style.color = 'var(--primary)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = 'none';
+                          e.currentTarget.style.color = 'var(--text-muted)';
+                        }}
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                    )}
                     {!isDone && (
                       <button
                         className="btn-complete-task"
@@ -370,15 +391,38 @@ export default function Tareas() {
                 </div>
 
                 <div className="mobile-move-actions">
-                  {getPrevStatus(task.status) && (
-                    <button onClick={() => moveTask(task.id, getPrevStatus(task.status))}>
-                      &larr; Mover
+                  {isDone ? (
+                    <button
+                      onClick={() => updateTaskStatus(task.id, 'in-progress').then(() => showToast('Tarea devuelta a progreso.', '🔄'))}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        width: '100%'
+                      }}
+                    >
+                      <RotateCcw size={14} /> Deshacer
                     </button>
-                  )}
-                  {getNextStatus(task.status) && (
-                    <button onClick={() => moveTask(task.id, getNextStatus(task.status))}>
-                      Mover &rarr;
-                    </button>
+                  ) : (
+                    <>
+                      {getPrevStatus(task.status) && (
+                        <button
+                          onClick={() => moveTask(task.id, getPrevStatus(task.status))}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          <ArrowUp size={14} /> Mover Arriba
+                        </button>
+                      )}
+                      {getNextStatus(task.status) && (
+                        <button
+                          onClick={() => moveTask(task.id, getNextStatus(task.status))}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          Mover Abajo <ArrowDown size={14} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -413,18 +457,6 @@ export default function Tareas() {
           )}
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {selectedTaskIds.size > 0 && (
-            <div className="bulk-actions">
-              <span className="selected-count">
-                {selectedTaskIds.size === 1
-                  ? '1 seleccionada'
-                  : `${selectedTaskIds.size} seleccionadas`}
-              </span>
-              <button className="btn-danger" onClick={handleDeleteSelectedTasks}>
-                <Trash2 size={18} /> Eliminar
-              </button>
-            </div>
-          )}
           <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ display: 'flex', alignItems: 'center' }}>
             <Plus size={18} style={{ marginRight: '5px' }} /> Nueva Evaluación
           </button>
@@ -500,19 +532,25 @@ export default function Tareas() {
                   <div 
                     key={dayIndex} 
                     className="day-track"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleScheduleCardDrop(e, dayIndex)}
+                    onDragOver={(e) => handleDragOverTrack(e, dayIndex)}
+                    onDragLeave={() => { setHoveredDay(null); setHoveredSlot(null); }}
+                    onDrop={(e) => {
+                      setHoveredDay(null);
+                      setHoveredSlot(null);
+                      setDraggedStudyBlockId(null);
+                      handleScheduleCardDrop(e, dayIndex);
+                    }}
                   >
                     {effectiveSchedule && effectiveSchedule
                       .filter(cls => cls.day === dayIndex)
                       .map(cls => (
                         <div
                           key={cls.id}
-                          className={`card ${cls.type}`}
+                          className={`card ${cls.type} ${cls.isSuspended ? 'suspended' : ''}`}
                           style={{
                             top: cls.top,
                             height: cls.height,
-                            opacity: 0.35,
+                            opacity: cls.isSuspended ? 0.18 : 0.35,
                             cursor: 'default',
                             display: 'flex',
                             flexDirection: 'column',
@@ -521,8 +559,13 @@ export default function Tareas() {
                             textAlign: 'center'
                           }}
                         >
-                          <span>{cls.title}</span>
-                          <span style={{ fontSize: '0.75rem' }}>{cls.room || ''}</span>
+                          <span style={{ textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.title}</span>
+                          <span style={{ fontSize: '0.75rem', textDecoration: cls.isSuspended ? 'line-through' : 'none' }}>{cls.room || ''}</span>
+                          {cls.isSuspended && (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#ef4444', background: 'rgba(239, 68, 68, 0.15)', padding: '1px 4px', borderRadius: '4px', marginTop: '2px' }}>
+                              🚫 Suspendida
+                            </span>
+                          )}
                         </div>
                       ))}
                     {studyBlocks && studyBlocks
@@ -533,8 +576,14 @@ export default function Tareas() {
                           className="card"
                           draggable
                           onDragStart={(e) => handleScheduleCardDragStart(e, cls.id, 'study')}
+                          onDragEnd={() => {
+                            setDraggedStudyBlockId(null);
+                            setHoveredDay(null);
+                            setHoveredSlot(null);
+                          }}
                           onClick={() => handleEditStudyBlockClick(cls)}
                           style={{
+                            position: 'absolute',
                             top: cls.top,
                             height: cls.height,
                             background: 'repeating-linear-gradient(45deg, var(--primary-light), var(--primary-light) 10px, transparent 10px, transparent 20px)',
@@ -545,16 +594,142 @@ export default function Tareas() {
                             justifyContent: 'center',
                             alignItems: 'center',
                             textAlign: 'center',
-                            opacity: 0.95,
+                            opacity: draggedStudyBlockId === cls.id ? 0.4 : 0.95,
                             zIndex: 2,
                             cursor: 'pointer'
                           }}
                           title={`Motivo: ${cls.reason}. Haz clic para editar manualmente.`}
                         >
                           <strong>📚 {cls.title}</strong>
-                          <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Estudio IA</span>
+                          <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Bloque de estudio</span>
                         </div>
                       ))}
+
+                    {/* Vista previa y horario flotante al arrastrar */}
+                    {draggedStudyBlockId && hoveredDay === dayIndex && hoveredSlot !== null && (() => {
+                      const draggedCard = studyBlocks.find(c => c.id === draggedStudyBlockId);
+                      if (!draggedCard) return null;
+                      
+                      const slotSpan = Math.round(draggedCard.height / 50) || 1;
+                      const startIdx = hoveredSlot;
+                      const endIdx = Math.min(hoveredSlot + slotSpan - 1, predefBlocks.length - 1);
+                      const startBlock = predefBlocks[startIdx];
+                      const endBlock = predefBlocks[endIdx];
+                      if (!startBlock || !endBlock) return null;
+                      
+                      const bStart = Number(startBlock.startH) * 60 + Number(startBlock.startM);
+                      const bEnd = Number(endBlock.endH) * 60 + Number(endBlock.endM);
+
+                      const conflictingClass = (effectiveSchedule || []).find(cls => {
+                        if (Number(cls.day) !== Number(dayIndex) || cls.isSuspended) return false;
+                        const clsStart = Number(cls.startH) * 60 + Number(cls.startM);
+                        const clsEnd = Number(cls.endH) * 60 + Number(cls.endM);
+                        return Math.max(bStart, clsStart) < Math.min(bEnd, clsEnd);
+                      });
+
+                      const conflictingStudy = studyBlocks.find(sb => {
+                        if (String(sb.id) === String(draggedStudyBlockId) || Number(sb.day) !== Number(dayIndex)) return false;
+                        const sbStart = Number(sb.startH) * 60 + Number(sb.startM);
+                        const sbEnd = Number(sb.endH) * 60 + Number(sb.endM);
+                        return Math.max(bStart, sbStart) < Math.min(bEnd, sbEnd);
+                      });
+
+                      const isForbidden = !!conflictingClass || !!conflictingStudy;
+
+                      const startTime = startBlock.start;
+                      const endTime = endBlock.end;
+
+                      let previewTop = startIdx * 50;
+                      let previewHeight = slotSpan * 50;
+                      if (conflictingClass) {
+                        previewTop = conflictingClass.top;
+                        previewHeight = conflictingClass.height;
+                      } else if (conflictingStudy) {
+                        previewTop = conflictingStudy.top;
+                        previewHeight = conflictingStudy.height;
+                      }
+
+                      if (isForbidden) {
+                        return (
+                          <div
+                            className="card study-preview-placeholder forbidden"
+                            style={{
+                              position: 'absolute',
+                              top: previewTop,
+                              height: previewHeight,
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '2px dashed #ef4444',
+                              color: '#ef4444',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              textAlign: 'center',
+                              opacity: 0.8,
+                              zIndex: 10,
+                              pointerEvents: 'none',
+                              overflow: 'visible'
+                            }}
+                          >
+                            <Ban size={28} color="#ef4444" />
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div
+                          className="card study-preview-placeholder"
+                          style={{
+                            position: 'absolute',
+                            top: startIdx * 50,
+                            height: slotSpan * 50,
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '2px dashed #10b981',
+                            color: '#10b981',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            textAlign: 'center',
+                            opacity: 0.8,
+                            zIndex: 10,
+                            pointerEvents: 'none',
+                            overflow: 'visible'
+                          }}
+                        >
+                          <strong>📚 {draggedCard.title}</strong>
+                          <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Bloque de estudio</span>
+                          
+                          {/* Horario flotante sobre la ficha de bloque de estudio */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '-32px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: '#10b981',
+                            color: 'white',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                            whiteSpace: 'nowrap',
+                            zIndex: 100
+                          }}>
+                            {startTime} - {endTime}
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '-4px',
+                              left: '50%',
+                              transform: 'translateX(-50%) rotate(45deg)',
+                              width: '8px',
+                              height: '8px',
+                              background: '#10b981'
+                            }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
 

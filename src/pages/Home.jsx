@@ -636,31 +636,29 @@ export default function Home() {
                   </div>
 
                   {/* Divisor */}
-                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
+                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '8px 0 4px 0' }}></div>
 
                   {/* Promedio General */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: '850', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: '850', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Promedio General
                     </div>
-                    <div className="promedio-display" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                      <div className="promedio-val-container">
-                        <span className="promedio-big-val">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span className={`status-badge ${overallAverage >= 5.0 ? 'green' : (overallAverage >= 4.0 ? 'orange' : (overallAverage ? 'red' : 'gray'))}`} style={{ margin: 0 }}>
+                        {academicStatus}
+                      </span>
+                      <div className="promedio-val-container" style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span className="promedio-big-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#10b981' }}>
                           {overallAverage !== null ? overallAverage.toFixed(1).replace('.', ',') : '—'}
                         </span>
-                        <span className="promedio-scale">de 7,0</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <span className={`status-badge ${overallAverage >= 5.0 ? 'green' : (overallAverage >= 4.0 ? 'orange' : (overallAverage ? 'red' : 'gray'))}`}>
-                          {academicStatus}
-                        </span>
-                        {totalDetailedGradesCount <= 1 && (
-                          <span style={{ fontSize: '0.72rem', color: '#fb923c', fontWeight: '800', lineHeight: '1.2' }}>
-                            ⚠️ Ingrese más notas en el módulo de calificaciones para tener su promedio completo
-                          </span>
-                        )}
+                        <span className="promedio-scale" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>de 7,0</span>
                       </div>
                     </div>
+                    {totalDetailedGradesCount <= 1 && (
+                      <span style={{ fontSize: '0.72rem', color: '#fb923c', fontWeight: '800', lineHeight: '1.2', marginTop: '2px' }}>
+                        ⚠️ Ingrese más notas en el módulo de calificaciones para tener su promedio completo
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

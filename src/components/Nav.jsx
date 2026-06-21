@@ -880,7 +880,11 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
           {/* Theme Toggle */}
           <div className="theme-toggle" onClick={() => { toggleTheme(); closeMenu(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {isDarkMode ? (
+              <Sun size={18} style={{ color: '#eab308', fill: '#eab308' }} />
+            ) : (
+              <Moon size={18} style={{ color: '#2563eb', fill: '#1e3a8a' }} />
+            )}
           </div>
 
           {/* Notifications Bell */}
@@ -964,7 +968,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 outline: 'none'
               }}
             >
-              {showChatbot ? <X size={18} /> : <Bot size={18} />}
+              {showChatbot ? <X size={18} /> : <Bot size={18} style={{ color: '#22c55e' }} />}
             </button>
           </div>
 

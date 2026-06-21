@@ -22,6 +22,24 @@ import { getSafeLocalStorage } from '../utils/storageSecurity';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
+const getDayLabel = (dateStr) => {
+  if (!dateStr) return '';
+  const messageDate = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  
+  if (messageDate.toDateString() === today.toDateString()) {
+    return 'Hoy';
+  } else if (messageDate.toDateString() === yesterday.toDateString()) {
+    return 'Ayer';
+  } else {
+    const options = { weekday: 'long', day: 'numeric', month: 'long' };
+    const formatted = messageDate.toLocaleDateString('es-ES', options);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }
+};
+
 export default function ChatsGrupos() {
   const { user } = useAuth();
   const { effectiveSchedule } = useSchedule();
@@ -808,145 +826,180 @@ export default function ChatsGrupos() {
                           const isMe = msg.user_id === user?.id;
                           const isSystem = !msg.user_id;
 
-                          if (isSystem) {
-                            return (
-                              <div key={msg.id_mensaje || i} className="chats-message-system">
-                                {msg.texto}
-                              </div>
-                            );
-                          }
-
-                          if (msg.texto && msg.texto.startsWith('VERSUS_LOBBY:')) {
-                            const parts = msg.texto.split(':');
-                            const gameId = parts[1];
-                            const creatorName = parts[2];
-                            const numQuestions = parts[3];
-                            const docName = parts.slice(4).join(':');
-
-                            const isStarted = messages.some(m => m.texto && m.texto.trim() === `VERSUS_STARTED:${gameId}`);
-                            const isFinished = messages.some(m => m.texto && m.texto.trim() === `VERSUS_FINISHED:${gameId}`);
-
-                            return (
-                              <div 
-                                key={msg.id_mensaje || i} 
-                                style={{
-                                  alignSelf: isMe ? 'flex-end' : 'flex-start',
-                                  margin: '10px 0',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: isMe ? 'flex-end' : 'flex-start'
-                                }}
-                              >
-                                {!isMe && (
-                                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px' }}>
-                                    {msg.user_name}
-                                  </span>
-                                )}
-                                <div style={{
-                                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))',
-                                  backdropFilter: 'blur(10px)',
-                                  border: '1.5px solid rgba(139, 92, 246, 0.3)',
-                                  borderRadius: '16px',
-                                  padding: '16px',
-                                  maxWidth: '300px',
-                                  boxShadow: 'var(--shadow-md)',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '12px'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{
-                                      width: '28px',
-                                      height: '28px',
-                                      borderRadius: '50%',
-                                      background: 'var(--primary)',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: 'white'
-                                    }}>
-                                      <Flame size={14} />
-                                    </div>
-                                    <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                                      ¡Competencia Versus!
-                                    </span>
-                                  </div>
-                                  
-                                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <p style={{ margin: 0 }}>Organiza: <strong>{creatorName}</strong></p>
-                                    <p style={{ margin: 0 }}>Tema: <strong>{docName}</strong></p>
-                                    <p style={{ margin: 0 }}>Preguntas: <strong>{numQuestions}</strong></p>
-                                    <p style={{ margin: 0 }}>Fecha: <strong>{new Date(msg.fecha_envio).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</strong></p>
-                                    <p style={{ margin: 0 }}>Hora: <strong>{new Date(msg.fecha_envio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong></p>
-                                  </div>
-
-                                  <button
-                                    disabled={isFinished}
-                                    onClick={() => {
-                                      if (isFinished) return;
-                                      setVersusInvite({
-                                        gameId,
-                                        creatorId: msg.user_id,
-                                        creatorName,
-                                        documentName: docName,
-                                        numQuestions: parseInt(numQuestions),
-                                        quizQuestions: []
-                                      });
-                                      setGroupSubTab('versus');
-                                    }}
-                                    style={{
-                                      padding: '8px 12px',
-                                      fontSize: '0.8rem',
-                                      fontWeight: 'bold',
-                                      borderRadius: '8px',
-                                      background: isFinished ? 'rgba(255, 255, 255, 0.05)' : 'var(--primary)',
-                                      color: isFinished ? 'var(--text-muted)' : 'white',
-                                      border: isFinished ? '1px solid var(--border-color)' : 'none',
-                                      cursor: isFinished ? 'not-allowed' : 'pointer',
-                                      pointerEvents: isFinished ? 'none' : 'auto',
-                                      textAlign: 'center',
-                                      width: '100%',
-                                      transition: 'all 0.2s'
-                                    }}
-                                  >
-                                    {isFinished ? 'Partida Finalizada' : 'Unirse a la Batalla'}
-                                  </button>
-                                </div>
-                                <span className="chats-message-meta" style={{ marginTop: '4px' }}>
-                                  {formatMessageTime(msg.fecha_envio)}
-                                </span>
-                              </div>
-                            );
-                          }
+                          const msgDate = msg.fecha_envio ? new Date(msg.fecha_envio).toDateString() : null;
+                          const prevMsgDate = i > 0 && messages[i - 1].fecha_envio ? new Date(messages[i - 1].fecha_envio).toDateString() : null;
+                          const showDaySeparator = msg.fecha_envio && msgDate !== prevMsgDate;
 
                           return (
-                            <div 
-                              key={msg.id_mensaje || i} 
-                              className={`chats-message-wrapper ${isMe ? 'outgoing' : 'incoming'}`}
-                            >
-                              {!isMe && (
-                                <span 
-                                  className="chats-message-sender"
-                                  onClick={() => handleSenderClick(msg)}
-                                  style={{ 
-                                    cursor: 'pointer', 
-                                    fontWeight: 'bold',
-                                    color: 'var(--primary)',
-                                    display: 'block',
-                                    marginBottom: '4px'
-                                  }}
-                                  onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-                                  onMouseOut={(e) => e.target.style.textDecoration = 'none'}
-                                >
-                                  {msg.user_name}
-                                </span>
+                            <div key={msg.id_mensaje || i} style={{ display: 'contents' }}>
+                              {showDaySeparator && (
+                                <div className="chat-day-separator" style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  margin: '24px 0 16px 0',
+                                  position: 'relative',
+                                  width: '100%',
+                                  flexShrink: 0
+                                }}>
+                                  <div style={{
+                                    position: 'absolute',
+                                    left: 0,
+                                    right: 0,
+                                    top: '50%',
+                                    borderBottom: '1.5px solid var(--border-color)',
+                                    zIndex: 1
+                                  }} />
+                                  <span style={{
+                                    position: 'relative',
+                                    background: 'var(--card-bg, #1a202c)',
+                                    color: 'var(--text-muted, #a0aec0)',
+                                    padding: '5px 16px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '700',
+                                    zIndex: 2,
+                                    border: '1.5px solid var(--border-color)',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                  }}>
+                                    {getDayLabel(msg.fecha_envio)}
+                                  </span>
+                                </div>
                               )}
-                              <div className="chats-message-bubble">
-                                {msg.texto}
-                              </div>
-                              <span className="chats-message-meta">
-                                {formatMessageTime(msg.fecha_envio)}
-                              </span>
+
+                              {isSystem ? (
+                                <div className="chats-message-system">
+                                  {msg.texto}
+                                </div>
+                              ) : msg.texto && msg.texto.startsWith('VERSUS_LOBBY:') ? (() => {
+                                const parts = msg.texto.split(':');
+                                const gameId = parts[1];
+                                const creatorName = parts[2];
+                                const numQuestions = parts[3];
+                                const docName = parts.slice(4).join(':');
+
+                                const isStarted = messages.some(m => m.texto && m.texto.trim() === `VERSUS_STARTED:${gameId}`);
+                                const isFinished = messages.some(m => m.texto && m.texto.trim() === `VERSUS_FINISHED:${gameId}`);
+
+                                return (
+                                  <div 
+                                    style={{
+                                      alignSelf: isMe ? 'flex-end' : 'flex-start',
+                                      margin: '10px 0',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: isMe ? 'flex-end' : 'flex-start'
+                                    }}
+                                  >
+                                    {!isMe && (
+                                      <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '4px' }}>
+                                        {msg.user_name}
+                                      </span>
+                                    )}
+                                    <div style={{
+                                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2))',
+                                      backdropFilter: 'blur(10px)',
+                                      border: '1.5px solid rgba(139, 92, 246, 0.3)',
+                                      borderRadius: '16px',
+                                      padding: '16px',
+                                      maxWidth: '300px',
+                                      boxShadow: 'var(--shadow-md)',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '12px'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          borderRadius: '50%',
+                                          background: 'var(--primary)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          color: 'white'
+                                        }}>
+                                          <Flame size={14} />
+                                        </div>
+                                        <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                                          ¡Competencia Versus!
+                                        </span>
+                                      </div>
+                                      
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <p style={{ margin: 0 }}>Organiza: <strong>{creatorName}</strong></p>
+                                        <p style={{ margin: 0 }}>Tema: <strong>{docName}</strong></p>
+                                        <p style={{ margin: 0 }}>Preguntas: <strong>{numQuestions}</strong></p>
+                                        <p style={{ margin: 0 }}>Fecha: <strong>{new Date(msg.fecha_envio).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</strong></p>
+                                        <p style={{ margin: 0 }}>Hora: <strong>{new Date(msg.fecha_envio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong></p>
+                                      </div>
+
+                                      <button
+                                        disabled={isFinished}
+                                        onClick={() => {
+                                          if (isFinished) return;
+                                          setVersusInvite({
+                                            gameId,
+                                            creatorId: msg.user_id,
+                                            creatorName,
+                                            documentName: docName,
+                                            numQuestions: parseInt(numQuestions),
+                                            quizQuestions: []
+                                          });
+                                          setGroupSubTab('versus');
+                                        }}
+                                        style={{
+                                          padding: '8px 12px',
+                                          fontSize: '0.8rem',
+                                          fontWeight: 'bold',
+                                          borderRadius: '8px',
+                                          background: isFinished ? 'rgba(255, 255, 255, 0.05)' : 'var(--primary)',
+                                          color: isFinished ? 'var(--text-muted)' : 'white',
+                                          border: isFinished ? '1px solid var(--border-color)' : 'none',
+                                          cursor: isFinished ? 'not-allowed' : 'pointer',
+                                          pointerEvents: isFinished ? 'none' : 'auto',
+                                          textAlign: 'center',
+                                          width: '100%',
+                                          transition: 'all 0.2s'
+                                        }}
+                                      >
+                                        {isFinished ? 'Partida Finalizada' : 'Unirse a la Batalla'}
+                                      </button>
+                                    </div>
+                                    <span className="chats-message-meta" style={{ marginTop: '4px' }}>
+                                      {formatMessageTime(msg.fecha_envio)}
+                                    </span>
+                                  </div>
+                                );
+                              })() : (
+                                <div className={`chats-message-wrapper ${isMe ? 'outgoing' : 'incoming'}`}>
+                                  {!isMe && (
+                                    <span 
+                                      className="chats-message-sender"
+                                      onClick={() => handleSenderClick(msg)}
+                                      style={{ 
+                                        cursor: 'pointer', 
+                                        fontWeight: 'bold',
+                                        color: 'var(--primary)',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                      }}
+                                      onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                                      onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                                    >
+                                      {msg.user_name}
+                                    </span>
+                                  )}
+                                  <div className="chats-message-bubble">
+                                    {msg.texto}
+                                  </div>
+                                  <span className="chats-message-meta">
+                                    {formatMessageTime(msg.fecha_envio)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         })

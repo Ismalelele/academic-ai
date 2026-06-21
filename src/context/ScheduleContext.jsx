@@ -174,7 +174,7 @@ export const ScheduleProvider = ({ children }) => {
       const dateString = `${year}-${month}-${day}`;
       
       const isSuspended = exceptions.some(e => 
-        e.id_bloque === cls.id && 
+        String(e.id_bloque) === String(cls.id) && 
         e.fecha_excepcion === dateString && 
         e.tipo_excepcion === 'suspension'
       );
@@ -259,7 +259,7 @@ export const ScheduleProvider = ({ children }) => {
     
     setExceptions(prev => {
       const updated = prev.filter(e => 
-        !(e.id_bloque === bloqueId && e.fecha_excepcion === dateString && e.tipo_excepcion === 'suspension')
+        !(String(e.id_bloque) === String(bloqueId) && e.fecha_excepcion === dateString && e.tipo_excepcion === 'suspension')
       );
       localStorage.setItem(`academic_${user.id}_exceptions`, JSON.stringify(updated));
       return updated;
@@ -530,22 +530,60 @@ export const ScheduleProvider = ({ children }) => {
   };
 
   const updateStudyBlock = (blockId, newDay, newStartH, newStartM, newEndH, newEndM) => {
-    const { top, height } = calculateVisuals(newStartH, newStartM, newEndH, newEndM);
+    // Restricción de 10 PM (22:00)
+    const bEndMins = Number(newEndH) * 60 + Number(newEndM);
+    if (bEndMins > 22 * 60) {
+      return { success: false, reason: 'Los bloques de estudio no deben crearse o sobrepasar las 10 PM (22:00).' };
+    }
+
+    const bStart = Number(newStartH) * 60 + Number(newStartM);
+    const bEnd = Number(newEndH) * 60 + Number(newEndM);
+
+    if (bStart >= bEnd) {
+      return { success: false, reason: 'La hora de inicio debe ser anterior a la hora de fin.' };
+    }
+
+    // Verificar colisión con clases
+    const hasClassConflict = (effectiveSchedule || []).some(cls => {
+      if (Number(cls.day) !== Number(newDay) || cls.isSuspended) return false;
+      const clsStart = Number(cls.startH) * 60 + Number(cls.startM);
+      const clsEnd = Number(cls.endH) * 60 + Number(cls.endM);
+      return Math.max(bStart, clsStart) < Math.min(bEnd, clsEnd);
+    });
+
+    if (hasClassConflict) {
+      return { success: false, reason: 'El bloque coincide con una clase programada.' };
+    }
+
+    // Verificar colisión con otros bloques de estudio
+    const hasStudyConflict = studyBlocks.some(sb => {
+      if (String(sb.id) === String(blockId) || Number(sb.day) !== Number(newDay)) return false;
+      const sbStart = Number(sb.startH) * 60 + Number(sb.startM);
+      const sbEnd = Number(sb.endH) * 60 + Number(sb.endM);
+      return Math.max(bStart, sbStart) < Math.min(bEnd, sbEnd);
+    });
+
+    if (hasStudyConflict) {
+      return { success: false, reason: 'El bloque se superpone con otro bloque de estudio.' };
+    }
+
+    const { top, height } = calculateVisuals(Number(newStartH), Number(newStartM), Number(newEndH), Number(newEndM));
     setStudyBlocks(prev => prev.map(b => {
-      if (b.id === blockId) {
+      if (String(b.id) === String(blockId)) {
         return {
           ...b,
-          day: newDay,
-          startH: newStartH,
-          startM: newStartM,
-          endH: newEndH,
-          endM: newEndM,
+          day: Number(newDay),
+          startH: Number(newStartH),
+          startM: Number(newStartM),
+          endH: Number(newEndH),
+          endM: Number(newEndM),
           top,
           height
         };
       }
       return b;
     }));
+    return { success: true };
   };
 
   const deleteStudyBlock = (blockId) => {
@@ -606,6 +644,10 @@ export const ScheduleProvider = ({ children }) => {
 
     for (let day = 0; day < 5; day++) {
       for (const b of predefBlocks) {
+        // Excluir bloques que finalizan después de las 10 PM (22:00)
+        const bEndMins = b.endH * 60 + b.endM;
+        if (bEndMins > 22 * 60) continue;
+
         const hasClass = validSchedule.some(cls => {
           if (cls.day !== day) return false;
           const clsStart = cls.startH * 60 + cls.startM;
@@ -692,34 +734,57 @@ export const ScheduleProvider = ({ children }) => {
           );
         });
 
-        // Si todos los bloques de la IA resultan inválidos por traslaparse (o alucinación),
-        // recurrimos a nuestra asignación determinista local para no dejar la vista en blanco
-        let finalBlocks = validatedBlocks;
-        if (finalBlocks.length === 0 && pendingTasks.length > 0) {
-          console.warn("AI generated blocks were filtered out. Using deterministic backup scheduler.");
-          let blockIdx = 0;
-          const sortedTasks = [...pendingTasks].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+        // Garantizar proporcionalidad: Math.ceil((task.estimatedTime * 60) / 40)
+        const processedBlocks = [];
+        const usedFreeBlockKeys = new Set();
+        
+        const sortedTasks = [...pendingTasks].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+        
+        for (const task of sortedTasks) {
+          const neededHours = task.estimatedTime || 2;
+          const blocksNeeded = Math.ceil((neededHours * 60) / 40);
           
-          for (const task of sortedTasks) {
-            const neededHours = task.estimatedTime || 2;
-            const blocksNeeded = Math.ceil((neededHours * 60) / 40);
+          // Obtener los bloques generados por la IA para esta tarea
+          const taskAiBlocks = validatedBlocks.filter(b => b.taskTitle === task.title);
+          
+          const keptBlocks = [];
+          for (const b of taskAiBlocks) {
+            const key = `${b.day}-${b.startH}-${b.startM}`;
+            if (keptBlocks.length < blocksNeeded && !usedFreeBlockKeys.has(key)) {
+              keptBlocks.push(b);
+              usedFreeBlockKeys.add(key);
+            }
+          }
+          
+          processedBlocks.push(...keptBlocks);
+          
+          // Si faltan bloques para cubrir la proporcionalidad, rellenamos con ventanas libres
+          if (keptBlocks.length < blocksNeeded) {
+            const missingCount = blocksNeeded - keptBlocks.length;
+            let addedCount = 0;
             
-            for (let b = 0; b < blocksNeeded; b++) {
-              if (blockIdx >= freeBlocks.length) break;
-              const fb = freeBlocks[blockIdx++];
-              finalBlocks.push({
-                day: fb.day,
-                startH: fb.startH,
-                startM: fb.startM,
-                endH: fb.endH,
-                endM: fb.endM,
-                taskTitle: task.title,
-                priority: task.priorityScore > 80 ? 'high' : 'medium',
-                reason: 'Asignado automáticamente en ventana libre (Respaldo local).'
-              });
+            for (const fb of freeBlocks) {
+              if (addedCount >= missingCount) break;
+              const key = `${fb.day}-${fb.startH}-${fb.startM}`;
+              if (!usedFreeBlockKeys.has(key)) {
+                processedBlocks.push({
+                  day: fb.day,
+                  startH: fb.startH,
+                  startM: fb.startM,
+                  endH: fb.endH,
+                  endM: fb.endM,
+                  taskTitle: task.title,
+                  priority: task.priorityScore > 80 ? 'high' : 'medium',
+                  reason: 'Asignado automáticamente en ventana libre para cumplir horas de estudio.'
+                });
+                usedFreeBlockKeys.add(key);
+                addedCount++;
+              }
             }
           }
         }
+        
+        let finalBlocks = processedBlocks;
 
         const formattedBlocks = finalBlocks.map((b, i) => {
           const { top, height } = calculateVisuals(b.startH, b.startM, b.endH, b.endM);

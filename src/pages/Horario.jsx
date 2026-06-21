@@ -599,7 +599,7 @@ export default function Horario() {
                       title={`Motivo: ${cls.reason}\nPrioridad: ${cls.priority}`}
                     >
                       <strong>📚 {cls.title}</strong>
-                      <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Bloque Sugerido</span>
+                      <span style={{ fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>Bloque de estudio</span>
                     </div>
                 ))}
               </div>
