@@ -709,7 +709,7 @@ export default function Home() {
           <div className="dashboard-widget-card">
             <div className="dashboard-widget-header">
               <Calendar size={20} color="var(--primary)" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Próxima Sesión de Estudio IA</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Próximas sesiones de estudio</h3>
             </div>
             <div className="dashboard-widget-content">
               {nextStudyBlock ? (
@@ -725,8 +725,8 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '15px 0' }}>
-                  No hay bloques de estudio programados. Agrega evaluaciones en el Gestor de Tareas para auto-planificar.
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '15px 0', fontWeight: '600' }}>
+                  No existen sesiones próximas, por favor agregar en tareas
                 </div>
               )}
             </div>

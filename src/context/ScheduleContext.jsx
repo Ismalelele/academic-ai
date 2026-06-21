@@ -530,10 +530,10 @@ export const ScheduleProvider = ({ children }) => {
   };
 
   const updateStudyBlock = (blockId, newDay, newStartH, newStartM, newEndH, newEndM) => {
-    // Restricción de 10 PM (22:00)
-    const bEndMins = Number(newEndH) * 60 + Number(newEndM);
-    if (bEndMins > 22 * 60) {
-      return { success: false, reason: 'Los bloques de estudio no deben crearse o sobrepasar las 10 PM (22:00).' };
+    // Restricción de 10 PM (22:00) para el inicio del bloque
+    const bStartMins = Number(newStartH) * 60 + Number(newStartM);
+    if (bStartMins > 22 * 60) {
+      return { success: false, reason: 'Los bloques de estudio no deben crearse después de las 10 PM (22:00).' };
     }
 
     const bStart = Number(newStartH) * 60 + Number(newStartM);
@@ -644,9 +644,9 @@ export const ScheduleProvider = ({ children }) => {
 
     for (let day = 0; day < 5; day++) {
       for (const b of predefBlocks) {
-        // Excluir bloques que finalizan después de las 10 PM (22:00)
-        const bEndMins = b.endH * 60 + b.endM;
-        if (bEndMins > 22 * 60) continue;
+        // Excluir bloques que inician después de las 10 PM (22:00)
+        const bStartMins = b.startH * 60 + b.startM;
+        if (bStartMins > 22 * 60) continue;
 
         const hasClass = validSchedule.some(cls => {
           if (cls.day !== day) return false;
