@@ -5617,16 +5617,16 @@ body.dark-mode .chats-message-system {
 @media (max-width: 900px) {
     .chats-view-layout {
         flex-direction: column;
-        height: auto;
+        height: calc(100vh - 200px) !important;
     }
 
     .chats-sidebar {
         width: 100%;
-        height: 300px;
+        height: 100%;
     }
 
     .chats-main-window {
-        height: 450px;
+        height: 100% !important;
     }
 }
 
@@ -6790,7 +6790,7 @@ input[type=number] {
     .chats-view-layout {
         display: flex !important;
         width: 100% !important;
-        height: calc(100vh - 120px) !important;
+        height: calc(100vh - 225px) !important;
     }
 
     /* When a group chat is active, show only the main chat window and hide list */
@@ -6813,6 +6813,56 @@ input[type=number] {
 
     .chats-view-layout:not(.has-active-chat) .chats-main-window {
         display: none !important;
+    }
+
+    /* Stack header actions vertically on mobile to prevent overlapping */
+    .chats-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        padding: 12px 15px !important;
+    }
+
+    .chats-header-info {
+        width: 100% !important;
+    }
+
+    .chats-header-actions {
+        width: 100% !important;
+        justify-content: space-between !important;
+        gap: 12px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .chats-invite-code-container {
+        flex-grow: 1 !important;
+        justify-content: center !important;
+        padding: 6px 12px !important;
+    }
+
+    .chats-notif-toggle-container {
+        justify-content: flex-end !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Make tab selector scrollable on mobile */
+    .group-tab-selector {
+        display: flex !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        gap: 5px !important;
+        padding: 0 15px !important;
+    }
+
+    .group-tab-selector::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .group-tab-selector button {
+        flex-shrink: 0 !important;
+        padding: 10px 14px !important;
+        font-size: 0.8rem !important;
     }
 }
 
