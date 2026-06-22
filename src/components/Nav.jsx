@@ -7,6 +7,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import logoResponsivo from '../../imagenes/logo_responsivo.png';
 
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -296,10 +297,34 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
+  const defaultChatGreeting = '¡Hola! Soy tu asistente Asistente Académico. ¿Tienes alguna pregunta sobre tus tareas o asignaturas?';
+  const normalizeChatHistory = (history) => {
+    if (!Array.isArray(history) || history.length === 0) {
+      return [{ sender: 'ai', text: defaultChatGreeting }];
+    }
+
+    const firstMessage = history[0];
+    const oldGreetingPattern = /¡Hola! Soy tu asistente AURA \(Asistente Universal de Refuerzo Académico\)\./;
+    const oldGreetingPlain = '¡Hola! Soy tu asistente AURA (Asistente Universal de Refuerzo Académico). ¿Tienes alguna pregunta sobre tus tareas o asignaturas?';
+
+    if (
+      firstMessage &&
+      firstMessage.sender === 'ai' &&
+      typeof firstMessage.text === 'string' &&
+      (firstMessage.text.includes('Asistente Universal de Refuerzo Académico') || oldGreetingPattern.test(firstMessage.text) || firstMessage.text === oldGreetingPlain)
+    ) {
+      return [
+        { ...firstMessage, text: defaultChatGreeting },
+        ...history.slice(1)
+      ];
+    }
+
+    return history;
+  };
   const [chatHistory, setChatHistory] = useState(() => {
     const saved = sessionStorage.getItem('global_chatbot_chat');
-    return saved ? JSON.parse(saved) : [
-      { sender: 'ai', text: `¡Hola! Soy tu asistente AURA (Asistente Universal de Refuerzo Académico). ¿Tienes alguna pregunta sobre tus tareas o asignaturas?` }
+    return saved ? normalizeChatHistory(JSON.parse(saved)) : [
+      { sender: 'ai', text: defaultChatGreeting }
     ];
   });
   const [showChatTooltip, setShowChatTooltip] = useState(() => {
@@ -706,9 +731,13 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         </button>
 
         {/* Logo (Desktop only) */}
-        <div className="logo desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '15px 20px', marginBottom: '20px' }}>
-          <img src="/logo.png" alt="A.U.R.A Logo" style={{ height: '46px', width: '46px', objectFit: 'contain' }} />
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '0.5px' }}>A.U.R.A</h2>
+        <div className="logo desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', marginBottom: '8px' }}>
+          <img src={logoResponsivo} alt="A.U.R.A Logo" style={{ height: '92px', width: '92px', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 4px 12px rgba(14, 165, 233, 0.15))' }} />
+          <h2 style={{ fontSize: '1.8rem', fontWeight: '800', fontStyle: 'italic', color: 'var(--text-main)', margin: 0, letterSpacing: '0.1px', lineHeight: 1 }}>A.U.R.A</h2>
+        </div>
+
+        <div className="logo mobile-only" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '4px 0 8px', marginBottom: '6px' }}>
+          <img src={logoResponsivo} alt="A.U.R.A Logo" style={{ height: '54px', width: '54px', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 3px 10px rgba(14, 165, 233, 0.18))' }} />
         </div>
 
         {/* Navigation Scroll Wrap */}

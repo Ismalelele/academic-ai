@@ -156,6 +156,7 @@ body {
     overflow: visible;
     margin: 0 10px;
     position: relative;
+    min-width: 0;
 }
 
 .dock-actions {
@@ -204,8 +205,8 @@ body {
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    width: min(calc(100% - 40px), 1100px);
-    height: 72px;
+    width: min(calc(100% - 20px), 1220px);
+    height: 76px;
     background: var(--sidebar-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -225,12 +226,12 @@ body {
 .sidebar .logo {
     display: flex;
     align-items: center;
-    margin-right: 24px;
+    margin-right: 20px;
     flex-shrink: 0;
 }
 
 .sidebar .logo h2 {
-    font-size: 1.25rem;
+    font-size: 1.18rem;
     font-weight: 800;
     letter-spacing: -0.5px;
     margin: 0;
@@ -253,6 +254,7 @@ body {
     overflow: visible;
     /* Allow submenus to pop out */
     flex-shrink: 1;
+    min-width: 0;
 }
 
 .sidebar .nav-links::-webkit-scrollbar {
@@ -272,7 +274,7 @@ body {
 .sidebar .nav-links>li>a,
 .sidebar .nav-links>li>button.nav-dropdown-trigger {
     text-decoration: none;
-    padding: 8px 14px;
+    padding: 8px 12px;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -338,7 +340,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    min-width: 190px;
+    min-width: 210px;
     box-shadow: var(--shadow-md);
     z-index: 1000;
     animation: slideUpFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -486,22 +488,6 @@ body {
     overflow-y: auto;
     background: var(--bg);
     position: relative;
-}
-
-.main-content::before {
-    content: '';
-    position: fixed;
-    top: -100px;
-    right: -100px;
-    width: 500px;
-    height: 500px;
-    background: var(--primary);
-    filter: blur(150px);
-    opacity: 0.15;
-    z-index: 0;
-    pointer-events: none;
-    border-radius: 50%;
-    animation: blobFloat 15s infinite ease-in-out;
 }
 
 .main-content::after {
@@ -1442,7 +1428,7 @@ body.dark-mode .chat-footer input {
         bottom: 8px;
         left: 8px;
         transform: none;
-        width: 56px;
+        width: 64px;
         height: auto;
         padding: 10px 0;
         border-radius: 16px;

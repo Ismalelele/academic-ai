@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { getWeeklyStudyHours, getHistoricalWeeklyAverage } from '../utils/studyTracker';
 import { getSafeLocalStorage } from '../utils/storageSecurity';
+import logoResponsivo from '../../imagenes/logo_responsivo.png';
 
 const parseGrade = (val) => {
   if (!val) return 0;
@@ -357,20 +358,35 @@ export default function Home() {
 
   return (
     <main className="main-content">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', marginTop: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <header style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '18px', marginBottom: '30px', marginTop: '10px', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center', textAlign: 'center' }}>
           <img 
-            src="/logo.png" 
+            src={logoResponsivo} 
             alt="A.U.R.A Logo" 
             style={{ 
-              height: '100px', 
-              width: '100px', 
+              height: '138px', 
+              width: '138px', 
               objectFit: 'contain',
               filter: 'drop-shadow(0 6px 15px rgba(139, 92, 246, 0.2))' 
             }} 
           />
-          <div>
-            <p className="subtitle" style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-muted)' }}>Asistente Universal de Refuerzo Académico</p>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+            <p
+              className="subtitle"
+              style={{
+                margin: 0,
+                fontSize: 'clamp(1.35rem, 2vw, 1.9rem)',
+                fontStyle: 'italic',
+                fontWeight: 700,
+                lineHeight: 1.08,
+                letterSpacing: '0.01em',
+                color: 'var(--text-main)',
+                textWrap: 'balance',
+                textAlign: 'center'
+              }}
+            >
+              Asistente Universal de Refuerzo Académico
+            </p>
           </div>
         </div>
       </header>
