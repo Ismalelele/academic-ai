@@ -414,7 +414,7 @@ export default function ChatsGrupos() {
   };
 
   return (
-    <main className="main-content height-constrained-page">
+    <main className={`main-content height-constrained-page ${activeGroupId ? 'has-active-chat' : ''}`}>
       <header style={{ marginBottom: '35px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div>
           <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>

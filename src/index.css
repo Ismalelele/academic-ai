@@ -6826,6 +6826,11 @@ input[type=number] {
         display: none !important;
     }
 
+    /* Hide page header on mobile when a group chat is active to maximize screen height */
+    .main-content.height-constrained-page.has-active-chat > header {
+        display: none !important;
+    }
+
     /* Stack header actions vertically on mobile to prevent overlapping */
     .chats-header {
         flex-direction: column !important;
