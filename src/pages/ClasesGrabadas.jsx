@@ -136,6 +136,7 @@ export default function ClasesGrabadas() {
   const recordingTimerRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
   const activeObjectUrlRef = useRef(null);
+  const processingIdsRef = useRef(new Set());
 
   useEffect(() => {
     let active = true;
@@ -204,12 +205,16 @@ export default function ClasesGrabadas() {
   const loadRecordings = async (active = true) => {
     if (!user?.id) return;
     // 1. Cargar desde localStorage
-    const localSaved = getSafeLocalStorage(`academic_${user.id}_recordings_${activeSubject}`, user.id, null);
-    if (localSaved) {
-      if (active) setRecordings(localSaved);
-    } else {
-      if (active) setRecordings([]);
+    const localSaved = getSafeLocalStorage(`academic_${user.id}_recordings_${activeSubject}`, user.id, null) || [];
+    if (active) {
+      setRecordings(localSaved);
     }
+
+    // Resume pending recordings from local storage on load
+    const pendingRecordings = localSaved.filter(r => r.estado === 'pending');
+    pendingRecordings.forEach(rec => {
+      processRecording(rec);
+    });
 
     // 2. Cargar desde Supabase si está disponible
     if (supabase && user.id && !user.id.startsWith('user-local-')) {
@@ -223,8 +228,20 @@ export default function ClasesGrabadas() {
 
         if (!error && data) {
           if (active) {
-            setRecordings(data);
-            localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(data));
+            setRecordings(prev => {
+              // Keep local pending/error recordings that are not yet in Supabase
+              const pendingOrLocal = prev.filter(r => r.estado === 'pending' || r.estado === 'error' || !data.some(dbRec => dbRec.id_grabacion === r.id_grabacion));
+              const merged = [...pendingOrLocal, ...data].sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion));
+              localStorage.setItem(`academic_${user.id}_recordings_${activeSubject}`, JSON.stringify(merged));
+              
+              // Automatically trigger/resume processing for any newly merged pending recordings
+              const newlyMergedPending = merged.filter(r => r.estado === 'pending');
+              newlyMergedPending.forEach(rec => {
+                processRecording(rec);
+              });
+              
+              return merged;
+            });
           }
         }
       } catch (err) {
@@ -354,6 +371,9 @@ export default function ClasesGrabadas() {
   };
 
   const processRecording = async (recording, blobParam = null) => {
+    if (processingIdsRef.current.has(recording.id_grabacion)) return;
+    processingIdsRef.current.add(recording.id_grabacion);
+
     setTranscribing(true);
     let blob = blobParam;
     if (!blob) {
@@ -361,6 +381,7 @@ export default function ClasesGrabadas() {
       if (!blob) {
         alert("No se encontró el audio de esta grabación.");
         setTranscribing(false);
+        processingIdsRef.current.delete(recording.id_grabacion);
         return;
       }
     }
@@ -412,6 +433,7 @@ export default function ClasesGrabadas() {
     } finally {
       setTranscribing(false);
       setAnalyzing(false);
+      processingIdsRef.current.delete(recording.id_grabacion);
     }
   };
 
