@@ -480,7 +480,7 @@ Generado automáticamente por AcademicAI
             }}>
               
               {/* ASIGNATURA/RAMO DROPDOWN - CENTRADO Y ALTAMENTE INTERACTIVO */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '25px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '25px', position: 'relative', width: '100%' }}>
                 <div style={{
                   border: '1px solid var(--border-color)',
                   padding: '10px 20px',
@@ -489,7 +489,10 @@ Generado automáticamente por AcademicAI
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  width: 'fit-content',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
                   position: 'relative'
                 }}>
                   <span style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '0.85rem', letterSpacing: '0.5px' }}>ASIGNATURA/RAMO:</span>
@@ -728,9 +731,8 @@ Generado automáticamente por AcademicAI
                 </div>
               </div>
 
-              {/* ACCIONES AL PIE DE LA CALCULADORA */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', alignItems: 'center', flexWrap: 'wrap', gap: '15px', width: '100%' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button 
                     onClick={() => setExamModalOpen(true)}
                     disabled={validRows.length === 0}
