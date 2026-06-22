@@ -9,7 +9,8 @@ import { marked } from 'marked';
 import ysFixWebmDuration from 'fix-webm-duration';
 import {
   Book, ArrowLeft, Loader, Trash2, Mic, FileAudio, MessageSquare,
-  BookOpen, Brain, HelpCircle, Sparkles, Square, Play, Pause, Headphones
+  BookOpen, Brain, HelpCircle, Sparkles, Square, Play, Pause, Headphones,
+  AlertTriangle, X
 } from 'lucide-react';
 
 // Helper functions for storing audio files in IndexedDB
@@ -128,6 +129,7 @@ export default function ClasesGrabadas() {
   const [recordingChatInput, setRecordingChatInput] = useState('');
   const [recordingChatHistory, setRecordingChatHistory] = useState([]);
   const [recordingChatLoading, setRecordingChatLoading] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -557,7 +559,7 @@ export default function ClasesGrabadas() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>Graba tu clase presencial o virtual para transcribirla con IA</p>
-                  <button className="btn-primary" onClick={startRecording} style={{ display: 'flex', gap: '8px', padding: '10px 20px', borderRadius: '8px', width: '100%' }}>
+                  <button className="btn-primary" onClick={() => setShowPermissionModal(true)} style={{ display: 'flex', gap: '8px', padding: '10px 20px', borderRadius: '8px', width: '100%' }}>
                     <Mic size={16} /> Iniciar Grabación
                   </button>
                 </div>
@@ -1051,6 +1053,74 @@ export default function ClasesGrabadas() {
             )}
           </section>
         </div>
+
+        {showPermissionModal && (
+          <div className="modal-overlay" onClick={() => setShowPermissionModal(false)}>
+            <div className="premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%', padding: '25px', borderRadius: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>
+                  <AlertTriangle size={24} style={{ color: '#ef4444' }} /> Aviso de Autorización Docente
+                </h3>
+                <button 
+                  onClick={() => setShowPermissionModal(false)} 
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.6', margin: 0 }}>
+                  Recuerda preguntarle a tu docente si puedes grabar la clase, o te meterás en problemas.
+                </p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+                  Para registrar la clase de <strong>{activeSubject}</strong> de forma segura y ética, es indispensable contar con el consentimiento del profesor actual.
+                </p>
+                
+                <div style={{ display: 'flex', gap: '10px', marginTop: '15px', justifyContent: 'flex-end' }}>
+                  <button 
+                    onClick={() => setShowPermissionModal(false)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      padding: '10px 18px',
+                      borderRadius: '10px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: '0.2s'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowPermissionModal(false);
+                      startRecording();
+                    }}
+                    style={{
+                      background: 'var(--primary)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: '0.2s'
+                    }}
+                  >
+                    Entendido, grabar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
