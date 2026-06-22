@@ -6788,20 +6788,19 @@ input[type=number] {
     }
 
     .main-content.height-constrained-page {
-        height: calc(100vh - 120px) !important;
-        height: calc(100dvh - 120px) !important;
+        height: calc(100vh - 80px) !important;
+        height: calc(100dvh - 80px) !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
-        padding-top: 15px !important;
-        padding-bottom: 15px !important;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
     }
 
     .chats-view-layout {
         display: flex !important;
         width: 100% !important;
-        height: calc(100vh - 280px) !important;
-        height: calc(100dvh - 280px) !important;
+        height: calc(100% - 50px) !important;
         min-height: 0 !important;
     }
 
@@ -6831,19 +6830,47 @@ input[type=number] {
     .chats-header {
         flex-direction: column !important;
         align-items: flex-start !important;
-        gap: 12px !important;
-        padding: 12px 15px !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
     }
 
     .chats-header-info {
         width: 100% !important;
     }
 
+    .chats-header-info h3 {
+        font-size: 1rem !important;
+        margin: 0 !important;
+    }
+
+    .chats-header-info p {
+        display: none !important;
+    }
+
     .chats-header-actions {
         width: 100% !important;
         justify-content: space-between !important;
-        gap: 12px !important;
+        gap: 8px !important;
         flex-wrap: wrap !important;
+    }
+
+    .chats-messages-area {
+        padding: 15px 12px !important;
+        gap: 10px !important;
+    }
+
+    .chats-input-form {
+        padding: 12px !important;
+        gap: 8px !important;
+    }
+
+    .chats-input-form input {
+        padding: 10px 12px !important;
+        font-size: 0.85rem !important;
+    }
+
+    .chats-send-btn {
+        padding: 10px 15px !important;
     }
 
     .chats-invite-code-container {
@@ -6875,6 +6902,66 @@ input[type=number] {
         flex-shrink: 0 !important;
         padding: 10px 14px !important;
         font-size: 0.8rem !important;
+    }
+}
+
+/* ================= ULTRA-SMALL DEVICES OPTIMIZATION (max-width: 600px) ================= */
+@media (max-width: 600px) {
+    .main-content.height-constrained-page {
+        height: calc(100vh - 60px) !important;
+        height: calc(100dvh - 60px) !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+    }
+
+    .chats-view-layout {
+        height: calc(100% - 30px) !important;
+    }
+
+    .chats-header {
+        padding: 8px 10px !important;
+        gap: 6px !important;
+    }
+
+    .chats-header-info h3 {
+        font-size: 0.95rem !important;
+    }
+
+    .chats-messages-area {
+        padding: 12px 10px !important;
+        gap: 8px !important;
+    }
+
+    .chats-message-wrapper {
+        max-width: 85% !important;
+    }
+
+    .chats-message-bubble {
+        padding: 10px 14px !important;
+        font-size: 0.85rem !important;
+    }
+
+    .chats-input-form {
+        padding: 10px !important;
+        gap: 6px !important;
+    }
+
+    .chats-input-form input {
+        padding: 8px 10px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .chats-send-btn {
+        padding: 8px 12px !important;
+        min-width: 36px !important;
+    }
+
+    .chats-sidebar {
+        border-radius: 16px !important;
+    }
+
+    .chats-main-window {
+        border-radius: 16px !important;
     }
 }
 
