@@ -6787,10 +6787,22 @@ input[type=number] {
         margin-right: 10px;
     }
 
+    .main-content.height-constrained-page {
+        height: calc(100vh - 120px) !important;
+        height: calc(100dvh - 120px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        padding-top: 15px !important;
+        padding-bottom: 15px !important;
+    }
+
     .chats-view-layout {
         display: flex !important;
         width: 100% !important;
-        height: calc(100vh - 225px) !important;
+        flex: 1 !important;
+        height: auto !important;
+        min-height: 0 !important;
     }
 
     /* When a group chat is active, show only the main chat window and hide list */
