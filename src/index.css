@@ -6800,8 +6800,8 @@ input[type=number] {
     .chats-view-layout {
         display: flex !important;
         width: 100% !important;
-        flex: 1 !important;
-        height: auto !important;
+        height: calc(100vh - 280px) !important;
+        height: calc(100dvh - 280px) !important;
         min-height: 0 !important;
     }
 
