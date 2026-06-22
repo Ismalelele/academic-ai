@@ -102,7 +102,7 @@ export const TaskProvider = ({ children }) => {
         .from('tareas')
         .select('*')
         .eq('user_id', user.id)
-        .order('fecha_creacion', { ascending: true });
+        .order('fecha_creacion', { ascending: false });
 
       if (error) throw error;
 
@@ -178,7 +178,7 @@ export const TaskProvider = ({ children }) => {
 
     // Actualizar estado local e historial inmediatamente
     setTasks(prev => {
-      const updated = [...prev, localNewTask];
+      const updated = [localNewTask, ...prev];
       localStorage.setItem(`academic_${user.id}_tasks`, JSON.stringify(updated));
       return updated;
     });

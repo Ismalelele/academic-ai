@@ -47,11 +47,14 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     });
   };
 
+  const [prevShowNotifications, setPrevShowNotifications] = useState(false);
+
   useEffect(() => {
-    if (showNotifications && unreadCount > 0) {
+    if (prevShowNotifications && !showNotifications) {
       markAllAsRead();
     }
-  }, [showNotifications, unreadCount]);
+    setPrevShowNotifications(showNotifications);
+  }, [showNotifications]);
 
   const toggleDeleteMode = () => {
     setIsDeleteMode(!isDeleteMode);
@@ -335,13 +338,26 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Ocultar sidebar si está abierto en móvil y hacemos clic fuera
+      const isClickInsideNotif = (notifPanelRef.current && notifPanelRef.current.contains(event.target)) ||
+                                 (notifRef.current && notifRef.current.contains(event.target));
+      const isClickInsideChatbot = (chatbotPanelRef.current && chatbotPanelRef.current.contains(event.target)) ||
+                                   (chatbotRef.current && chatbotRef.current.contains(event.target));
+      const isClickInsideProfile = (profilePopoverRef.current && profilePopoverRef.current.contains(event.target)) ||
+                                   (profileRef.current && profileRef.current.contains(event.target));
+
+      const isAnyPopoverOpen = showNotifications || showChatbot || showProfilePopover;
+
+      // Ocultar sidebar si está abierto en móvil y hacemos clic fuera (evitando cerrar si hay un portal abierto)
       if (
         window.innerWidth <= 768 &&
         isSidebarOpen &&
         sidebarRef.current &&
         !sidebarRef.current.contains(event.target) &&
-        !event.target.closest('.open-btn')
+        !event.target.closest('.open-btn') &&
+        !isAnyPopoverOpen &&
+        !isClickInsideNotif &&
+        !isClickInsideChatbot &&
+        !isClickInsideProfile
       ) {
         setIsSidebarOpen(false);
       }
@@ -374,7 +390,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSidebarOpen]);
+  }, [isSidebarOpen, showNotifications, showChatbot, showProfilePopover]);
 
   useEffect(() => {
     if (chatbotBodyRef.current) {
@@ -879,7 +895,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         <div className="dock-actions">
 
           {/* Theme Toggle */}
-          <div className="theme-toggle" onClick={() => { toggleTheme(); closeMenu(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
+          <div className="theme-toggle" onClick={() => { toggleTheme(); }} title={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}>
             {isDarkMode ? (
               <Sun size={18} style={{ color: '#eab308', fill: '#eab308' }} />
             ) : (
@@ -1316,9 +1332,11 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
               <form onSubmit={handleAdminSend} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div className="form-group-premium">
-                  <label>Título de Notificación</label>
+                  <label htmlFor="admin-notif-title">Título de Notificación</label>
                   <input
                     type="text"
+                    id="admin-notif-title"
+                    name="admin-notif-title"
                     className="premium-input"
                     value={adminNotifTitle}
                     onChange={(e) => setAdminNotifTitle(e.target.value)}
@@ -1327,8 +1345,10 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 </div>
 
                 <div className="form-group-premium">
-                  <label>Mensaje</label>
+                  <label htmlFor="admin-notif-message">Mensaje</label>
                   <textarea
+                    id="admin-notif-message"
+                    name="admin-notif-message"
                     className="premium-input"
                     value={adminNotifMessage}
                     onChange={(e) => setAdminNotifMessage(e.target.value)}
@@ -1338,8 +1358,10 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 </div>
 
                 <div className="form-group-premium">
-                  <label>Tipo (simulación)</label>
+                  <label htmlFor="admin-notif-type">Tipo (simulación)</label>
                   <select
+                    id="admin-notif-type"
+                    name="admin-notif-type"
                     className="premium-input"
                     value={adminNotifType}
                     onChange={(e) => setAdminNotifType(e.target.value)}

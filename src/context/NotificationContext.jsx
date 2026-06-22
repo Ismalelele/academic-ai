@@ -150,7 +150,7 @@ export const NotificationProvider = ({ children }) => {
       }
       // Suscripción registrada y guardada exitosamente
     } catch (err) {
-      console.error("Error setting up Web Push subscription:", err);
+      console.warn("Error setting up Web Push subscription (browser/network environment issue):", err?.message || err);
     }
   }, [user?.id]);
 

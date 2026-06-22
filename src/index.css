@@ -1546,12 +1546,13 @@ body.dark-mode .chat-footer input {
     }
 
     .main-content {
-        padding: 60px 16px 20px 80px !important; /* Make room for open sidebar on mobile */
+        padding: 60px 16px 110px 80px !important; /* Make room for open sidebar on mobile */
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     body.sidebar-collapsed .main-content {
         padding-left: 16px !important; /* Content uses full screen width when sidebar is collapsed */
+        padding-bottom: 110px !important;
     }
 
     .main-content>header {
@@ -1635,11 +1636,12 @@ body.dark-mode .chat-footer input {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 60px 15px 15px 80px !important; /* Make room for open sidebar */
+        padding: 60px 15px 110px 80px !important; /* Make room for open sidebar */
     }
 
     body.sidebar-collapsed .main-content {
         padding-left: 15px !important; /* Content uses full screen width when sidebar is collapsed */
+        padding-bottom: 110px !important;
     }
 
 
@@ -2397,10 +2399,10 @@ body.dark-mode .message-wrapper.ai .message-bubble {
 }
 
 .kanban-cards-container {
-    padding: 20px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 8px;
     flex-grow: 1;
     overflow-y: auto;
 }
@@ -2409,7 +2411,7 @@ body.dark-mode .message-wrapper.ai .message-bubble {
     background: var(--bg);
     border: 1px solid var(--border-color);
     border-radius: 14px;
-    padding: 15px;
+    padding: 12px;
     display: flex;
     gap: 10px;
     cursor: grab;
@@ -3529,7 +3531,22 @@ body.dark-mode .chatbot-window {
 }
 
 .notification-item.unread {
-    background: rgba(var(--accent-primary-rgb), 0.05);
+    background: rgba(14, 165, 233, 0.04) !important;
+}
+
+body.dark-mode .notification-item.unread {
+    background: rgba(88, 192, 245, 0.06) !important;
+}
+
+.notification-item.unread::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background-color: var(--primary);
+    border-radius: 50%;
+    margin-left: auto;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px var(--primary);
 }
 
 .notification-item:hover {
@@ -7113,4 +7130,165 @@ body.dark-mode .mobile-day-selector {
         justify-content: center;
         padding: 12px;
     }
+}
+
+/* Individual Panel Toggle Controls - Desktop Hidden, Mobile Only */
+.panel-toggle-btn {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .panel-toggle-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 16px !important;
+        right: 16px !important;
+        transform: none !important;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    body.dark-mode .panel-toggle-btn {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .panel-toggle-btn:hover {
+        background: var(--primary-light);
+        color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    /* Reset active/focus outline to prevent blue border */
+    .panel-toggle-btn:focus,
+    .panel-toggle-btn:active,
+    .panel-toggle-btn:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: var(--border-color) !important;
+        color: var(--text-muted) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Common Card properties for smooth transitions */
+    .kpi-card, 
+    .recent-activity, 
+    .grade-summary-card, 
+    .dashboard-widget-card, 
+    .todo-card {
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    margin 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    min-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.3s ease, 
+                    box-shadow 0.3s ease !important;
+        max-height: 1200px;
+        overflow: hidden;
+    }
+
+    /* Collapsed state styles for statistics panels on mobile */
+    .panel-collapsed {
+        max-height: 64px !important;
+        min-height: 0 !important;
+        height: 64px !important;
+        padding-top: 20px !important;
+        padding-bottom: 20px !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+        margin: 0 !important; /* Let grid gap handle all spacing! */
+        justify-content: flex-start !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Remove specific min-height settings that prevent collapse */
+    .recent-activity.panel-collapsed,
+    .dashboard-bottom-row .recent-activity.panel-collapsed {
+        min-height: 0 !important;
+    }
+
+    /* Hide specific contents when collapsed using display: none to prevent pushing the headers up */
+    .panel-collapsed .kpi-chart-wrapper,
+    .panel-collapsed .counter-val-container,
+    .panel-collapsed .rings-layout,
+    .panel-collapsed .grade-summary-layout,
+    .panel-collapsed .dashboard-widget-content,
+    .panel-collapsed .todo-list,
+    .panel-collapsed .todo-input-wrapper {
+        display: none !important;
+    }
+
+    /* For KPI cards: when collapsed, hide subtitle and main value */
+    .panel-collapsed .kpi-card-header p,
+    .panel-collapsed .kpi-card-header .kpi-main-val,
+    .panel-collapsed .grade-summary-header p,
+    .panel-collapsed .todo-header .badge {
+        display: none !important;
+    }
+
+    /* For Recent Activity card: hide list items */
+    .panel-collapsed.recent-activity > *:not(h3):not(.panel-toggle-btn) {
+        display: none !important;
+    }
+
+    /* Adjust margins and layouts on collapse to prevent large vertical gaps */
+    .panel-collapsed h3,
+    .panel-collapsed h4,
+    .panel-collapsed .kpi-card-header,
+    .panel-collapsed .kpi-card-header-simple,
+    .panel-collapsed .grade-summary-header,
+    .panel-collapsed .dashboard-widget-header,
+    .panel-collapsed .todo-header {
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    /* Normalize text styling in collapsed state */
+    .panel-collapsed h3,
+    .panel-collapsed h3 span,
+    .panel-collapsed .kpi-card-header h3,
+    .panel-collapsed .kpi-card-header-simple h3,
+    .panel-collapsed .grade-summary-header h3,
+    .panel-collapsed .dashboard-widget-header h3,
+    .panel-collapsed .todo-header h3 {
+        font-size: 1.15rem !important;
+        font-weight: 800 !important;
+        color: var(--text-main) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.2 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    .recent-activity.panel-collapsed h3 {
+        margin-bottom: 0 !important;
+    }
+
+    /* Smaller layout grid gaps and margins on mobile */
+    .kpis-grid,
+    .dashboard-bottom-row,
+    .main-dashboard-content,
+    .dashboard-grid,
+    .side-widgets {
+        gap: 12px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}
+
+/* Reduced height for Counter cards (e.g. Tareas Históricas) to remove empty space */
+.kpi-card.counter-card:not(.panel-collapsed) {
+    min-height: 110px !important;
+    padding: 16px 20px !important;
 }

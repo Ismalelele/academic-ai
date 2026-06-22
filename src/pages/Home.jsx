@@ -1,4 +1,4 @@
-import { RefreshCw, Plus, Activity, CheckCircle, Clock, BookOpen, Calendar, MapPin, ArrowRight, Trash2 } from 'lucide-react';
+import { RefreshCw, Plus, Activity, CheckCircle, Clock, BookOpen, Calendar, MapPin, ArrowRight, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { useTasks } from '../context/TaskContext';
@@ -71,6 +71,42 @@ export default function Home() {
   const { tasks, addTask, updateTaskStatus, activityLog } = useTasks();
   const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications();
   const [newTaskInput, setNewTaskInput] = useState('');
+  const [visiblePanels, setVisiblePanels] = useState(() => {
+    const saved = localStorage.getItem('academic_visible_panels');
+    return saved !== null ? JSON.parse(saved) : {
+      studyHours: true,
+      historicTasks: true,
+      completedTasks: true,
+      recentActivity: true,
+      grades: true,
+      quizzes: true,
+      todo: true,
+      studySessions: true
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('academic_visible_panels', JSON.stringify(visiblePanels));
+  }, [visiblePanels]);
+
+  const togglePanel = (panelKey, event) => {
+    const isOpening = !visiblePanels[panelKey];
+    if (isOpening && event && event.currentTarget) {
+      const target = event.currentTarget;
+      setTimeout(() => {
+        if (target && typeof target.closest === 'function') {
+          const card = target.closest('.kpi-card, .recent-activity, .grade-summary-card, .dashboard-widget-card, .todo-card');
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 150);
+    }
+    setVisiblePanels(prev => ({
+      ...prev,
+      [panelKey]: !prev[panelKey]
+    }));
+  };
 
   // Calcular métricas de calificaciones (únicamente desde Calificaciones/Boletín)
   const getSubjectAverage = (subjectName) => {
@@ -321,7 +357,7 @@ export default function Home() {
 
   return (
     <main className="main-content">
-      <header>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
         <div>
           <h1 className="page-title">Gestión Académica</h1>
           <p className="subtitle">Tu panel de control académico inteligente</p>
@@ -388,7 +424,15 @@ export default function Home() {
           {/* KPIs Grid */}
           <div className="kpis-grid">
             {/* KPI 1: Study hours line chart */}
-            <div className="kpi-card chart-card">
+            <div className={`kpi-card chart-card ${visiblePanels.studyHours ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => togglePanel('studyHours', e)}
+                className="panel-toggle-btn"
+                title={visiblePanels.studyHours ? "Ocultar" : "Mostrar"}
+              >
+                {visiblePanels.studyHours ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
               <div className="kpi-card-header">
                 <div>
                   <h3>Horas de estudio</h3>
@@ -458,7 +502,15 @@ export default function Home() {
             </div>
 
             {/* KPI 2: Tareas históricas */}
-            <div className="kpi-card counter-card" style={{ justifyContent: 'center', gap: '15px' }}>
+            <div className={`kpi-card counter-card ${visiblePanels.historicTasks ? '' : 'panel-collapsed'}`} style={{ justifyContent: 'center', gap: '15px', position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => togglePanel('historicTasks', e)}
+                className="panel-toggle-btn"
+                title={visiblePanels.historicTasks ? "Ocultar" : "Mostrar"}
+              >
+                {visiblePanels.historicTasks ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
               <div className="kpi-card-header-simple">
                 <h3>Tareas históricas</h3>
               </div>
@@ -469,7 +521,15 @@ export default function Home() {
             </div>
 
             {/* KPI 3: Concentric rings */}
-            <div className="kpi-card rings-card">
+            <div className={`kpi-card rings-card ${visiblePanels.completedTasks ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => togglePanel('completedTasks', e)}
+                className="panel-toggle-btn"
+                title={visiblePanels.completedTasks ? "Ocultar" : "Mostrar"}
+              >
+                {visiblePanels.completedTasks ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
               <div className="kpi-card-header">
                 <div>
                   <h3>Tareas completadas</h3>
@@ -549,7 +609,15 @@ export default function Home() {
 
           {/* Bottom Row: Recent Activity & Grade Summary */}
           <div className="dashboard-bottom-row">
-            <div className="recent-activity">
+            <div className={`recent-activity ${visiblePanels.recentActivity ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => togglePanel('recentActivity', e)}
+                className="panel-toggle-btn"
+                title={visiblePanels.recentActivity ? "Ocultar" : "Mostrar"}
+              >
+                {visiblePanels.recentActivity ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
               <h3>Actividad Reciente</h3>
               
               {(!activityLog || activityLog.length === 0) ? (
@@ -571,7 +639,15 @@ export default function Home() {
             </div>
 
             {/* Promedio General & Calificaciones Card */}
-            <div className="grade-summary-card">
+            <div className={`grade-summary-card ${visiblePanels.grades ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={(e) => togglePanel('grades', e)}
+                className="panel-toggle-btn"
+                title={visiblePanels.grades ? "Ocultar" : "Mostrar"}
+              >
+                {visiblePanels.grades ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
               <div className="grade-summary-header">
                 <h3>Rendimiento Académico</h3>
                 <p className="kpi-subtitle">Resumen general, calificaciones y promedio general</p>
@@ -668,7 +744,15 @@ export default function Home() {
 
         {/* Widgets Derecha */}
         <div className="side-widgets">
-          <section className="todo-card">
+          <section className={`todo-card ${visiblePanels.todo ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={(e) => togglePanel('todo', e)}
+              className="panel-toggle-btn"
+              title={visiblePanels.todo ? "Ocultar" : "Mostrar"}
+            >
+              {visiblePanels.todo ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
             <div className="todo-header">
               <h3>Tareas Pendientes</h3>
               <span className="badge">{activeTasks.length} activas</span>
@@ -676,6 +760,8 @@ export default function Home() {
             <form className="todo-input-wrapper" onSubmit={handleQuickAdd}>
               <input 
                 type="text" 
+                id="quick-todo-input"
+                name="quick-todo-input"
                 placeholder="¿Qué tienes que estudiar?" 
                 value={newTaskInput}
                 onChange={(e) => setNewTaskInput(e.target.value)}
@@ -706,7 +792,15 @@ export default function Home() {
           </section>
           
           {/* Widget 1: Próxima Sesión de Estudio IA */}
-          <div className="dashboard-widget-card">
+          <div className={`dashboard-widget-card ${visiblePanels.studySessions ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={(e) => togglePanel('studySessions', e)}
+              className="panel-toggle-btn"
+              title={visiblePanels.studySessions ? "Ocultar" : "Mostrar"}
+            >
+              {visiblePanels.studySessions ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
             <div className="dashboard-widget-header">
               <Calendar size={20} color="var(--primary)" />
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Próximas sesiones de estudio</h3>
@@ -735,43 +829,51 @@ export default function Home() {
 
 
           {/* Widget 3: Rendimiento de Quizzes */}
-          <div className="dashboard-widget-card">
+          <div className={`dashboard-widget-card quiz-stats-card ${visiblePanels.quizzes ? '' : 'panel-collapsed'}`} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={(e) => togglePanel('quizzes', e)}
+              className="panel-toggle-btn"
+              title={visiblePanels.quizzes ? "Ocultar" : "Mostrar"}
+            >
+              {visiblePanels.quizzes ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
             <div className="dashboard-widget-header">
               <Activity size={20} color="var(--primary)" />
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Estadísticas de Quizzes</h3>
             </div>
-            <div className="dashboard-widget-content">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '10px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', marginBottom: '5px' }}>REALIZADOS</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: '850', color: 'var(--text-main)' }}>{quizStats.count}</div>
+              <div className="dashboard-widget-content">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '10px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', marginBottom: '5px' }}>REALIZADOS</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '850', color: 'var(--text-main)' }}>{quizStats.count}</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '10px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', marginBottom: '5px' }}>NOTA PROMEDIO</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '850', color: quizStats.avg >= 60 ? '#22c55e' : (quizStats.avg > 0 ? '#ef4444' : 'var(--text-muted)') }}>
+                      {quizStats.avg > 0 ? `${quizStats.avg.toFixed(0)}%` : '—'}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '10px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', marginBottom: '5px' }}>NOTA PROMEDIO</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: '850', color: quizStats.avg >= 60 ? '#22c55e' : (quizStats.avg > 0 ? '#ef4444' : 'var(--text-muted)') }}>
-                    {quizStats.avg > 0 ? `${quizStats.avg.toFixed(0)}%` : '—'}
+
+                <div style={{ marginTop: '15px', borderTop: '1px dashed var(--border-color)', paddingTop: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  <div style={{ fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    🧠 ¿Dónde hacer quizzes?
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <Link to="/apuntes" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
+                      📚 Mis Apuntes (Crear desde apuntes)
+                    </Link>
+                    <Link to="/analisis" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
+                      📄 Análisis (Sube tus archivos PDF/PPTX)
+                    </Link>
+                    <Link to="/chats" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
+                      💬 Chats de Asignaturas (Versus con compañeros)
+                    </Link>
                   </div>
                 </div>
               </div>
-
-              <div style={{ marginTop: '15px', borderTop: '1px dashed var(--border-color)', paddingTop: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                <div style={{ fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  🧠 ¿Dónde hacer quizzes?
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <Link to="/apuntes" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
-                    📚 Mis Apuntes (Crear desde apuntes)
-                  </Link>
-                  <Link to="/analisis" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
-                    📄 Análisis (Sube tus archivos PDF/PPTX)
-                  </Link>
-                  <Link to="/chats" style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 10px', background: 'rgba(14, 165, 233, 0.08)', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.15)', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'}>
-                    💬 Chats de Asignaturas (Versus con compañeros)
-                  </Link>
-                </div>
-              </div>
             </div>
-          </div>
         </div>
       </div>
     </main>
