@@ -6804,6 +6804,11 @@ input[type=number] {
         min-height: 0 !important;
     }
 
+    .chats-view-layout.has-active-chat {
+        height: calc(100vh - 100px) !important;
+        height: calc(100dvh - 100px) !important;
+    }
+
     /* When a group chat is active, show only the main chat window and hide list */
     .chats-view-layout.has-active-chat .chats-sidebar {
         display: none !important;
@@ -6921,6 +6926,11 @@ input[type=number] {
 
     .chats-view-layout {
         height: calc(100% - 30px) !important;
+    }
+
+    .chats-view-layout.has-active-chat {
+        height: calc(100vh - 75px) !important;
+        height: calc(100dvh - 75px) !important;
     }
 
     .chats-header {
