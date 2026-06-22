@@ -6788,8 +6788,8 @@ input[type=number] {
     }
 
     .main-content.height-constrained-page {
-        height: calc(100vh - 80px) !important;
-        height: calc(100dvh - 80px) !important;
+        height: calc(100vh - 115px) !important;
+        height: calc(100dvh - 115px) !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
@@ -6800,13 +6800,15 @@ input[type=number] {
     .chats-view-layout {
         display: flex !important;
         width: 100% !important;
-        height: calc(100% - 50px) !important;
+        flex: 1 !important;
+        height: auto !important;
         min-height: 0 !important;
     }
 
     .chats-view-layout.has-active-chat {
-        height: calc(100vh - 100px) !important;
-        height: calc(100dvh - 100px) !important;
+        flex: 1 !important;
+        height: auto !important;
+        min-height: 0 !important;
     }
 
     /* When a group chat is active, show only the main chat window and hide list */
@@ -6817,7 +6819,9 @@ input[type=number] {
     .chats-view-layout.has-active-chat .chats-main-window {
         display: flex !important;
         width: 100% !important;
-        height: 100% !important;
+        flex: 1 !important;
+        height: auto !important;
+        min-height: 0 !important;
     }
 
     /* When no chat is active, show only the list of groups */
@@ -6828,11 +6832,6 @@ input[type=number] {
     }
 
     .chats-view-layout:not(.has-active-chat) .chats-main-window {
-        display: none !important;
-    }
-
-    /* Hide page header on mobile when a group chat is active to maximize screen height */
-    .main-content.height-constrained-page.has-active-chat > header {
         display: none !important;
     }
 
