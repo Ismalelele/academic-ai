@@ -779,14 +779,68 @@ export default function ClasesGrabadas() {
                   )}
 
                   {recordingTab === 'concepts' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                      <h4 style={{ margin: 0 }}>Conceptos Clave de la Sesión</h4>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                        {selectedRecording.conceptos_clave && selectedRecording.conceptos_clave.map((concept, idx) => (
-                          <div key={idx} style={{ padding: '10px 15px', background: 'var(--primary-light)', border: '1px solid var(--primary)', borderRadius: '8px', color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                            🔑 {concept}
-                          </div>
-                        ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)' }}>Conceptos Clave de la Sesión</h4>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Los términos y definiciones más importantes extraídos de la clase por la IA</p>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+                        {selectedRecording.conceptos_clave && selectedRecording.conceptos_clave.map((item, idx) => {
+                          const isObject = typeof item === 'object' && item !== null;
+                          const title = isObject ? (item.concepto || item.title || 'Concepto') : item;
+                          const definition = isObject ? (item.definicion || item.definition || 'Sin descripción disponible.') : 'Hazle preguntas al Asistente de Grabación abajo para profundizar en este concepto.';
+                          
+                          return (
+                            <div 
+                              key={idx} 
+                              style={{ 
+                                padding: '20px', 
+                                background: 'var(--card-bg)', 
+                                border: '1px solid var(--border-color)', 
+                                borderRadius: '14px', 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                gap: '10px',
+                                transition: 'all 0.2s ease',
+                                cursor: 'default',
+                                boxShadow: 'var(--shadow-sm)'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 8px 20px rgba(139, 92, 246, 0.08)';
+                                e.currentTarget.style.borderColor = 'var(--primary)';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.transform = 'none';
+                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                e.currentTarget.style.borderColor = 'var(--border-color)';
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ 
+                                  background: 'var(--primary-light)', 
+                                  color: 'var(--primary)', 
+                                  width: '32px', 
+                                  height: '32px', 
+                                  borderRadius: '50%', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  fontSize: '1rem',
+                                  flexShrink: 0
+                                }}>
+                                  🔑
+                                </div>
+                                <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '750', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {title}
+                                </h5>
+                              </div>
+                              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                                {definition}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1011,7 +1065,7 @@ export default function ClasesGrabadas() {
 
                 <div style={{ borderTop: '1px solid var(--border-color)', background: 'var(--card-bg)', padding: '15px 20px', display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                    <MessageSquare size={14} /> Asistente de Grabación RAG
+                    <MessageSquare size={14} /> Asistente de grabación
                   </div>
 
                   {recordingChatHistory.length > 0 && (

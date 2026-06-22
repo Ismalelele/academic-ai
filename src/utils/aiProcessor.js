@@ -652,11 +652,20 @@ export const generateRecordingSummary = async (transcript) => {
     throw new Error("No se encontró la API Key de Groq en el entorno.");
   }
 
+  const wordCount = transcript ? transcript.split(/\s+/).filter(Boolean).length : 0;
+  
+  // Calculate proportional counts:
+  // - Questions: 1 question per 200 words, min 1, max 10.
+  // - Flashcards: 1 flashcard per 120 words, min 1, max 15.
+  const targetQuestions = Math.min(10, Math.max(1, Math.round(wordCount / 200)));
+  const targetFlashcards = Math.min(15, Math.max(1, Math.round(wordCount / 120)));
+
   const systemPrompt = `Analiza la siguiente transcripción de una clase universitaria y genera material de estudio en JSON.
+Genera exactamente ${targetQuestions} preguntas de autoevaluación (preguntasPrueba) y exactamente ${targetFlashcards} fichas de estudio (flashcards). Esto es proporcional a la extensión de la clase (${wordCount} palabras).
 Formato:
 {
   "resumen": "Resumen estructurado de la clase en Markdown.",
-  "conceptosClave": ["Concepto 1"],
+  "conceptosClave": [{"concepto": "Concepto 1", "definicion": "Definición o explicación detallada en el contexto de la clase."}],
   "preguntasPrueba": [{"pregunta": "P?", "opciones": ["A", "B"], "respuestaCorrecta": "A", "explicacion": "Ex"}],
   "flashcards": [{"front": "Q", "back": "A"}]
 }`;
