@@ -1369,11 +1369,14 @@ body.dark-mode .chat-footer input {
     }
 
     .sidebar .logo {
-        margin-right: 12px;
+        margin-right: 0 !important;
+        justify-content: center !important;
+        padding: 12px 0 !important;
+        width: 100% !important;
     }
 
     .sidebar .logo h2 {
-        font-size: 1.1rem;
+        display: none !important;
     }
 
     .sidebar .nav-links {
@@ -1546,12 +1549,14 @@ body.dark-mode .chat-footer input {
     }
 
     .main-content {
-        padding: 60px 16px 110px 80px !important; /* Make room for open sidebar on mobile */
+        padding: 60px 16px 110px 80px !important;
+        /* Make room for open sidebar on mobile */
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     body.sidebar-collapsed .main-content {
-        padding-left: 16px !important; /* Content uses full screen width when sidebar is collapsed */
+        padding-left: 16px !important;
+        /* Content uses full screen width when sidebar is collapsed */
         padding-bottom: 110px !important;
     }
 
@@ -1636,11 +1641,13 @@ body.dark-mode .chat-footer input {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 60px 15px 110px 80px !important; /* Make room for open sidebar */
+        padding: 60px 15px 110px 80px !important;
+        /* Make room for open sidebar */
     }
 
     body.sidebar-collapsed .main-content {
-        padding-left: 15px !important; /* Content uses full screen width when sidebar is collapsed */
+        padding-left: 15px !important;
+        /* Content uses full screen width when sidebar is collapsed */
         padding-bottom: 110px !important;
     }
 
@@ -7105,26 +7112,26 @@ body.dark-mode .mobile-day-selector {
         width: 92% !important;
         max-width: calc(100% - 24px) !important;
     }
-    
+
     .study-block-actions {
         flex-direction: column-reverse;
         gap: 12px;
         align-items: stretch;
     }
-    
+
     .study-block-actions button.btn-danger {
         width: 100%;
         justify-content: center;
         padding: 12px;
     }
-    
+
     .study-block-actions .actions-right {
         flex-direction: column;
         width: 100%;
         gap: 8px;
         align-items: stretch;
     }
-    
+
     .study-block-actions .actions-right button {
         width: 100%;
         justify-content: center;
@@ -7179,17 +7186,17 @@ body.dark-mode .mobile-day-selector {
     }
 
     /* Common Card properties for smooth transitions */
-    .kpi-card, 
-    .recent-activity, 
-    .grade-summary-card, 
-    .dashboard-widget-card, 
+    .kpi-card,
+    .recent-activity,
+    .grade-summary-card,
+    .dashboard-widget-card,
     .todo-card {
-        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-                    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                    margin 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                    min-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                    transform 0.3s ease, 
-                    box-shadow 0.3s ease !important;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            margin 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            min-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+            transform 0.3s ease,
+            box-shadow 0.3s ease !important;
         max-height: 1200px;
         overflow: hidden;
     }
@@ -7203,7 +7210,8 @@ body.dark-mode .mobile-day-selector {
         padding-bottom: 20px !important;
         padding-left: 20px !important;
         padding-right: 20px !important;
-        margin: 0 !important; /* Let grid gap handle all spacing! */
+        margin: 0 !important;
+        /* Let grid gap handle all spacing! */
         justify-content: flex-start !important;
         display: flex !important;
         flex-direction: column !important;
@@ -7235,7 +7243,7 @@ body.dark-mode .mobile-day-selector {
     }
 
     /* For Recent Activity card: hide list items */
-    .panel-collapsed.recent-activity > *:not(h3):not(.panel-toggle-btn) {
+    .panel-collapsed.recent-activity>*:not(h3):not(.panel-toggle-btn) {
         display: none !important;
     }
 

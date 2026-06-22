@@ -299,7 +299,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const [chatHistory, setChatHistory] = useState(() => {
     const saved = sessionStorage.getItem('global_chatbot_chat');
     return saved ? JSON.parse(saved) : [
-      { sender: 'ai', text: `¡Hola! Soy tu asistente de AcademicAI. ¿Tienes alguna pregunta sobre tus tareas o asignaturas?` }
+      { sender: 'ai', text: `¡Hola! Soy tu asistente AURA (Asistente Universal de Refuerzo Académico). ¿Tienes alguna pregunta sobre tus tareas o asignaturas?` }
     ];
   });
   const [showChatTooltip, setShowChatTooltip] = useState(() => {
@@ -706,8 +706,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         </button>
 
         {/* Logo (Desktop only) */}
-        <div className="logo desktop-only">
-          <h2>Academic<span>AI</span></h2>
+        <div className="logo desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '15px 20px', marginBottom: '20px' }}>
+          <img src="/logo.png" alt="A.U.R.A Logo" style={{ height: '46px', width: '46px', objectFit: 'contain' }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '0.5px' }}>A.U.R.A</h2>
         </div>
 
         {/* Navigation Scroll Wrap */}

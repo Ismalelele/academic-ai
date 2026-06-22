@@ -357,10 +357,21 @@ export default function Home() {
 
   return (
     <main className="main-content">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
-        <div>
-          <h1 className="page-title">Gestión Académica</h1>
-          <p className="subtitle">Tu panel de control académico inteligente</p>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', marginTop: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <img 
+            src="/logo.png" 
+            alt="A.U.R.A Logo" 
+            style={{ 
+              height: '100px', 
+              width: '100px', 
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 6px 15px rgba(139, 92, 246, 0.2))' 
+            }} 
+          />
+          <div>
+            <p className="subtitle" style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-muted)' }}>Asistente Universal de Refuerzo Académico</p>
+          </div>
         </div>
       </header>
 

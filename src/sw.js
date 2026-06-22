@@ -31,7 +31,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Al hacer clic en la notificación, abre o enfoca la pestaña de AcademicAI
+  // Al hacer clic en la notificación, abre o enfoca la pestaña de AURA
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       // Si ya hay una pestaña abierta con la app, enfócala
@@ -51,19 +51,19 @@ self.addEventListener('notificationclick', (event) => {
 // Manejo de notificaciones Push en segundo plano
 self.addEventListener('push', (event) => {
   console.log('[Service Worker] Notificación Push recibida.');
-  let data = { title: 'AcademicAI', body: 'Nueva notificación recibida' };
+  let data = { title: 'AURA', body: 'Nueva notificación recibida' };
   
   if (event.data) {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'AcademicAI', body: event.data.text() };
+      data = { title: 'AURA', body: event.data.text() };
     }
   }
 
   const options = {
     body: data.body || data.message || '',
-    icon: '/favicon.ico',
+    icon: '/icon-192x192.png',
     vibrate: [200, 100, 200],
     data: data.data || {},
     requireInteraction: true

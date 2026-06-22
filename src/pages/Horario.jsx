@@ -134,7 +134,7 @@ export default function Horario() {
           start: eventStart,
           end: eventEnd,
           location: 'Universidad',
-          description: `Generado por AcademicAI`
+          description: `Generado por AURA`
         });
       });
     }
@@ -143,7 +143,7 @@ export default function Horario() {
     const blob = new Blob([icsString], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'horario_academic_ai.ics';
+    link.download = 'horario_aura.ics';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

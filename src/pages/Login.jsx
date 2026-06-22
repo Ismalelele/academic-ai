@@ -199,26 +199,22 @@ export default function Login() {
       }}>
         {/* Cabecera / Logo */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center' }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: '26px',
-            fontWeight: '900',
-            boxShadow: '0 10px 25px rgba(139, 92, 246, 0.3)',
-          }}>
-            AI
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="A.U.R.A Logo" 
+            style={{ 
+              width: '80px', 
+              height: '80px', 
+              objectFit: 'contain',
+              marginBottom: '5px',
+              filter: 'drop-shadow(0 10px 15px rgba(139, 92, 246, 0.2))'
+            }} 
+          />
           <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '5px 0 0 0', color: '#ffffff', letterSpacing: '-0.5px' }}>
-            Academic AI
+            A.U.R.A
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0' }}>
-            Tu ecosistema universitario inteligente
+            Asistente Universal de Refuerzo Académico
           </p>
         </div>
 

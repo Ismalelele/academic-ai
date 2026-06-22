@@ -41,13 +41,13 @@ export const generateICS = (events) => {
   const icsLines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//AcademicAI//Calendar Sync//ES',
+    'PRODID:-//AURA//Calendar Sync//ES',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH'
   ];
 
   events.forEach(event => {
-    const uid = event.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@academicai.com`;
+    const uid = event.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@aura.com`;
     const dtStamp = formatDateToICS(new Date());
     const dtStart = formatDateToICS(event.start);
     const dtEnd = formatDateToICS(event.end);

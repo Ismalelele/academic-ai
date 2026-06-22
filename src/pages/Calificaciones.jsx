@@ -141,7 +141,7 @@ export default function Calificaciones() {
       setIsExporting(false);
       
       const content = `=========================================
-AcademicAI - Boletín de Calificaciones
+AURA - Boletín de Calificaciones
 Estudiante: ${user?.user_metadata?.full_name || user?.email || 'Estudiante'}
 Fecha de generación: ${new Date().toLocaleDateString()}
 =========================================
@@ -154,7 +154,7 @@ Detalle de evaluaciones:
 ${rows.filter(r => r.note && r.weight).map((r, i) => `Eva ${i+1}: Nota ${formatCleanAverage(parseGrade(r.note))} (${r.weight}%)`).join('\n')}
 
 =========================================
-Generado automáticamente por AcademicAI
+Generado automáticamente por AURA
 `;
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);

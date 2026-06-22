@@ -19,15 +19,15 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       },
       manifest: {
-        name: 'Academic AI',
-        short_name: 'AcademicAI',
-        description: 'Plataforma Inteligente de Gestión Estudiantil',
+        name: 'A.U.R.A',
+        short_name: 'A.U.R.A',
+        description: 'A.U.R.A - Asistente Universal de Refuerzo Académico',
         theme_color: '#f4f7f9',
         background_color: '#f4f7f9',
         display: 'standalone',
         protocol_handlers: [
           {
-            protocol: "web+academic",
+            protocol: "web+aura",
             url: "/calendario?event=%s"
           }
         ],
