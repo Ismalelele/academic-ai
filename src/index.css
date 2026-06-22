@@ -7286,3 +7286,58 @@ body.dark-mode .mobile-day-selector {
     min-height: 110px !important;
     padding: 16px 20px !important;
 }
+
+/* Add Class buttons panel */
+.add-class-buttons-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 15px 20px;
+    margin-top: 15px;
+    margin-bottom: 35px;
+    box-shadow: var(--shadow-sm);
+}
+
+.add-class-buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+}
+
+.add-class-btn {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px dashed var(--primary);
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-weight: 700;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.add-class-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .add-class-buttons-grid {
+        grid-template-columns: 1fr;
+    }
+    /* On mobile, only show the button for the active day */
+    .add-class-btn {
+        display: none !important;
+    }
+    .add-class-btn.active-day-btn {
+        display: flex !important;
+    }
+}

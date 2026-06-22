@@ -496,47 +496,6 @@ export default function Horario() {
                         );
                       })}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const startH = 8, startM = 15, endH = 9, endM = 35;
-                          const { top, height } = calculateVisuals(startH, startM, endH, endM);
-                          setTempSchedule([...tempSchedule, {
-                            id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                            title: '',
-                            day: dayIndex,
-                            startH,
-                            startM,
-                            endH,
-                            endM,
-                            top,
-                            height,
-                            type: 'cultura'
-                          }]);
-                        }}
-                        style={{ 
-                          position: 'absolute',
-                          bottom: '10px',
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          zIndex: 10,
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: '1px dashed var(--border-color)', 
-                          background: 'var(--card-bg)', 
-                          color: 'var(--text-muted)', 
-                          fontSize: '0.75rem', 
-                          cursor: 'pointer', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          gap: '4px', 
-                          fontWeight: 700,
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        ➕ Clase
-                      </button>
                     </div>
                   );
                 })}
@@ -636,6 +595,38 @@ export default function Horario() {
           </div>
         </div>
       </div>
+
+      {isEditingSchedule && (
+        <div className="add-class-buttons-panel">
+          <div className="add-class-buttons-grid">
+            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((dayName, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className={`add-class-btn day-${idx} ${selectedDayMobile === idx ? 'active-day-btn' : ''}`}
+                onClick={() => {
+                  const startH = 8, startM = 15, endH = 9, endM = 35;
+                  const { top, height } = calculateVisuals(startH, startM, endH, endM);
+                  setTempSchedule([...tempSchedule, {
+                    id: 'block-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                    title: '',
+                    day: idx,
+                    startH,
+                    startM,
+                    endH,
+                    endM,
+                    top,
+                    height,
+                    type: 'cultura'
+                  }]);
+                }}
+              >
+                ➕ Clase ({dayName})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
 
 
