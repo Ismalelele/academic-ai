@@ -185,7 +185,7 @@ export const NotificationProvider = ({ children }) => {
       navigator.serviceWorker.ready.then((registration) => {
         registration.showNotification(title, {
           body: message,
-          icon: '/favicon.ico', // Reemplaza con el ícono de la app si lo tienes
+          icon: '/icon-192x192.png', // Reemplaza con el ícono de la app si lo tienes
           vibrate: [200, 100, 200],
           requireInteraction: true // Evita que la notificación desaparezca sola
         });
