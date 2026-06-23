@@ -125,7 +125,43 @@ body.dark-mode {
     padding: 0;
     box-sizing: border-box;
     font-family: 'Plus Jakarta Sans', sans-serif;
-    transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+body,
+.main-content,
+.app-container,
+.card,
+.notebook-card,
+.note-item,
+.notes-sidebar,
+.notes-workspace,
+.chats-sidebar,
+.chats-main-window,
+.chats-messages-area,
+.chats-header,
+.group-tab-selector,
+.premium-modal,
+.modal-content,
+.notification-panel,
+.chatbot-window,
+nav,
+.nav-dropdown-trigger,
+.nav-submenu,
+a,
+button,
+input,
+select,
+textarea,
+h1, h2, h3, h4, h5, h6,
+p,
+span,
+li,
+i,
+svg {
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {

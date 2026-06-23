@@ -1127,7 +1127,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selecciona un degradado premium:</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selecciona un color para mostrar en tu imagen de perfil:</span>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                         {presetGradients.map((grad, i) => (
                           <div
