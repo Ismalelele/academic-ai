@@ -491,6 +491,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           navigate('/chats');
           setShowNotifications(false);
         }
+      } else if (prefix === 'clase_termino') {
+        navigate('/apuntes');
+        setShowNotifications(false);
       }
     }
   };
@@ -606,7 +609,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
             </div>
           ) : (
             displayedNotifications.map(n => {
-              const isClickable = n.type && (n.type.startsWith('pizarra:') || n.type.startsWith('chat:') || n.type.startsWith('request:'));
+              const isClickable = n.type && (n.type.startsWith('pizarra:') || n.type.startsWith('chat:') || n.type.startsWith('request:') || n.type.startsWith('clase_termino:'));
               const isSelected = selectedIds.has(n.id);
               
               // Determinar color bar
@@ -614,7 +617,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
               let typeClass = 'info';
               if (prefix === 'chat') typeClass = 'chat';
               else if (prefix === 'urgente' || prefix === 'tarea') typeClass = 'urgente';
-              else if (prefix === 'clase') typeClass = 'clase';
+              else if (prefix === 'clase' || prefix === 'clase_termino') typeClass = 'clase';
               else if (prefix === 'estudio') typeClass = 'estudio';
 
               return (
@@ -651,6 +654,74 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                   >
                     <h4>{n.title}</h4>
                     <p style={{ whiteSpace: 'pre-line' }}>{n.message}</p>
+                    {n.type && n.type.startsWith('clase_termino:') && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                            navigate('/apuntes');
+                            setShowNotifications(false);
+                          }}
+                          className="btn-primary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.75rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: 'var(--primary)',
+                            color: '#fff',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 4px rgba(14, 165, 233, 0.2)'
+                          }}
+                        >
+                          Ir a Apuntes
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                            navigate('/tareas');
+                            setShowNotifications(false);
+                          }}
+                          className="btn-secondary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.75rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: 'var(--primary-light)',
+                            color: 'var(--primary)',
+                            border: '1px solid var(--primary)',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Ir a Tareas
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                            navigate('/clases');
+                            setShowNotifications(false);
+                          }}
+                          className="btn-secondary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.75rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: 'var(--primary-light)',
+                            color: 'var(--primary)',
+                            border: '1px solid var(--primary)',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Ir a Repositorio
+                        </button>
+                      </div>
+                    )}
                     <span className="notification-time">{formatDate(n.createdAt)}</span>
                   </div>
                   {!isDeleteMode && (

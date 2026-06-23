@@ -405,6 +405,46 @@ export const NotificationProvider = ({ children }) => {
         });
       }
 
+      // 1.5 Clases: Avisar 5 minutos después del término de la clase
+      if (currentSchedule && currentSchedule.length > 0) {
+        const todaysClasses = currentSchedule
+          .filter(cls => cls.day === currentDay)
+          .sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
+
+        todaysClasses.forEach((cls, index) => {
+          if (!cls.isSuspended) {
+            const endMins = cls.endH * 60 + cls.endM;
+            if (currentMins === endMins + 5) {
+              let shouldNotify = true;
+              const nextCls = todaysClasses.slice(index + 1).find(c => {
+                const nextStartMins = c.startH * 60 + c.startM;
+                return nextStartMins >= endMins;
+              });
+
+              if (nextCls) {
+                const nextStartMins = nextCls.startH * 60 + nextCls.startM;
+                const gap = nextStartMins - endMins;
+                if (gap >= 0 && gap <= 5 && !nextCls.isSuspended) {
+                  shouldNotify = false;
+                }
+              }
+
+              if (shouldNotify) {
+                const msg = `Terminó tu clase de ${cls.title}. Recuerda registrar los puntos clave de hoy en Apuntes, actualizar tus Tareas pendientes o revisar tu Repositorio para mantener al día tus archivos.`;
+                const alreadyAlerted = notificationsRef.current.some(n =>
+                  n.title === 'Fin de Clase' &&
+                  n.message.includes(cls.title) &&
+                  (new Date(n.createdAt).toDateString() === now.toDateString())
+                );
+                if (!alreadyAlerted) {
+                  addNotificationRef.current('Fin de Clase', msg, `clase_termino:${cls.id || 'general'}`);
+                }
+              }
+            }
+          }
+        });
+      }
+
       // 2. Tareas: Avisar 15 minutos antes de la hora establecida (dailyAlertTime)
       if (currentDailyAlertTime) {
         const [alertH, alertM] = currentDailyAlertTime.split(':').map(Number);
