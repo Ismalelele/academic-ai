@@ -9,13 +9,41 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const syncGradesFromSupabase = async (userId) => {
+    if (!userId || userId.startsWith('user-local-')) return;
+    try {
+      const { data, error } = await supabase
+        .from('calificaciones')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        data.forEach(item => {
+          if (item.asignatura && item.notas_json) {
+            localStorage.setItem(`academic_${userId}_grades_${item.asignatura}`, JSON.stringify(item.notas_json));
+          }
+        });
+        console.log(`[Auth] Sincronizadas ${data.length} asignaturas de calificaciones desde Supabase.`);
+      }
+    } catch (err) {
+      console.warn("[Auth] No se pudieron sincronizar las calificaciones desde Supabase (puede que la tabla no esté creada aún):", err?.message || err);
+    }
+  };
+
   useEffect(() => {
     // Obtener sesión actual real desde Supabase
     const getSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        setUser(session?.user || null);
+        if (session?.user) {
+          setUser(session.user);
+          syncGradesFromSupabase(session.user.id);
+        } else {
+          setUser(null);
+        }
       } catch (err) {
         console.warn("Fallo al conectar con Supabase Auth en getSession:", err);
         setUser(null);
@@ -33,6 +61,7 @@ export const AuthProvider = ({ children }) => {
         (_event, session) => {
           if (session?.user) {
             setUser(session.user);
+            syncGradesFromSupabase(session.user.id);
           } else {
             setUser(null);
             clearAllUserData();

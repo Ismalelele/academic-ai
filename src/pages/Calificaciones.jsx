@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSchedule } from '../context/ScheduleContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { getSafeLocalStorage } from '../utils/storageSecurity';
 import { marked } from 'marked';
 import { 
@@ -187,19 +188,62 @@ Generado automáticamente por AURA
     }
   }, [uniqueSubjects, activeSubject]);
 
-  // Load grades from localStorage when subject or user changes
+  // Load grades from Supabase / localStorage when subject or user changes
   useEffect(() => {
+    let active = true;
     if (user && activeSubject) {
-      const saved = getSafeLocalStorage(`academic_${user.id}_grades_${activeSubject}`, user.id, null);
-      if (saved) {
-        setRows(saved);
-      } else {
-        setRows([
-          { id: '1', note: '', weight: '' },
-          { id: '2', note: '', weight: '' },
-          { id: '3', note: '', weight: '' }
-        ]);
-      }
+      const fetchGrades = async () => {
+        // Cargar localmente primero para respuesta instantánea
+        const localSaved = getSafeLocalStorage(`academic_${user.id}_grades_${activeSubject}`, user.id, null);
+        if (localSaved && active) {
+          setRows(localSaved);
+        }
+
+        // Intentar cargar de Supabase para asegurar sincronización
+        if (!user.id.startsWith('user-local-')) {
+          try {
+            const { data, error } = await supabase
+              .from('calificaciones')
+              .select('notas_json')
+              .eq('user_id', user.id)
+              .eq('asignatura', activeSubject)
+              .maybeSingle();
+
+            if (error) throw error;
+
+            if (data && data.notas_json && active) {
+              setRows(data.notas_json);
+              localStorage.setItem(`academic_${user.id}_grades_${activeSubject}`, JSON.stringify(data.notas_json));
+            } else if (!localSaved && active) {
+              setRows([
+                { id: '1', note: '', weight: '' },
+                { id: '2', note: '', weight: '' },
+                { id: '3', note: '', weight: '' }
+              ]);
+            }
+          } catch (err) {
+            console.warn("Fallo al conectar con Supabase para cargar calificaciones:", err?.message || err);
+            if (!localSaved && active) {
+              setRows([
+                { id: '1', note: '', weight: '' },
+                { id: '2', note: '', weight: '' },
+                { id: '3', note: '', weight: '' }
+              ]);
+            }
+          }
+        } else {
+          if (!localSaved && active) {
+            setRows([
+              { id: '1', note: '', weight: '' },
+              { id: '2', note: '', weight: '' },
+              { id: '3', note: '', weight: '' }
+            ]);
+          }
+        }
+      };
+
+      fetchGrades();
+
       setAiAnalysisOutdated(false);
       const savedAnalysisStr = localStorage.getItem(`academic_${user.id}_ai_analysis_${activeSubject}`);
       if (savedAnalysisStr) {
@@ -213,12 +257,33 @@ Generado automáticamente por AURA
         setAiResult('');
       }
     }
+    return () => {
+      active = false;
+    };
   }, [activeSubject, user]);
 
-  const saveRows = (updatedRows) => {
+  const saveRows = async (updatedRows) => {
     setRows(updatedRows);
     if (user && activeSubject) {
       localStorage.setItem(`academic_${user.id}_grades_${activeSubject}`, JSON.stringify(updatedRows));
+      
+      if (!user.id.startsWith('user-local-')) {
+        try {
+          const { error } = await supabase
+            .from('calificaciones')
+            .upsert({
+              user_id: user.id,
+              asignatura: activeSubject,
+              notas_json: updatedRows,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id, asignatura'
+            });
+          if (error) throw error;
+        } catch (err) {
+          console.warn("Fallo al upsertar calificaciones en Supabase (se mantiene localmente):", err?.message || err);
+        }
+      }
     }
   };
 

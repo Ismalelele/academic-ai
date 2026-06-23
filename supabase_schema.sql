@@ -214,4 +214,16 @@ CREATE TABLE IF NOT EXISTS public.planificacion_estudio (
 
 ALTER TABLE public.planificacion_estudio DISABLE ROW LEVEL SECURITY;
 
+-- 18. calificaciones
+CREATE TABLE IF NOT EXISTS public.calificaciones (
+    id_calificacion UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT null,
+    asignatura TEXT NOT null,
+    notas_json JSONB NOT null,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    CONSTRAINT unique_calificaciones_user_subject UNIQUE (user_id, asignatura)
+);
+
+ALTER TABLE public.calificaciones DISABLE ROW LEVEL SECURITY;
+
 

@@ -391,7 +391,7 @@ export const NotificationProvider = ({ children }) => {
           if (cls.day === currentDay && !cls.isSuspended) {
             const startMins = cls.startH * 60 + cls.startM;
             if (startMins - currentMins === 15) {
-              const msg = `Tu clase de ${cls.title} empieza en 15 minutos en ${cls.room || 'el Aula'}.`;
+              const msg = `Tu clase de ${cls.title} empieza en 15 minutos`;
               const alreadyAlerted = notificationsRef.current.some(n => 
                 n.title === 'Clase Próxima' && 
                 n.message === msg && 
