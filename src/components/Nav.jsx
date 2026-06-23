@@ -297,7 +297,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
 
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
-  const defaultChatGreeting = '¡Hola! Soy tu asistente Asistente Académico. ¿Tienes alguna pregunta sobre tus tareas o asignaturas?';
+  const defaultChatGreeting = '¡Hola! Soy tu Asistente Académico. ¿Tienes alguna pregunta sobre tus tareas o asignaturas?';
   const normalizeChatHistory = (history) => {
     if (!Array.isArray(history) || history.length === 0) {
       return [{ sender: 'ai', text: defaultChatGreeting }];
@@ -1169,7 +1169,7 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                       type="text"
                       className="premium-input"
                       style={{ paddingLeft: '15px' }}
-                      placeholder="Ej: Ismael Pérez"
+                      placeholder="Ej: Juan Pérez"
                       value={profileName}
                       onChange={(e) => setProfileName(e.target.value)}
                       required
