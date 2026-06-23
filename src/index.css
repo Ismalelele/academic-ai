@@ -164,6 +164,20 @@ svg {
                 box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Dashboard cards theme transitions (override custom transition shorthand) */
+.kpi-card,
+.recent-activity,
+.grade-summary-card,
+.dashboard-widget-card,
+.todo-card,
+.chat-widget {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
 body {
     background: var(--bg);
     color: var(--text-main);
