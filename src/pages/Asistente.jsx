@@ -18,6 +18,15 @@ export default function Asistente() {
     }
     return 'global';
   });
+
+  useEffect(() => {
+    if (activeSubject && activeSubject !== 'global' && schedule && schedule.length > 0) {
+      const matchedClass = schedule.find(c => c.id === activeSubject || c.title === activeSubject);
+      if (matchedClass && matchedClass.title !== activeSubject) {
+        setActiveSubject(matchedClass.title);
+      }
+    }
+  }, [activeSubject, schedule]);
   const [inputText, setInputText] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [showDocsMobile, setShowDocsMobile] = useState(false);

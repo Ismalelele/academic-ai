@@ -36,6 +36,15 @@ export default function Apuntes() {
     }
     return null;
   });
+
+  useEffect(() => {
+    if (activeSubject && effectiveSchedule && effectiveSchedule.length > 0) {
+      const matchedClass = effectiveSchedule.find(c => c.id === activeSubject || c.title === activeSubject);
+      if (matchedClass && matchedClass.title !== activeSubject) {
+        setActiveSubject(matchedClass.title);
+      }
+    }
+  }, [activeSubject, effectiveSchedule]);
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [editingNoteIdForTitle, setEditingNoteIdForTitle] = useState(null);

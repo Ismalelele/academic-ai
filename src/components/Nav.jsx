@@ -493,7 +493,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
         }
       } else if (prefix === 'clase_termino') {
         const subject = n.type.substring('clase_termino:'.length);
-        localStorage.setItem('academic_pending_notebook_subject', subject);
+        const classObj = effectiveSchedule?.find(c => c.id === subject || c.title === subject);
+        const subjectTitle = classObj ? classObj.title : subject;
+        localStorage.setItem('academic_pending_notebook_subject', subjectTitle);
         navigate('/apuntes');
         setShowNotifications(false);
       }
@@ -662,7 +664,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                           onClick={(e) => {
                             e.stopPropagation();
                             const subject = n.type.substring('clase_termino:'.length);
-                            localStorage.setItem('academic_pending_notebook_subject', subject);
+                            const classObj = effectiveSchedule?.find(c => c.id === subject || c.title === subject);
+                            const subjectTitle = classObj ? classObj.title : subject;
+                            localStorage.setItem('academic_pending_notebook_subject', subjectTitle);
                             markAsRead(n.id);
                             navigate('/apuntes');
                             setShowNotifications(false);
@@ -707,7 +711,9 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                           onClick={(e) => {
                             e.stopPropagation();
                             const subject = n.type.substring('clase_termino:'.length);
-                            localStorage.setItem('academic_pending_asistente_subject', subject);
+                            const classObj = effectiveSchedule?.find(c => c.id === subject || c.title === subject);
+                            const subjectTitle = classObj ? classObj.title : subject;
+                            localStorage.setItem('academic_pending_asistente_subject', subjectTitle);
                             markAsRead(n.id);
                             navigate('/asistente');
                             setShowNotifications(false);
