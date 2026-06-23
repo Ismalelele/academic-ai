@@ -28,7 +28,14 @@ export default function Apuntes() {
     }
   }, [effectiveSchedule]);
 
-  const [activeSubject, setActiveSubject] = useState(null);
+  const [activeSubject, setActiveSubject] = useState(() => {
+    const pending = localStorage.getItem('academic_pending_notebook_subject');
+    if (pending) {
+      localStorage.removeItem('academic_pending_notebook_subject');
+      return pending;
+    }
+    return null;
+  });
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [editingNoteIdForTitle, setEditingNoteIdForTitle] = useState(null);

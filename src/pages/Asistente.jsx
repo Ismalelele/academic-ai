@@ -10,7 +10,14 @@ export default function Asistente() {
   const { schedule } = useSchedule();
   const { user } = useAuth();
   const { subjectData, getSubjectData, uploadDocument, sendMessage, deleteDocument, clearDocuments, toggleDocumentSelection, renameDocument } = useChat();
-  const [activeSubject, setActiveSubject] = useState('global');
+  const [activeSubject, setActiveSubject] = useState(() => {
+    const pending = localStorage.getItem('academic_pending_asistente_subject');
+    if (pending) {
+      localStorage.removeItem('academic_pending_asistente_subject');
+      return pending;
+    }
+    return 'global';
+  });
   const [inputText, setInputText] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [showDocsMobile, setShowDocsMobile] = useState(false);

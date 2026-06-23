@@ -492,6 +492,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
           setShowNotifications(false);
         }
       } else if (prefix === 'clase_termino') {
+        const subject = n.type.substring('clase_termino:'.length);
+        localStorage.setItem('academic_pending_notebook_subject', subject);
         navigate('/apuntes');
         setShowNotifications(false);
       }
@@ -659,6 +661,8 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            const subject = n.type.substring('clase_termino:'.length);
+                            localStorage.setItem('academic_pending_notebook_subject', subject);
                             markAsRead(n.id);
                             navigate('/apuntes');
                             setShowNotifications(false);
@@ -702,8 +706,10 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            const subject = n.type.substring('clase_termino:'.length);
+                            localStorage.setItem('academic_pending_asistente_subject', subject);
                             markAsRead(n.id);
-                            navigate('/clases');
+                            navigate('/asistente');
                             setShowNotifications(false);
                           }}
                           className="btn-secondary"

@@ -436,8 +436,8 @@ export const NotificationProvider = ({ children }) => {
                   n.message.includes(cls.title) &&
                   (new Date(n.createdAt).toDateString() === now.toDateString())
                 );
-                if (!alreadyAlerted) {
-                  addNotificationRef.current('Fin de Clase', msg, `clase_termino:${cls.id || 'general'}`);
+                 if (!alreadyAlerted) {
+                  addNotificationRef.current('Fin de Clase', msg, `clase_termino:${cls.title}`);
                 }
               }
             }
