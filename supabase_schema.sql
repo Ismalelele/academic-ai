@@ -223,8 +223,42 @@ ALTER TABLE public.planificacion_estudio ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.calificaciones ENABLE ROW LEVEL SECURITY;
 
 -- =========================================================================
--- Row Level Security (RLS) Policies
+-- Row Level Security (RLS) Policies & Helper Functions
 -- =========================================================================
+
+-- Helper Functions to prevent Row Level Security (RLS) infinite recursion
+CREATE OR REPLACE FUNCTION public.es_miembro_del_grupo(grupo_uuid UUID)
+RETURNS BOOLEAN SECURITY DEFINER AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.chat_miembros 
+    WHERE id_grupo = grupo_uuid AND user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.es_miembro_aceptado_del_grupo(grupo_uuid UUID)
+RETURNS BOOLEAN SECURITY DEFINER AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.chat_miembros 
+    WHERE id_grupo = grupo_uuid AND user_id = auth.uid() AND estado = 'aceptado'
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.es_creador_del_grupo(grupo_uuid UUID)
+RETURNS BOOLEAN SECURITY DEFINER AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.chat_grupos 
+    WHERE id_grupo = grupo_uuid AND creador_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql;
 
 -- 1. carpetas
 DROP POLICY IF EXISTS "carpetas_owner_all" ON public.carpetas;
@@ -281,7 +315,7 @@ CREATE POLICY "chat_grupos_read_members" ON public.chat_grupos
     FOR SELECT TO authenticated
     USING (
         creador_id = auth.uid() OR 
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid())
+        public.es_miembro_del_grupo(id_grupo)
     );
 
 DROP POLICY IF EXISTS "chat_grupos_insert_authenticated" ON public.chat_grupos;
@@ -297,8 +331,9 @@ DROP POLICY IF EXISTS "chat_miembros_read_members" ON public.chat_miembros;
 CREATE POLICY "chat_miembros_read_members" ON public.chat_miembros
     FOR SELECT TO authenticated
     USING (
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid()) OR
-        id_grupo IN (SELECT id_grupo FROM public.chat_grupos WHERE creador_id = auth.uid())
+        user_id = auth.uid() OR
+        public.es_miembro_del_grupo(id_grupo) OR
+        public.es_creador_del_grupo(id_grupo)
     );
 
 DROP POLICY IF EXISTS "chat_miembros_insert_authenticated" ON public.chat_miembros;
@@ -310,11 +345,11 @@ CREATE POLICY "chat_miembros_owner_or_creator_all" ON public.chat_miembros
     FOR ALL TO authenticated 
     USING (
         user_id = auth.uid() OR 
-        id_grupo IN (SELECT id_grupo FROM public.chat_grupos WHERE creador_id = auth.uid())
+        public.es_creador_del_grupo(id_grupo)
     )
     WITH CHECK (
         user_id = auth.uid() OR 
-        id_grupo IN (SELECT id_grupo FROM public.chat_grupos WHERE creador_id = auth.uid())
+        public.es_creador_del_grupo(id_grupo)
     );
 
 -- 12. chat_mensajes
@@ -322,14 +357,14 @@ DROP POLICY IF EXISTS "chat_mensajes_read_members" ON public.chat_mensajes;
 CREATE POLICY "chat_mensajes_read_members" ON public.chat_mensajes
     FOR SELECT TO authenticated
     USING (
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado')
+        public.es_miembro_aceptado_del_grupo(id_grupo)
     );
 
 DROP POLICY IF EXISTS "chat_mensajes_insert_members" ON public.chat_mensajes;
 CREATE POLICY "chat_mensajes_insert_members" ON public.chat_mensajes
     FOR INSERT TO authenticated
     WITH CHECK (
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado') AND
+        public.es_miembro_aceptado_del_grupo(id_grupo) AND
         user_id = auth.uid()
     );
 
@@ -344,14 +379,14 @@ DROP POLICY IF EXISTS "group_library_read_members" ON public.group_library;
 CREATE POLICY "group_library_read_members" ON public.group_library
     FOR SELECT TO authenticated
     USING (
-        group_id IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado')
+        public.es_miembro_aceptado_del_grupo(group_id)
     );
 
 DROP POLICY IF EXISTS "group_library_insert_members" ON public.group_library;
 CREATE POLICY "group_library_insert_members" ON public.group_library
     FOR INSERT TO authenticated
     WITH CHECK (
-        group_id IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado') AND
+        public.es_miembro_aceptado_del_grupo(group_id) AND
         user_id = auth.uid()
     );
 
@@ -366,7 +401,10 @@ DROP POLICY IF EXISTS "library_ratings_read_members" ON public.library_ratings;
 CREATE POLICY "library_ratings_read_members" ON public.library_ratings
     FOR SELECT TO authenticated
     USING (
-        item_id IN (SELECT id FROM public.group_library WHERE group_id IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado'))
+        EXISTS (
+            SELECT 1 FROM public.group_library 
+            WHERE id = item_id AND public.es_miembro_aceptado_del_grupo(group_id)
+        )
     );
 
 DROP POLICY IF EXISTS "library_ratings_owner_all" ON public.library_ratings;
@@ -385,17 +423,17 @@ DROP POLICY IF EXISTS "pizarras_grupos_read_members" ON public.pizarras_grupos;
 CREATE POLICY "pizarras_grupos_read_members" ON public.pizarras_grupos
     FOR SELECT TO authenticated
     USING (
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado')
+        public.es_miembro_aceptado_del_grupo(id_grupo)
     );
 
 DROP POLICY IF EXISTS "pizarras_grupos_write_members" ON public.pizarras_grupos;
 CREATE POLICY "pizarras_grupos_write_members" ON public.pizarras_grupos
     FOR ALL TO authenticated
     USING (
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado')
+        public.es_miembro_aceptado_del_grupo(id_grupo)
     )
     WITH CHECK (
-        id_grupo IN (SELECT id_grupo FROM public.chat_miembros WHERE user_id = auth.uid() AND estado = 'aceptado')
+        public.es_miembro_aceptado_del_grupo(id_grupo)
     );
 
 -- 17. planificacion_estudio
