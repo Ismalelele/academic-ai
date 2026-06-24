@@ -14,7 +14,7 @@ const formatDeadlineSafely = (deadlineStr) => {
 };
 
 export default function Tareas() {
-  const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, isProcessing, clearStudyBlocks, updateStudyBlock, deleteStudyBlock, updateClass } = useSchedule();
+  const { effectiveSchedule, studyBlocks, predefBlocks, generateStudyRoutine, restoreStudyBlocks, isProcessing, clearStudyBlocks, updateStudyBlock, deleteStudyBlock, updateClass } = useSchedule();
   const { tasks, isLoading, addTask, updateTaskStatus, updateTask, deleteTask, deleteMultipleTasks } = useTasks();
   const { user } = useAuth();
 
@@ -54,6 +54,9 @@ export default function Tareas() {
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredSlot, setHoveredSlot] = useState(null);
   const [toasts, setToasts] = useState([]);
+
+  // Snapshot para deshacer la ultima regeneracion automatica del planificador
+  const [previousStudyBlocks, setPreviousStudyBlocks] = useState(null);
 
   const [editingStudyBlock, setEditingStudyBlock] = useState(null);
   const [editStudyBlockData, setEditStudyBlockData] = useState({
@@ -372,7 +375,16 @@ export default function Tareas() {
                         <CheckCircle2 size={14} />
                       </button>
                     )}
-                    <button className="btn-edit-task" onClick={() => handleEditTaskClick(task)}><Pencil size={14} /></button>
+                    {!isDone && (
+                      <button
+                        className="btn-edit-task"
+                        onClick={() => handleEditTaskClick(task)}
+                        title={(!task.deadline || task.tag === 'General' || task.status === 'inbox') ? 'Tarea con datos incompletos - no sera planificada por la IA' : 'Editar tarea'}
+                        style={{ color: (!task.deadline || task.tag === 'General' || task.status === 'inbox') ? '#fbbf24' : undefined }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
                     <button className="btn-delete-task" onClick={() => handleDeleteTask(task.id)}><Trash2 size={14} /></button>
                   </div>
                 </div>
@@ -463,6 +475,23 @@ export default function Tareas() {
         </div>
       </header>
 
+      {(() => {
+        const incomplete = tasks.filter(t =>
+          t.status !== 'done' &&
+          t.status !== 'inbox' &&
+          (!t.deadline || t.tag === 'General')
+        );
+        if (incomplete.length === 0) return null;
+        return (
+          <div className="optimization-banner">
+            Tienes {incomplete.length} tarea{incomplete.length !== 1 ? 's' : ''} con datos incompletos.
+            Para que el Asistente de IA las asigne automaticamente en tu agenda semanal,
+            asegurate de editar la tarjeta, asignar una asignatura especifica y definir
+            una fecha de entrega formal.
+          </div>
+        );
+      })()}
+
       <div className="tareas-split-container">
         {/* Mitad Superior: Kanban Board */}
         <div className="kanban-board-half">
@@ -495,9 +524,33 @@ export default function Tareas() {
                   Limpiar Planificación
                 </button>
               )}
+              {previousStudyBlocks !== null && (
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    restoreStudyBlocks(previousStudyBlocks);
+                    setPreviousStudyBlocks(null);
+                    showToast('Plan revertido al estado anterior.', 'test');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fbbf24', background: 'rgba(251,191,36,0.08)', color: '#fbbf24', cursor: 'pointer', transition: '0.3s', fontSize: '0.85rem', fontWeight: 700 }}
+                >
+                  Deshacer Cambios
+                </button>
+              )}
               <button
                 className="btn-secondary"
-                onClick={() => generateStudyRoutine(tasks.filter(t => t.status !== 'done'), true)}
+                onClick={() => {
+                  setPreviousStudyBlocks(studyBlocks ? [...studyBlocks] : []);
+                  generateStudyRoutine(
+                    tasks.filter(t =>
+                      t.status !== 'done' &&
+                      t.status !== 'inbox' &&
+                      t.tag !== 'General' &&
+                      t.deadline && t.deadline !== ''
+                    ),
+                    true
+                  );
+                }}
                 disabled={isProcessing}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer', transition: '0.3s', fontSize: '0.85rem', fontWeight: 700 }}
               >

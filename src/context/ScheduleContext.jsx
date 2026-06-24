@@ -680,7 +680,22 @@ export const ScheduleProvider = ({ children }) => {
     if (isCleared && !force) {
       return;
     }
-    if (!pendingTasks || pendingTasks.length === 0) {
+
+    // ─── FILTRO DE ELEGIBILIDAD ──────────────────────────────────────────────
+    // Una tarea es elegible para planificarse SOLO si cumple las tres condiciones:
+    //   1. No está en 'Bandeja de Entrada' (inbox) — ideas en bruto, no listas.
+    //   2. Tiene una asignatura específica (distinta de 'General').
+    //   3. Tiene una fecha de entrega definida.
+    // Las tareas que no cumplan alguna condición se omiten silenciosamente.
+    // ─────────────────────────────────────────────────────────────────────────
+    const eligibleTasks = (pendingTasks || []).filter(task =>
+      task.status !== 'inbox' &&
+      task.tag !== 'General' &&
+      task.deadline && task.deadline !== ''
+    );
+
+    if (eligibleTasks.length === 0) {
+      // No hay nada planificable: limpiar el plan sin tocar el localStorage cleared flag
       setStudyBlocks([]);
       if (user) {
         localStorage.removeItem(`academic_${user.id}_study_blocks`);
@@ -691,22 +706,107 @@ export const ScheduleProvider = ({ children }) => {
     setIsProcessing(true);
     try {
       const freeBlocks = findAvailableBlocks(effectiveSchedule);
+
+      // ─── ALGORITMO DE DISTRIBUCIÓN CON ESPACIADO (INTERLOCKING) ─────────────
+      // Constantes de negocio:
+      //   MAX_CONSECUTIVE: máximo de bloques seguidos por día antes de obligar descanso.
+      //   BUFFER_MINS: minutos mínimos entre sesiones en el mismo día.
+      // La distribución es round-robin entre días (Lun→Mar→Mié→…) para evitar
+      // que un solo día quede saturado.
+      // ────────────────────────────────────────────────────────────────────────
+      const MAX_CONSECUTIVE = 2;   // máximo 2 bloques seguidos por día
+      const BUFFER_MINS = 30;      // descanso obligatorio de al menos 30 minutos
+
+      // Agrupar freeBlocks por día y ordenarlos cronológicamente
+      const freeByDay = {};
+      for (const fb of freeBlocks) {
+        if (!freeByDay[fb.day]) freeByDay[fb.day] = [];
+        freeByDay[fb.day].push(fb);
+      }
+      for (const day of Object.keys(freeByDay)) {
+        freeByDay[day].sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
+      }
+
+      // Función de selección de slots con control de espaciado y round-robin
+      const pickBlocksWithSpacing = (neededCount) => {
+        const picked = [];
+        // Contadores de espaciado por día
+        const consecByDay = {};   // { day: número de bloques consecutivos asignados }
+        const lastEndByDay = {};  // { day: minutos del fin del último bloque asignado }
+        // Punteros de posición por día para no reiniciar en cada llamada
+        if (!pickBlocksWithSpacing._pointers) pickBlocksWithSpacing._pointers = {};
+        const pointers = pickBlocksWithSpacing._pointers;
+
+        const days = Object.keys(freeByDay).map(Number).sort();
+        let dayIdx = 0;
+        let maxPasses = freeBlocks.length * 2; // guardia anti-bucle infinito
+
+        while (picked.length < neededCount && maxPasses-- > 0) {
+          if (days.length === 0) break;
+          const day = days[dayIdx % days.length];
+          const slots = freeByDay[day];
+          const ptr = pointers[day] || 0;
+
+          if (ptr >= slots.length) {
+            // Este día ya se agotó, quitar de la rotación
+            days.splice(dayIdx % days.length, 1);
+            if (days.length === 0) break;
+            dayIdx = dayIdx % days.length;
+            continue;
+          }
+
+          const fb = slots[ptr];
+          const key = `${fb.day}-${fb.startH}-${fb.startM}`;
+          const fbStartMins = fb.startH * 60 + fb.startM;
+          const lastEnd = lastEndByDay[day] || 0;
+          const consec = consecByDay[day] || 0;
+
+          // Verificar si ya fue usado por otra tarea
+          if (pickBlocksWithSpacing._used.has(key)) {
+            pointers[day] = ptr + 1;
+            dayIdx = (dayIdx + 1) % days.length;
+            continue;
+          }
+
+          // Aplicar restricción de espaciado:
+          // Si se alcanzó el máximo de consecutivos Y el gap con el bloque anterior
+          // es menor al buffer, saltar al siguiente slot de este día.
+          if (consec >= MAX_CONSECUTIVE && lastEnd > 0 && (fbStartMins - lastEnd) < BUFFER_MINS) {
+            pointers[day] = ptr + 1;
+            // No cambiar dayIdx: revisamos el siguiente slot del mismo día
+            continue;
+          }
+
+          // Aceptar el bloque
+          picked.push(fb);
+          pickBlocksWithSpacing._used.add(key);
+          pointers[day] = ptr + 1;
+          // Actualizar contadores: si el bloque es contiguo (+0 min gap) → consecutivo
+          consecByDay[day] = (lastEnd > 0 && fbStartMins - lastEnd <= 1) ? consec + 1 : 1;
+          lastEndByDay[day] = fb.endH * 60 + fb.endM;
+
+          // Avanzar al siguiente día (round-robin)
+          dayIdx = (dayIdx + 1) % days.length;
+        }
+        return picked;
+      };
+      // Conjunto global de slots ya usados (compartido entre llamadas de la misma generación)
+      pickBlocksWithSpacing._used = new Set();
+      pickBlocksWithSpacing._pointers = {};
+
       let aiBlocks;
       try {
-        aiBlocks = await generateStudyPlan(freeBlocks, pendingTasks);
+        aiBlocks = await generateStudyPlan(freeBlocks, eligibleTasks);
       } catch (aiErr) {
-        console.warn("Groq failed, scheduling locally:", aiErr);
+        console.warn("Groq failed, scheduling locally with spacing algorithm:", aiErr);
         aiBlocks = [];
-        let blockIdx = 0;
-        const sortedTasks = [...pendingTasks].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
-        
+        const sortedTasks = [...eligibleTasks].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+
         for (const task of sortedTasks) {
           const neededHours = task.estimatedTime || 2;
           const blocksNeeded = Math.ceil((neededHours * 60) / 40);
-          
-          for (let b = 0; b < blocksNeeded; b++) {
-            if (blockIdx >= freeBlocks.length) break;
-            const fb = freeBlocks[blockIdx++];
+          const picked = pickBlocksWithSpacing(blocksNeeded);
+          for (const fb of picked) {
             aiBlocks.push({
               day: fb.day,
               startH: fb.startH,
@@ -715,38 +815,40 @@ export const ScheduleProvider = ({ children }) => {
               endM: fb.endM,
               taskTitle: task.title,
               priority: task.priorityScore > 80 ? 'high' : 'medium',
-              reason: 'Asignado automáticamente en ventana libre.'
+              reason: 'Asignado con espaciado automático en ventana libre.'
             });
           }
         }
       }
-      
+
       if (Array.isArray(aiBlocks)) {
-        // --- VALIDACIÓN DE TRASLAPE Y VENTANA LIBRE ---
-        // Asegurar que los bloques sugeridos coincidan con un bloque en freeBlocks
-        const validatedBlocks = aiBlocks.filter(b => {
-          return freeBlocks.some(fb => 
+        // Validar que los bloques de la IA correspondan a slots realmente libres
+        const validatedBlocks = aiBlocks.filter(b =>
+          freeBlocks.some(fb =>
             fb.day === b.day &&
             fb.startH === b.startH &&
             fb.startM === b.startM &&
             fb.endH === b.endH &&
             fb.endM === b.endM
-          );
-        });
+          )
+        );
 
-        // Garantizar proporcionalidad: Math.ceil((task.estimatedTime * 60) / 40)
+        // Asignación final con espaciado para la respuesta de la IA
+        // (también cubre el caso de fallback local ya resuelto arriba)
         const processedBlocks = [];
         const usedFreeBlockKeys = new Set();
-        
-        const sortedTasks = [...pendingTasks].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
-        
+        // Reiniciar estado del espaciado para la pasada de la IA
+        pickBlocksWithSpacing._used = usedFreeBlockKeys;
+        pickBlocksWithSpacing._pointers = {};
+
+        const sortedTasks = [...eligibleTasks].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+
         for (const task of sortedTasks) {
           const neededHours = task.estimatedTime || 2;
           const blocksNeeded = Math.ceil((neededHours * 60) / 40);
-          
-          // Obtener los bloques generados por la IA para esta tarea
+
+          // Usar los bloques que la IA sugirió para esta tarea (si están validados)
           const taskAiBlocks = validatedBlocks.filter(b => b.taskTitle === task.title);
-          
           const keptBlocks = [];
           for (const b of taskAiBlocks) {
             const key = `${b.day}-${b.startH}-${b.startM}`;
@@ -755,35 +857,26 @@ export const ScheduleProvider = ({ children }) => {
               usedFreeBlockKeys.add(key);
             }
           }
-          
           processedBlocks.push(...keptBlocks);
-          
-          // Si faltan bloques para cubrir la proporcionalidad, rellenamos con ventanas libres
+
+          // Completar con el algoritmo de espaciado si faltan bloques
           if (keptBlocks.length < blocksNeeded) {
-            const missingCount = blocksNeeded - keptBlocks.length;
-            let addedCount = 0;
-            
-            for (const fb of freeBlocks) {
-              if (addedCount >= missingCount) break;
-              const key = `${fb.day}-${fb.startH}-${fb.startM}`;
-              if (!usedFreeBlockKeys.has(key)) {
-                processedBlocks.push({
-                  day: fb.day,
-                  startH: fb.startH,
-                  startM: fb.startM,
-                  endH: fb.endH,
-                  endM: fb.endM,
-                  taskTitle: task.title,
-                  priority: task.priorityScore > 80 ? 'high' : 'medium',
-                  reason: 'Asignado automáticamente en ventana libre para cumplir horas de estudio.'
-                });
-                usedFreeBlockKeys.add(key);
-                addedCount++;
-              }
+            const extra = pickBlocksWithSpacing(blocksNeeded - keptBlocks.length);
+            for (const fb of extra) {
+              processedBlocks.push({
+                day: fb.day,
+                startH: fb.startH,
+                startM: fb.startM,
+                endH: fb.endH,
+                endM: fb.endM,
+                taskTitle: task.title,
+                priority: task.priorityScore > 80 ? 'high' : 'medium',
+                reason: 'Completado con espaciado automático para cumplir horas de estudio.'
+              });
             }
           }
         }
-        
+
         let finalBlocks = processedBlocks;
 
         const formattedBlocks = finalBlocks.map((b, i) => {
@@ -820,8 +913,8 @@ export const ScheduleProvider = ({ children }) => {
         //   para mantener el plan coherente con las tareas actuales.
         // ─────────────────────────────────────────────────────────────────────
         setStudyBlocks(prevBlocks => {
-          // Conjunto de títulos de tareas pendientes actuales
-          const pendingTitles = new Set(pendingTasks.map(t => t.title));
+          // Conjunto de títulos de tareas elegibles actuales (ya filtradas)
+          const pendingTitles = new Set(eligibleTasks.map(t => t.title));
 
           // Mapa de los bloques actuales indexados por clave de timeslot
           const prevBySlot = new Map(
@@ -886,6 +979,22 @@ export const ScheduleProvider = ({ children }) => {
     }
   };
 
+  // ─── RESTAURAR PLANIFICACIÓN (UNDO SNAPSHOT) ─────────────────────────────
+  // Revierte el estado de studyBlocks a un snapshot guardado previamente.
+  // Se persiste en localStorage de forma inmediata para que el Dashboard
+  // refleje el cambio sin necesidad de recargar la página.
+  // ────────────────────────────────────────────────────────────────────────
+  const restoreStudyBlocks = (snapshot) => {
+    if (!Array.isArray(snapshot)) return;
+    setStudyBlocks(snapshot);
+    if (user) {
+      localStorage.setItem(
+        `academic_${user.id}_study_blocks`,
+        JSON.stringify(snapshot)
+      );
+    }
+  };
+
   return (
     <ScheduleContext.Provider value={{ 
       schedule, 
@@ -901,6 +1010,7 @@ export const ScheduleProvider = ({ children }) => {
       updateClass,
       saveFullSchedule,
       generateStudyRoutine,
+      restoreStudyBlocks,
       reportClassSuspension,
       removeClassSuspension,
       getColorType,

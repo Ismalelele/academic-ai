@@ -163,6 +163,11 @@ export const TaskProvider = ({ children }) => {
   const addTask = async (title, status, tag, deadline, estimatedTime, type, manualPriority = 1) => {
     if (!user) return null;
 
+    // Regla de negocio: las tareas en Bandeja de Entrada son ideas en bruto.
+    // Se les fija 1 hora de estudio para no saturar el planificador si luego
+    // se mueven a una columna planificable sin editar el tiempo manualmente.
+    const normalizedEstimatedTime = status === 'inbox' ? 1 : (estimatedTime || 2);
+
     const localNewTask = {
       id: `task-local-${Date.now()}`,
       title,
@@ -170,7 +175,7 @@ export const TaskProvider = ({ children }) => {
       tag,
       priority: 'medium',
       deadline: deadline || null,
-      estimatedTime: estimatedTime || 2,
+      estimatedTime: normalizedEstimatedTime,
       type: type || 'Tarea',
       manualPriority
     };
@@ -194,7 +199,7 @@ export const TaskProvider = ({ children }) => {
           estado: status,
           etiqueta: tag,
           fecha_entrega: deadline || null,
-          tiempo_estimado: estimatedTime || 2,
+          tiempo_estimado: normalizedEstimatedTime,
           tipo: type || 'Tarea',
           prioridad_manual: manualPriority
         }])
