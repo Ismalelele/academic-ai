@@ -803,10 +803,81 @@ export const ScheduleProvider = ({ children }) => {
             reason: b.reason || 'Bloque de estudio sugerido'
           };
         });
-        setStudyBlocks(formattedBlocks);
-        if (user) {
-          localStorage.setItem(`academic_${user.id}_study_blocks`, JSON.stringify(formattedBlocks));
-        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // FUSIÓN NO DESTRUCTIVA (UPSERT LOCAL)
+        // Algoritmo de diffing basado en clave compuesta (day-startH-startM).
+        //
+        // Regla 1 – Conservar posición manual: si el usuario ya tiene un bloque
+        //   de estudio ocupando exactamente el mismo timeslot (day + hora inicio)
+        //   se preserva tal cual, sin importar si el título cambió.
+        //
+        // Regla 2 – Agregar bloques nuevos: los slots que la IA sugirió pero que
+        //   aún no existen en el estado actual se insertan incrementalmente.
+        //
+        // Regla 3 – Eliminar bloques de tareas que ya no existen: los bloques
+        //   cuyo `title` (taskTitle) ya no aparece en `pendingTasks` se descartan
+        //   para mantener el plan coherente con las tareas actuales.
+        // ─────────────────────────────────────────────────────────────────────
+        setStudyBlocks(prevBlocks => {
+          // Conjunto de títulos de tareas pendientes actuales
+          const pendingTitles = new Set(pendingTasks.map(t => t.title));
+
+          // Mapa de los bloques actuales indexados por clave de timeslot
+          const prevBySlot = new Map(
+            prevBlocks.map(b => [`${b.day}-${b.startH}-${b.startM}`, b])
+          );
+
+          // Mapa de los bloques nuevos generados por la IA, por clave de timeslot
+          const newBySlot = new Map(
+            formattedBlocks.map(b => [`${b.day}-${b.startH}-${b.startM}`, b])
+          );
+
+          // Paso 1: Filtrar bloques anteriores que aún son válidos.
+          //   - Si el timeslot existe en los nuevos bloques → actualizar sólo los
+          //     campos no posicionales (priority, reason) pero conservar id y pos.
+          //   - Si el timeslot NO existe en los nuevos, pero la tarea aún está
+          //     pendiente → conservarlo (el usuario lo movió manualmente).
+          //   - Si la tarea ya no está pendiente → eliminarlo.
+          const survivingBlocks = prevBlocks
+            .filter(b => pendingTitles.has(b.title)) // Regla 3: descartar tareas finalizadas
+            .map(b => {
+              const slotKey = `${b.day}-${b.startH}-${b.startM}`;
+              const incoming = newBySlot.get(slotKey);
+              if (incoming && incoming.title === b.title) {
+                // Mismo slot y misma tarea → actualizar metadatos, conservar posición
+                return { ...b, priority: incoming.priority, reason: incoming.reason };
+              }
+              // Slot diferente o no presente en nuevo plan → conservar tal cual (Regla 1)
+              return b;
+            });
+
+          // Paso 2: Identificar los slots del plan nuevo que no están cubiertos
+          //   por ningún bloque superviviente.
+          const survivingSlotKeys = new Set(
+            survivingBlocks.map(b => `${b.day}-${b.startH}-${b.startM}`)
+          );
+
+          const addedBlocks = formattedBlocks.filter(b => {
+            const slotKey = `${b.day}-${b.startH}-${b.startM}`;
+            return !survivingSlotKeys.has(slotKey); // Regla 2: sólo agregar slots realmente nuevos
+          });
+
+          const merged = [...survivingBlocks, ...addedBlocks];
+
+          // Persistir inmediatamente en localStorage para reactividad en Dashboard
+          if (user) {
+            localStorage.setItem(
+              `academic_${user.id}_study_blocks`,
+              JSON.stringify(merged)
+            );
+          }
+
+          return merged;
+          // Nota: el useEffect de sync (línea ~189) ya dispara el upsert con
+          // debounce de 1200ms hacia `planificacion_estudio` en Supabase,
+          // evitando llamadas redundantes por cada elemento nuevo.
+        });
       }
     } catch (error) {
       console.error("Error generating study routine:", error);
