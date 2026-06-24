@@ -1,4 +1,67 @@
+// =========================================================================
+// CIRCUIT BREAKER (DISYUNTOR) CON PERSISTENCIA EN SESSIONSTORAGE
+// =========================================================================
+const getCircuitBreaker = () => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return { state: 'CLOSED', failures: 0, nextActionTime: 0 };
+  }
+  
+  const state = sessionStorage.getItem('academic_cb_state') || 'CLOSED';
+  const failures = parseInt(sessionStorage.getItem('academic_cb_failures') || '0', 10);
+  const nextActionTime = parseInt(sessionStorage.getItem('academic_cb_next_action_time') || '0', 10);
+  
+  return { state, failures, nextActionTime };
+};
+
+const updateCircuitBreaker = (updates) => {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  
+  if (updates.state !== undefined) sessionStorage.setItem('academic_cb_state', updates.state);
+  if (updates.failures !== undefined) sessionStorage.setItem('academic_cb_failures', updates.failures.toString());
+  if (updates.nextActionTime !== undefined) sessionStorage.setItem('academic_cb_next_action_time', updates.nextActionTime.toString());
+};
+
+const checkCircuitBreaker = () => {
+  const cb = getCircuitBreaker();
+  
+  if (cb.state === 'OPEN') {
+    if (Date.now() >= cb.nextActionTime) {
+      // Cooldown terminado, pasar a HALF-OPEN para probar
+      updateCircuitBreaker({ state: 'HALF-OPEN' });
+      return true; // Permitido
+    }
+    // Circuito sigue abierto
+    return false; // Denegado
+  }
+  
+  return true; // CLOSED o HALF-OPEN permitido
+};
+
+const recordSuccess = () => {
+  updateCircuitBreaker({ state: 'CLOSED', failures: 0, nextActionTime: 0 });
+};
+
+const recordFailure = () => {
+  const cb = getCircuitBreaker();
+  const nextFailures = cb.failures + 1;
+  
+  if (cb.state === 'HALF-OPEN' || nextFailures >= 5) {
+    // Abrir circuito por 60 segundos
+    updateCircuitBreaker({
+      state: 'OPEN',
+      failures: nextFailures,
+      nextActionTime: Date.now() + 60000
+    });
+  } else {
+    updateCircuitBreaker({ failures: nextFailures });
+  }
+};
+
 const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
+  if (!checkCircuitBreaker()) {
+    throw new Error("CIRCUIT_OPEN");
+  }
+
   let retries = 0;
   while (true) {
     try {
@@ -7,6 +70,7 @@ const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
       if (response.status === 429) {
         retries++;
         if (retries > maxRetries) {
+          recordFailure();
           return response;
         }
 
@@ -39,10 +103,16 @@ const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
         continue;
       }
 
+      if (!response.ok) {
+        recordFailure();
+      } else {
+        recordSuccess();
+      }
       return response;
     } catch (error) {
       retries++;
       if (retries > maxRetries) {
+        recordFailure();
         throw error;
       }
       const waitMs = Math.pow(2, retries) * 1000;
@@ -50,6 +120,62 @@ const fetchGroqWithRetry = async (url, options = {}, maxRetries = 3) => {
       await new Promise(resolve => setTimeout(resolve, waitMs));
     }
   }
+};
+
+export const askGeminiTextFallback = async (systemPrompt, userPrompt, jsonFormat = false) => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("No se configuró la API Key de Gemini.");
+  }
+
+  const prompt = `${systemPrompt}\n\n[Instrucción del Usuario]:\n${userPrompt}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const bodyPayload = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }]
+      }
+    ],
+    generationConfig: {
+      temperature: jsonFormat ? 0.1 : 0.3
+    }
+  };
+
+  if (jsonFormat) {
+    bodyPayload.generationConfig.responseMimeType = "application/json";
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(bodyPayload)
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("Gemini Fallback Error:", data);
+    throw new Error(data.error?.message || "Error en la API de Gemini.");
+  }
+
+  const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawContent) {
+    throw new Error("Respuesta vacía de Gemini.");
+  }
+
+  if (jsonFormat) {
+    const cleanJsonString = rawContent
+      .replace(/^\s*```\s*json\s*/gi, '') // Elimina ```json (con posibles espacios/saltos antes/después) al inicio
+      .replace(/\s*```\s*$/g, '')        // Elimina los ``` de cierre (con posibles espacios/saltos antes/después) al final
+      .trim();
+    return cleanJsonString;
+  }
+
+  return rawContent;
 };
 
 export const askGroq = async (question, contextText, unselectedDocs = []) => {
@@ -74,7 +200,7 @@ export const askGroq = async (question, contextText, unselectedDocs = []) => {
 Tu única fuente de conocimiento es el texto proporcionado a continuación. 
 Responde la pregunta del usuario utilizando EXCLUSIVAMENTE la información del texto proporcionado. 
 Si la respuesta no se encuentra en el texto proporcionado, debes responder: "No lo sé, los apuntes marcados actualmente no mencionan esto." No inventes información.${unselectedInfo}
-
+ 
 --- INICIO DEL DOCUMENTO ---
 ${text}
 --- FIN DEL DOCUMENTO ---`;
@@ -100,16 +226,21 @@ ${text}
 
     if (!response.ok) {
       console.error("Groq Error:", data);
-      if (response.status === 429) {
-        return "⚠️ El servidor de Inteligencia Artificial (Groq) está saturado. Por favor, espera unos segundos e intenta enviar de nuevo su consulta.";
-      }
-      return `❌ Error de Groq: ${data.error?.message || 'Error desconocido'}`;
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     return data.choices[0].message.content;
   } catch (error) {
-    console.error("Fetch Error:", error);
-    return "❌ Error de red al intentar contactar a Groq.";
+    console.error("Error in askGroq, trying Gemini fallback:", error);
+    try {
+      return await askGeminiTextFallback(systemPrompt, question, false);
+    } catch (geminiError) {
+      console.error("Gemini Fallback also failed:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        return "⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.";
+      }
+      return "❌ Error de conexión al intentar contactar a los servidores de Inteligencia Artificial.";
+    }
   }
 };
 
@@ -137,14 +268,17 @@ Usa este contexto para dar una recomendación. Sé directo, y si hay tareas pend
     });
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        return "⚠️ Servidor de IA saturado. Por favor, intenta de nuevo en unos segundos.";
-      }
-      return "Error de IA.";
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
     return data.choices[0].message.content;
   } catch (error) {
-    return "Error de red.";
+    console.error("Error in askDashboardGroq, trying Gemini fallback:", error);
+    try {
+      return await askGeminiTextFallback(systemPrompt, question, false);
+    } catch (geminiError) {
+      console.error("Gemini Fallback also failed in askDashboardGroq:", geminiError);
+      return "Error de IA.";
+    }
   }
 };
 
@@ -207,10 +341,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo en unos segundos.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     const content = data.choices[0].message.content;
@@ -229,8 +360,30 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
     return uniqueBlocks;
   } catch (error) {
-    console.error("Error en generateStudyPlan:", error);
-    throw error;
+    console.error("Error en generateStudyPlan, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, userPrompt, true);
+      const parsed = JSON.parse(content);
+      const rutina = parsed.rutina || [];
+
+      const uniqueBlocks = [];
+      const seenKeys = new Set();
+      for (const b of rutina) {
+        const key = `${b.day}-${b.startH}-${b.startM}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          uniqueBlocks.push(b);
+        }
+      }
+
+      return uniqueBlocks;
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateStudyPlan con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -285,18 +438,22 @@ Reglas:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
     return parsed.sugerencias || [];
   } catch (error) {
-    console.error("Error en generateToolSuggestions:", error);
-    return [];
+    console.error("Error en generateToolSuggestions, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, `Genera las sugerencias de estudio específicas para la asignatura de: ${subjectName}.`, true);
+      const parsed = JSON.parse(content);
+      return parsed.sugerencias || [];
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateToolSuggestions con Gemini Fallback:", geminiError);
+      return [];
+    }
   }
 };
 
@@ -359,18 +516,25 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
     return parsed.quiz || [];
   } catch (error) {
-    console.error("Error en generateQuizFromNotes:", error);
-    throw error;
+    console.error("Error en generateQuizFromNotes, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, userPrompt, true);
+      const parsed = JSON.parse(content);
+      return parsed.quiz || [];
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateQuizFromNotes con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -418,17 +582,23 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     const content = data.choices[0].message.content;
     return JSON.parse(content);
   } catch (error) {
-    console.error("Error en analyzeUploadedDocument:", error);
-    throw error;
+    console.error("Error en analyzeUploadedDocument, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, `Analiza críticamente el siguiente texto:\n\n${text}`, true);
+      return JSON.parse(content);
+    } catch (geminiError) {
+      console.error("Fallo definitivo en analyzeUploadedDocument con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -466,16 +636,21 @@ export const generateDocumentSummary = async (documentText, summaryType) => {
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     return data.choices[0].message.content;
   } catch (error) {
-    console.error("Error en generateDocumentSummary:", error);
-    throw error;
+    console.error("Error en generateDocumentSummary, intentando fallback de Gemini:", error);
+    try {
+      return await askGeminiTextFallback(systemPrompt, `Genera un resumen ${isShort ? 'corto' : 'completo'} del siguiente texto:\n\n${text}`, false);
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateDocumentSummary con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -528,18 +703,25 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
     return parsed.quiz || [];
   } catch (error) {
-    console.error("Error en generateQuizFromText:", error);
-    throw error;
+    console.error("Error en generateQuizFromText, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, `Genera mi quiz interactivo basado en este texto:\n\n${text}`, true);
+      const parsed = JSON.parse(content);
+      return parsed.quiz || [];
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateQuizFromText con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -587,16 +769,21 @@ Devuelve tu respuesta estructurada en dos o tres párrafos cortos en formato Mar
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     return data.choices[0].message.content;
   } catch (error) {
-    console.error("Error en getAcademicRiskAnalysis:", error);
-    throw error;
+    console.error("Error en getAcademicRiskAnalysis, intentando fallback de Gemini:", error);
+    try {
+      return await askGeminiTextFallback(systemPrompt, `Analiza mi situación actual para el ramo ${subjectName} e indícame qué debo hacer.`, false);
+    } catch (geminiError) {
+      console.error("Fallo definitivo en getAcademicRiskAnalysis con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -628,20 +815,20 @@ export const transcribeAudio = async (audioBlob) => {
         "Authorization": `Bearer ${apiKey}`
       },
       body: formData
-    });
+    }, 1); // Forzar maxRetries = 1 para Whisper
 
     const data = await response.json();
     if (!response.ok) {
       console.error("Error en Groq Whisper:", data);
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de transcripción (Groq Whisper) está saturado. Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || "Error al transcribir el audio.");
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     return data.text;
   } catch (error) {
     console.error("Error en transcribeAudio:", error);
+    if (error.message === "CIRCUIT_OPEN") {
+      throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+    }
     throw error;
   }
 };
@@ -690,16 +877,22 @@ Formato:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || "Error al generar los materiales de la clase.");
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     return JSON.parse(data.choices[0].message.content);
   } catch (error) {
-    console.error("Error en generateRecordingSummary:", error);
-    throw error;
+    console.error("Error en generateRecordingSummary, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, `Transcripción de la clase:\n${transcript}`, true);
+      return JSON.parse(content);
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateRecordingSummary con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -741,16 +934,21 @@ ${text}
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        return "⚠️ El servidor de Inteligencia Artificial (Groq) está saturado. Por favor, espera unos segundos e intenta enviar de nuevo su consulta.";
-      }
-      throw new Error(data.error?.message || "Error al procesar la pregunta.");
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     return data.choices[0].message.content;
   } catch (error) {
-    console.error("Error en askTranscriptAI:", error);
-    return "❌ Error de red al intentar contactar a Groq.";
+    console.error("Error en askTranscriptAI, intentando fallback de Gemini:", error);
+    try {
+      return await askGeminiTextFallback(systemPrompt, question, false);
+    } catch (geminiError) {
+      console.error("Fallo definitivo en askTranscriptAI con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        return "⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.";
+      }
+      return "❌ Error de conexión al intentar contactar a los servidores de Inteligencia Artificial.";
+    }
   }
 };
 
@@ -771,7 +969,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
   "quiz": [
     {
       "id": 1,
-       pregrunta: "", opciones: [], respuestaCorrecta: 0
+      "pregunta": "", opciones: [], respuestaCorrecta: 0
     }
   ]
 }`;
@@ -796,18 +994,25 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
 
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("⚠️ El servidor de Groq está saturado (Límite 429). Por favor, intenta de nuevo.");
-      }
-      throw new Error(data.error?.message || 'Error de API');
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
     return parsed.quiz || [];
   } catch (error) {
-    console.error("Error en generateCustomQuiz:", error);
-    throw error;
+    console.error("Error en generateCustomQuiz, intentando fallback de Gemini:", error);
+    try {
+      const content = await askGeminiTextFallback(systemPrompt, `Genera mi quiz interactivo de ${numQuestions} preguntas basado en este texto:\n\n${text}`, true);
+      const parsed = JSON.parse(content);
+      return parsed.quiz || [];
+    } catch (geminiError) {
+      console.error("Fallo definitivo en generateCustomQuiz con Gemini Fallback:", geminiError);
+      if (error.message === "CIRCUIT_OPEN") {
+        throw new Error("⚠️ El servicio de Inteligencia Artificial se encuentra en mantenimiento temporal. Por favor, intenta de nuevo en un minuto.");
+      }
+      throw error;
+    }
   }
 };
 
@@ -818,10 +1023,8 @@ export const scheduleAiNotifications = async (userId, schedule = [], tasks = [],
 
   // Try to generate via Groq if API Key is available
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  if (apiKey) {
-    try {
-      const localNowString = now.toLocaleString('es-ES', { timeZoneName: 'short' });
-      const systemPrompt = `Eres un coach motivacional y mentor de estudio. Tu rol es EXCLUSIVAMENTE inspirar, motivar y dar soporte psicológico/académico al estudiante.
+  const localNowString = now.toLocaleString('es-ES', { timeZoneName: 'short' });
+  const systemPrompt = `Eres un coach motivacional y mentor de estudio. Tu rol es EXCLUSIVAMENTE inspirar, motivar y dar soporte psicológico/académico al estudiante.
 Tu labor es calendarizar alertas de motivación, consejos de estudio y soporte emocional para el estudiante en las próximas 24 horas.
 Recibirás:
 - La fecha y hora actual: ${localNowString}
@@ -838,6 +1041,8 @@ REGLAS DE PROGRAMACIÓN ESTRICTAS:
 Devuelve EXCLUSIVAMENTE un JSON:
 { "alerts": [{ "id": "ai-alert-id", "title": "⚡ Mensaje Motivacional", "message": "Tu mensaje inspirador con tiempo absoluto", "triggerTime": "ISO String" }] }`;
 
+  if (apiKey) {
+    try {
       const response = await fetchGroqWithRetry('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -887,7 +1092,29 @@ Devuelve EXCLUSIVAMENTE un JSON:
         }
       }
     } catch (e) {
-      console.warn("Error calling Groq for AI scheduled notifications, falling back to local heuristic scheduling:", e);
+      console.warn("Error calling Groq for AI scheduled notifications, trying Gemini fallback:", e);
+      try {
+        const content = await askGeminiTextFallback(systemPrompt, "Genera mis consejos motivacionales y alertas de acompañamiento para las próximas 24 horas.", true);
+        const parsed = JSON.parse(content);
+        if (parsed.alerts && Array.isArray(parsed.alerts)) {
+          const formattedAlerts = parsed.alerts
+            .map(alert => {
+              const trigger = new Date(alert.triggerTime);
+              if (trigger.getHours() < 8) {
+                trigger.setHours(8, 0, 0, 0);
+              } else if (trigger.getHours() >= 20) {
+                trigger.setHours(20, 0, 0, 0);
+              }
+              if (trigger <= now) return null;
+              return { ...alert, triggerTime: trigger.toISOString(), fired: false };
+            })
+            .filter(alert => alert !== null);
+          localStorage.setItem(key, JSON.stringify(formattedAlerts));
+          return formattedAlerts;
+        }
+      } catch (geminiErr) {
+        console.warn("Fallo en Gemini Fallback para alertas programadas:", geminiErr);
+      }
     }
   }
 
