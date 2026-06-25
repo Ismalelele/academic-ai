@@ -6,6 +6,14 @@ precacheAndRoute(self.__WB_MANIFEST);
 let activeChatId = null;
 let isAppVisible = false;
 
+const getAppAssetUrl = (assetPath) => {
+  const scopeUrl = self.registration?.scope || self.location.origin;
+  return new URL(assetPath, scopeUrl).toString();
+};
+
+const getNotificationIcon = () => getAppAssetUrl('/logo.png');
+const getNotificationBadge = () => getAppAssetUrl('/badge.svg');
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   console.log('[Service Worker] Instalado exitosamente con Workbox.');
@@ -24,6 +32,16 @@ self.addEventListener('message', (event) => {
     if (event.data.type === 'SET_APP_VISIBILITY') {
       isAppVisible = event.data.visible;
     }
+  }
+});
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'academic-reminders') {
+    event.waitUntil(
+      Promise.resolve().then(() => {
+        console.log('[Service Worker] Sincronización académica registrada.');
+      })
+    );
   }
 });
 
@@ -63,7 +81,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body || data.message || '',
-    icon: '/icon-192x192.png',
+    icon: getNotificationIcon(),
+    badge: getNotificationBadge(),
     vibrate: [200, 100, 200],
     data: data.data || {},
     requireInteraction: true

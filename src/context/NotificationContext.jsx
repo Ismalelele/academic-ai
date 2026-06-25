@@ -185,13 +185,13 @@ export const NotificationProvider = ({ children }) => {
       navigator.serviceWorker.ready.then((registration) => {
         registration.showNotification(title, {
           body: message,
-          icon: '/icon-192x192.png', // Reemplaza con el ícono de la app si lo tienes
+          icon: new URL('/logo.png', window.location.origin).toString(),
+          badge: new URL('/badge.svg', window.location.origin).toString(),
           vibrate: [200, 100, 200],
-          requireInteraction: true // Evita que la notificación desaparezca sola
+          requireInteraction: true
         });
       }).catch(err => {
         console.error("Error lanzando Push a través de Service Worker:", err);
-        // Fallback si falla el SW
         new Notification(title, { body: message });
       });
     }
@@ -357,179 +357,23 @@ export const NotificationProvider = ({ children }) => {
     localStorage.setItem('alertTime', dailyAlertTime);
   }, [dailyAlertTime]);
 
-  const dailyAlertTimeRef = useRef(dailyAlertTime);
-  useEffect(() => {
-    dailyAlertTimeRef.current = dailyAlertTime;
-  }, [dailyAlertTime]);
-
-  const lastAlertTimeRef = useRef(null);
-
-  // 3. Lógica automática (Comprobar horario y tareas cada minuto)
   useEffect(() => {
     if (!user) return;
 
-    const checkAlerts = async () => {
-      const now = new Date();
-      const currentMinuteString = `${now.getHours()}:${now.getMinutes()}`;
-      
-      // Evitar que se dispare dos veces en el mismo minuto por re-renders de React
-      if (lastAlertTimeRef.current === currentMinuteString) return;
-      lastAlertTimeRef.current = currentMinuteString;
+    const registerBackgroundReminderSync = async () => {
+      try {
+        if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
-      const jsDay = now.getDay();
-      const currentDay = jsDay === 0 ? 6 : jsDay - 1; 
-      const currentMins = now.getHours() * 60 + now.getMinutes();
-
-      const currentSchedule = effectiveScheduleRef.current;
-      const currentTasks = tasksRef.current;
-      const currentStudyBlocks = studyBlocksRef.current;
-      const currentDailyAlertTime = dailyAlertTimeRef.current;
-
-      // 1. Clases: Avisar 15 minutos antes
-      if (currentSchedule && currentSchedule.length > 0) {
-        currentSchedule.forEach(cls => {
-          if (cls.day === currentDay && !cls.isSuspended) {
-            const startMins = cls.startH * 60 + cls.startM;
-            if (startMins - currentMins === 15) {
-              const msg = `Tu clase de ${cls.title} empieza en 15 minutos`;
-              const alreadyAlerted = notificationsRef.current.some(n => 
-                n.title === 'Clase Próxima' && 
-                n.message === msg && 
-                (new Date(n.createdAt).toDateString() === now.toDateString())
-              );
-              if (!alreadyAlerted) {
-                addNotificationRef.current('Clase Próxima', msg, 'clase');
-              }
-            }
-          }
-        });
-      }
-
-      // 1.5 Clases: Avisar 5 minutos después del término de la clase
-      if (currentSchedule && currentSchedule.length > 0) {
-        const todaysClasses = currentSchedule
-          .filter(cls => cls.day === currentDay)
-          .sort((a, b) => (a.startH * 60 + a.startM) - (b.startH * 60 + b.startM));
-
-        todaysClasses.forEach((cls, index) => {
-          if (!cls.isSuspended) {
-            const endMins = cls.endH * 60 + cls.endM;
-            if (currentMins === endMins + 5) {
-              let shouldNotify = true;
-              const nextCls = todaysClasses.slice(index + 1).find(c => {
-                const nextStartMins = c.startH * 60 + c.startM;
-                return nextStartMins >= endMins;
-              });
-
-              if (nextCls) {
-                const nextStartMins = nextCls.startH * 60 + nextCls.startM;
-                const gap = nextStartMins - endMins;
-                if (gap >= 0 && gap <= 5 && !nextCls.isSuspended) {
-                  shouldNotify = false;
-                }
-              }
-
-              if (shouldNotify) {
-                const msg = `Terminó tu clase de ${cls.title}. Recuerda registrar los puntos clave de hoy en Apuntes, actualizar tus Tareas pendientes o revisar tu Repositorio para mantener al día tus archivos.`;
-                const alreadyAlerted = notificationsRef.current.some(n =>
-                  n.title === 'Fin de Clase' &&
-                  n.message.includes(cls.title) &&
-                  (new Date(n.createdAt).toDateString() === now.toDateString())
-                );
-                 if (!alreadyAlerted) {
-                  addNotificationRef.current('Fin de Clase', msg, `clase_termino:${cls.title}`);
-                }
-              }
-            }
-          }
-        });
-      }
-
-      // 2. Tareas: Avisar 15 minutos antes de la hora establecida (dailyAlertTime)
-      if (currentDailyAlertTime) {
-        const [alertH, alertM] = currentDailyAlertTime.split(':').map(Number);
-        const alertMins = alertH * 60 + alertM;
-        if (alertMins - currentMins === 15) {
-          const pendientes = currentTasks ? currentTasks.filter(t => t.status !== 'done') : [];
-          pendientes.forEach(task => {
-            const msg = `Tienes la tarea pendiente "${task.title}" del ramo "${task.tag || 'General'}".`;
-            const alreadyAlerted = notificationsRef.current.some(n => 
-              n.title === 'Recordatorio de Tarea' && 
-              n.message === msg &&
-              (new Date(n.createdAt).toDateString() === now.toDateString())
-            );
-            if (!alreadyAlerted) {
-              addNotificationRef.current('Recordatorio de Tarea', msg, 'urgente');
-            }
-          });
+        const registration = await navigator.serviceWorker.ready;
+        if (registration.sync) {
+          await registration.sync.register('academic-reminders');
         }
-      }
-
-      // 3. Bloques de Estudio (IA): Avisar 15 minutos antes
-      if (currentStudyBlocks && currentStudyBlocks.length > 0) {
-        currentStudyBlocks.forEach(block => {
-          if (block.day === currentDay) {
-            const startMins = block.startH * 60 + block.startM;
-            if (startMins - currentMins === 15) {
-              const taskTitle = block.taskTitle || block.title || 'Estudio';
-              const msg = `Tu bloque de estudio para '${taskTitle}' empieza en 15 minutos.`;
-              const alreadyAlerted = notificationsRef.current.some(n => 
-                n.title === 'Bloque de Estudio' && 
-                n.message === msg &&
-                (new Date(n.createdAt).toDateString() === now.toDateString())
-              );
-              if (!alreadyAlerted) {
-                addNotificationRef.current('Bloque de Estudio', msg, 'estudio');
-              }
-            }
-          }
-        });
-      }
-
-      // 4. Alertas calendarizadas por la IA
-      const savedAiAlerts = getSafeLocalStorage(`academic_${user.id}_ai_scheduled_alerts`, user.id, null);
-      if (savedAiAlerts) {
-        try {
-          let alerts = savedAiAlerts;
-          let updated = false;
-          
-          alerts.forEach(alert => {
-            if (alert.fired) return;
-
-            const triggerTime = new Date(alert.triggerTime);
-            if (triggerTime <= now) {
-              const ageInMs = now.getTime() - triggerTime.getTime();
-              
-              // 1. Si la alerta es vieja (más de 10 min), descártala automáticamente.
-              if (ageInMs > 10 * 60 * 1000) { 
-                 alert.fired = true; 
-                 updated = true;
-                 return;
-              }
-
-              // 3. Solo dispara si estamos en horario diurno (08:00 - 20:00)
-              if (now.getHours() >= 8 && now.getHours() < 20) {
-                  addNotificationRef.current(alert.title || '💡 Asistente Académico', alert.message, 'info');
-              }
-              
-              alert.fired = true;
-              updated = true;
-            }
-          });
-          
-          if (updated) {
-            localStorage.setItem(`academic_${user.id}_ai_scheduled_alerts`, JSON.stringify(alerts));
-          }
-        } catch (e) {
-          console.error("Error checking AI scheduled alerts:", e);
-        }
+      } catch (error) {
+        console.warn('No se pudo registrar la sincronización de recordatorios académicos.', error);
       }
     };
 
-    // Ejecutar inmediatamente y luego cada 1 minuto
-    checkAlerts();
-    const interval = setInterval(checkAlerts, 60000);
-    return () => clearInterval(interval);
+    registerBackgroundReminderSync();
   }, [user?.id]);
 
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
