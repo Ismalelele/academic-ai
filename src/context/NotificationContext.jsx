@@ -399,6 +399,174 @@ export const NotificationProvider = ({ children }) => {
     return () => clearTimeout(timer);
   }, [user?.id]);
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 3.6  DISPATCHER DETERMINISTA DE ALERTAS (el motor que faltaba)
+  //
+  // Problema raíz: las alertas se generaban y guardaban en localStorage/IA pero
+  // NUNCA había un loop que las leyera y llamara a triggerOSNotification().
+  //
+  // Este useEffect corre cada 60 s y dispara TRES tipos de alertas:
+  //   A) Alertas deterministas de CLASES:
+  //      - 15 min antes del inicio de una clase del día actual
+  //      - 5  min después del fin   de una clase del día actual
+  //   B) Alertas de BLOQUES DE ESTUDIO:
+  //      - 5 min antes del inicio de cada bloque planificado hoy
+  //   C) Alertas motivacionales / IA guardadas en localStorage
+  //      (las generadas por scheduleAiNotifications)
+  //
+  // Para evitar disparar la misma alerta dos veces, se mantiene un Set de claves
+  // únicas en `firedAlertsRef`.  El Set se reinicia a medianoche.
+  // ─────────────────────────────────────────────────────────────────────────────
+  const firedAlertsRef = useRef(new Set());
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Cargar las claves ya disparadas hoy desde localStorage para sobrevivir
+    // recargas de página dentro del mismo día
+    const todayTag = new Date().toDateString();
+    const firedKey = `academic_${user.id}_fired_alerts_${todayTag}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem(firedKey) || '[]');
+      firedAlertsRef.current = new Set(saved);
+    } catch {
+      firedAlertsRef.current = new Set();
+    }
+
+    const persistFired = (key) => {
+      firedAlertsRef.current.add(key);
+      try {
+        localStorage.setItem(firedKey, JSON.stringify([...firedAlertsRef.current]));
+      } catch { /* storage lleno – ignorar */ }
+    };
+
+    const dispatch = () => {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+
+      // ── A) ALERTAS DETERMINISTAS DE CLASES ───────────────────────────────────
+      const sched = effectiveScheduleRef.current;
+      if (Array.isArray(sched)) {
+        // día de la semana en formato 0=Lun … 6=Dom (igual que en ScheduleContext)
+        const todayDow = now.getDay() === 0 ? 6 : now.getDay() - 1;
+
+        for (const cls of sched) {
+          if (cls.day !== todayDow) continue;
+          if (cls.isSuspended) continue;
+
+          const classStartMins = cls.startH * 60 + cls.startM;
+          const classEndMins   = cls.endH   * 60 + cls.endM;
+
+          // 15 minutos ANTES del inicio
+          const alertBeforeKey = `class-before-${cls.id || cls.title}-${now.toDateString()}`;
+          if (
+            !firedAlertsRef.current.has(alertBeforeKey) &&
+            nowMins >= classStartMins - 15 &&
+            nowMins <  classStartMins - 14  // ventana de 1 min para no disparar varias veces
+          ) {
+            triggerOSNotification(
+              '📚 Clase próxima',
+              `"${cls.title}" comienza en 15 minutos (${cls.startH.toString().padStart(2,'0')}:${cls.startM.toString().padStart(2,'0')}). ¡Prepara tus materiales!`
+            );
+            addNotificationRef.current(
+              '📚 Clase próxima',
+              `"${cls.title}" comienza en 15 minutos.`,
+              'schedule'
+            );
+            persistFired(alertBeforeKey);
+          }
+
+          // 5 minutos DESPUÉS del fin
+          const alertAfterKey = `class-after-${cls.id || cls.title}-${now.toDateString()}`;
+          if (
+            !firedAlertsRef.current.has(alertAfterKey) &&
+            nowMins >= classEndMins + 5 &&
+            nowMins <  classEndMins + 6  // ventana de 1 min
+          ) {
+            triggerOSNotification(
+              '✅ Clase finalizada',
+              `"${cls.title}" terminó hace 5 minutos. Repasa tus apuntes mientras están frescos.`
+            );
+            addNotificationRef.current(
+              '✅ Clase finalizada',
+              `"${cls.title}" terminó. Revisa tus apuntes.`,
+              'schedule'
+            );
+            persistFired(alertAfterKey);
+          }
+        }
+      }
+
+      // ── B) ALERTAS DE BLOQUES DE ESTUDIO ─────────────────────────────────────
+      const blocks = studyBlocksRef.current;
+      if (Array.isArray(blocks)) {
+        const todayDow = now.getDay() === 0 ? 6 : now.getDay() - 1;
+
+        for (const block of blocks) {
+          if (block.day !== todayDow) continue;
+
+          const blockStartMins = block.startH * 60 + block.startM;
+          const alertBlockKey  = `study-block-${block.id || block.title}-${now.toDateString()}`;
+
+          // 5 minutos ANTES del inicio del bloque
+          if (
+            !firedAlertsRef.current.has(alertBlockKey) &&
+            nowMins >= blockStartMins - 5 &&
+            nowMins <  blockStartMins - 4
+          ) {
+            const blockTitle = block.title || 'Sesión de estudio';
+            triggerOSNotification(
+              '📖 Bloque de estudio',
+              `Tu sesión de estudio para "${blockTitle}" comienza en 5 minutos (${block.startH.toString().padStart(2,'0')}:${block.startM.toString().padStart(2,'0')}). ¡Prepárate!`
+            );
+            addNotificationRef.current(
+              '📖 Bloque de estudio',
+              `Sesión para "${blockTitle}" comienza en 5 min.`,
+              'study'
+            );
+            persistFired(alertBlockKey);
+          }
+        }
+      }
+
+      // ── C) ALERTAS IA / MOTIVACIONALES del localStorage ──────────────────────
+      const aiKey = `academic_${user.id}_ai_scheduled_alerts`;
+      try {
+        const aiAlerts = JSON.parse(localStorage.getItem(aiKey) || '[]');
+        let changed = false;
+
+        const updated = aiAlerts.map(alert => {
+          if (alert.fired) return alert;
+          const trigger = new Date(alert.triggerTime);
+          // Disparar si la hora ya llegó (con tolerancia de 60 s hacia atrás)
+          if (now >= trigger && (now - trigger) < 120_000) {
+            const alertAiKey = alert.id;
+            if (!firedAlertsRef.current.has(alertAiKey)) {
+              triggerOSNotification(alert.title, alert.message);
+              addNotificationRef.current(alert.title, alert.message, 'ai');
+              persistFired(alertAiKey);
+            }
+            changed = true;
+            return { ...alert, fired: true };
+          }
+          return alert;
+        });
+
+        if (changed) {
+          localStorage.setItem(aiKey, JSON.stringify(updated));
+        }
+      } catch { /* ignorar errores de parsing */ }
+    };
+
+    // Ejecutar inmediatamente y luego cada 60 s
+    dispatch();
+    const intervalId = setInterval(dispatch, 60_000);
+
+    return () => clearInterval(intervalId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+
   return (
     <NotificationContext.Provider value={{
       notifications,
