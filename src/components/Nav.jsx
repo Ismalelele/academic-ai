@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
-  LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, Trash2, CheckCircle, BellRing,
+  LayoutDashboard, Calendar, ListTodo, Sun, Moon, Bell, BellOff, Trash2, CheckCircle, BellRing,
   BookOpenText, GraduationCap, Bot, Send, MessageCircle, Sparkles, MessageSquare, X,
   ChevronLeft, ChevronRight, Settings, Camera, User, Check, Mic, ChevronUp, ChevronDown,
   AlertTriangle

@@ -120,7 +120,7 @@ SELECT cron.schedule(
         url     := 'https://eoggsvzqyhuuucrobhpp.supabase.co/functions/v1/send-push',
         headers := jsonb_build_object(
             'Content-Type',  'application/json',
-            'Authorization', 'Bearer<key>'
+            'Authorization', 'Bearer key'
         ),
         body    := '{"type": "academic_alerts"}'::jsonb
     );
