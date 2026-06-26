@@ -1,3 +1,4 @@
+// src/context/NotificationContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
@@ -101,13 +102,20 @@ export const NotificationProvider = ({ children }) => {
 
     try {
       const registration = await navigator.serviceWorker.ready;
-      
+
+      // SANEAMIENTO: Remover suscripción antigua si existe para mitigar conflictos de applicationServerKey
+      const existingSub = await registration.pushManager.getSubscription();
+      if (existingSub) {
+        await existingSub.unsubscribe();
+        console.log("[AURA Push] Antigua suscripción removida con éxito para sincronizar claves VAPID.");
+      }
+
       // Si el permiso ya está denegado/bloqueado, salimos para evitar spam en consola
       if (Notification.permission === 'denied') {
         console.warn("Notification permission is denied/blocked in browser settings.");
         return;
       }
-      
+
       // Solicitar permiso dinámicamente si está en estado predeterminado ('default')
       if (Notification.permission === 'default') {
         const permission = await Notification.requestPermission();
@@ -124,20 +132,15 @@ export const NotificationProvider = ({ children }) => {
       }
 
       const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
-
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedKey
       });
 
-      // Send subscription to Supabase
       const dispositivoString = navigator.userAgent;
-      
       const subscriptionJson = subscription.toJSON();
 
-      // Upsert subscription into database
-      // La clave de conflicto es 'endpoint': es el identificador único que
-      // el navegador asigna a cada suscripción. Usar JSONB como clave UNIQUE falla.
+      // Sincronizar el endpoint único con la base de datos distribuida
       const { error } = await supabase
         .from('push_subscriptions')
         .upsert({
@@ -152,8 +155,9 @@ export const NotificationProvider = ({ children }) => {
 
       if (error) {
         console.error("Error saving push subscription to Supabase:", error);
+      } else {
+        console.log("[AURA Push] Nueva suscripción sincronizada con éxito en la base de datos.");
       }
-      // Suscripción registrada y guardada exitosamente
     } catch (err) {
       console.warn("Error setting up Web Push subscription (browser/network environment issue):", err?.message || err);
     }
@@ -169,7 +173,7 @@ export const NotificationProvider = ({ children }) => {
   // Escuchar notificaciones globales de Administrador (Pruebas) en tiempo real
   useEffect(() => {
     if (!user || user.id.startsWith('user-local-')) return;
-    
+
     const adminChannel = supabase.channel('admin_broadcast')
       .on('broadcast', { event: 'admin_notification' }, (payload) => {
         if (payload.payload) {
@@ -188,7 +192,6 @@ export const NotificationProvider = ({ children }) => {
   const triggerOSNotification = (title, message) => {
     const permission = "Notification" in window ? Notification.permission : 'unsupported';
     console.log(`[AURA Notif] Intentando enviar: "${title}" | Permiso: ${permission} | SW: ${'serviceWorker' in navigator}`);
-
     if (permission !== 'granted') {
       console.warn(`[AURA Notif] Bloqueada — permiso actual: ${permission}. Solicita permiso manualmente.`);
       return;
@@ -223,38 +226,31 @@ export const NotificationProvider = ({ children }) => {
     if (!user) return null;
 
     const isChat = type && type.startsWith('chat:');
-    
+
     if (isChat) {
       const activeChatId = type.split(':')[1];
       const currentActiveChatId = localStorage.getItem('academic_active_chat_id');
       const isChatsTabOpen = window.location.pathname === '/chats';
-      
-      // Si el mensaje es del chat activo actual, ignorar por completo
+
       if (activeChatId === currentActiveChatId) {
         return null;
       }
-      
-      // Si estamos en la pestaña de chats, pero es otro chat, NO lanzar Push (solo acumular en DB/Local)
+
       if (!isChatsTabOpen) {
         triggerOSNotification(title, message);
       }
     } else {
-      // Lanzar Push Notification nativa al Windows/Mac/Android del usuario
       triggerOSNotification(title, message);
     }
 
     const existing = isChat ? notificationsRef.current.find(n => n.type === type && !n.read) : null;
-
     if (existing) {
       const updatedMessage = `${existing.message}\n${message}`;
-      
-      // Actualizar localmente de inmediato
       setNotifications(prev => {
         const updated = prev.map(n => n.id === existing.id ? { ...n, message: updatedMessage, createdAt: new Date().toISOString() } : n);
         localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
         return updated;
       });
-
       try {
         if (typeof existing.id === 'string' && existing.id.startsWith('notif-local-')) {
           return existing;
@@ -281,16 +277,12 @@ export const NotificationProvider = ({ children }) => {
       read: false,
       createdAt: new Date().toISOString()
     };
-
-    // Actualizar localmente de inmediato
     setNotifications(prev => {
       const updated = [localNewNotif, ...prev];
       localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
       return updated;
     });
-
     try {
-      // Insertar en Supabase
       const { data, error } = await supabase
         .from('notificaciones')
         .insert([{
@@ -302,7 +294,6 @@ export const NotificationProvider = ({ children }) => {
         }])
         .select()
         .single();
-
       if (error) throw error;
 
       if (data) {
@@ -314,7 +305,6 @@ export const NotificationProvider = ({ children }) => {
           read: data.leida,
           createdAt: data.fecha_creacion
         };
-        // Reemplazar la notificacion local temporal con la real de base de datos
         setNotifications(prev => {
           const replaced = prev.map(n => n.id === localNewNotif.id ? dbNotif : n);
           localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(replaced));
@@ -340,7 +330,6 @@ export const NotificationProvider = ({ children }) => {
       localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
       return updated;
     });
-
     try {
       if (typeof id === 'string' && id.startsWith('notif-local-')) {
         return;
@@ -358,7 +347,6 @@ export const NotificationProvider = ({ children }) => {
       localStorage.setItem(`academic_notifications_${user.id}`, JSON.stringify(updated));
       return updated;
     });
-
     try {
       if (typeof id === 'string' && id.startsWith('notif-local-')) {
         return;
@@ -373,15 +361,9 @@ export const NotificationProvider = ({ children }) => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const [dailyAlertTime, setDailyAlertTime] = useState(localStorage.getItem('alertTime') || '09:00');
-
   useEffect(() => {
     localStorage.setItem('alertTime', dailyAlertTime);
   }, [dailyAlertTime]);
-
-  // NOTA: Se eliminó el registro de Background Sync (registration.sync.register)
-  // porque lanza NotAllowedError en la mayoría de navegadores modernos (Android/Desktop)
-  // sin una acción explícita del usuario. Las notificaciones de clases y bloques
-  // se envían vía Web Push desde la Edge Function de Supabase.
 
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
   useEffect(() => {
@@ -401,36 +383,15 @@ export const NotificationProvider = ({ children }) => {
       }
     };
 
-    // Ejecutar con un pequeño delay para asegurar la carga del horario y tareas
     const timer = setTimeout(runAiScheduling, 4000);
     return () => clearTimeout(timer);
   }, [user?.id]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 3.6  DISPATCHER DETERMINISTA DE ALERTAS (el motor que faltaba)
-  //
-  // Problema raíz: las alertas se generaban y guardaban en localStorage/IA pero
-  // NUNCA había un loop que las leyera y llamara a triggerOSNotification().
-  //
-  // Este useEffect corre cada 60 s y dispara TRES tipos de alertas:
-  //   A) Alertas deterministas de CLASES:
-  //      - 15 min antes del inicio de una clase del día actual
-  //      - 5  min después del fin   de una clase del día actual
-  //   B) Alertas de BLOQUES DE ESTUDIO:
-  //      - 5 min antes del inicio de cada bloque planificado hoy
-  //   C) Alertas motivacionales / IA guardadas en localStorage
-  //      (las generadas por scheduleAiNotifications)
-  //
-  // Para evitar disparar la misma alerta dos veces, se mantiene un Set de claves
-  // únicas en `firedAlertsRef`.  El Set se reinicia a medianoche.
-  // ─────────────────────────────────────────────────────────────────────────────
+  // 3.6 DISPATCHER DETERMINISTA DE ALERTAS
   const firedAlertsRef = useRef(new Set());
-
   useEffect(() => {
     if (!user) return;
 
-    // Cargar las claves ya disparadas hoy desde localStorage para sobrevivir
-    // recargas de página dentro del mismo día
     const todayTag = new Date().toDateString();
     const firedKey = `academic_${user.id}_fired_alerts_${todayTag}`;
     try {
@@ -454,7 +415,6 @@ export const NotificationProvider = ({ children }) => {
       // ── A) ALERTAS DETERMINISTAS DE CLASES ───────────────────────────────────
       const sched = effectiveScheduleRef.current;
       if (Array.isArray(sched)) {
-        // día de la semana en formato 0=Lun … 6=Dom (igual que en ScheduleContext)
         const todayDow = now.getDay() === 0 ? 6 : now.getDay() - 1;
 
         for (const cls of sched) {
@@ -462,18 +422,18 @@ export const NotificationProvider = ({ children }) => {
           if (cls.isSuspended) continue;
 
           const classStartMins = cls.startH * 60 + cls.startM;
-          const classEndMins   = cls.endH   * 60 + cls.endM;
+          const classEndMins = cls.endH * 60 + cls.endM;
 
           // 15 minutos ANTES del inicio
           const alertBeforeKey = `class-before-${cls.id || cls.title}-${now.toDateString()}`;
           if (
             !firedAlertsRef.current.has(alertBeforeKey) &&
             nowMins >= classStartMins - 15 &&
-            nowMins <  classStartMins - 14  // ventana de 1 min para no disparar varias veces
+            nowMins < classStartMins - 14
           ) {
             triggerOSNotification(
               '📚 Clase próxima',
-              `"${cls.title}" comienza en 15 minutos (${cls.startH.toString().padStart(2,'0')}:${cls.startM.toString().padStart(2,'0')}). ¡Prepara tus materiales!`
+              `"${cls.title}" comienza en 15 minutos (${cls.startH.toString().padStart(2, '0')}:${cls.startM.toString().padStart(2, '0')}). ¡Prepara tus materiales!`
             );
             addNotificationRef.current(
               '📚 Clase próxima',
@@ -488,7 +448,7 @@ export const NotificationProvider = ({ children }) => {
           if (
             !firedAlertsRef.current.has(alertAfterKey) &&
             nowMins >= classEndMins + 5 &&
-            nowMins <  classEndMins + 6  // ventana de 1 min
+            nowMins < classEndMins + 6
           ) {
             triggerOSNotification(
               '✅ Clase finalizada',
@@ -511,20 +471,19 @@ export const NotificationProvider = ({ children }) => {
 
         for (const block of blocks) {
           if (block.day !== todayDow) continue;
-
           const blockStartMins = block.startH * 60 + block.startM;
-          const alertBlockKey  = `study-block-${block.id || block.title}-${now.toDateString()}`;
+          const alertBlockKey = `study-block-${block.id || block.title}-${now.toDateString()}`;
 
           // 5 minutos ANTES del inicio del bloque
           if (
             !firedAlertsRef.current.has(alertBlockKey) &&
             nowMins >= blockStartMins - 5 &&
-            nowMins <  blockStartMins - 4
+            nowMins < blockStartMins - 4
           ) {
             const blockTitle = block.title || 'Sesión de estudio';
             triggerOSNotification(
               '📖 Bloque de estudio',
-              `Tu sesión de estudio para "${blockTitle}" comienza en 5 minutos (${block.startH.toString().padStart(2,'0')}:${block.startM.toString().padStart(2,'0')}). ¡Prepárate!`
+              `Tu sesión de estudio para "${blockTitle}" comienza en 5 minutos (${block.startH.toString().padStart(2, '0')}:${block.startM.toString().padStart(2, '0')}). ¡Prepárate!`
             );
             addNotificationRef.current(
               '📖 Bloque de estudio',
@@ -536,16 +495,14 @@ export const NotificationProvider = ({ children }) => {
         }
       }
 
-      // ── C) ALERTAS IA / MOTIVACIONALES del localStorage ──────────────────────
+      // ── C) ALERTAS IA / MOTIVACIONALES ──────────────────────
       const aiKey = `academic_${user.id}_ai_scheduled_alerts`;
       try {
         const aiAlerts = JSON.parse(localStorage.getItem(aiKey) || '[]');
         let changed = false;
-
         const updated = aiAlerts.map(alert => {
           if (alert.fired) return alert;
           const trigger = new Date(alert.triggerTime);
-          // Disparar si la hora ya llegó (con tolerancia de 60 s hacia atrás)
           if (now >= trigger && (now - trigger) < 120_000) {
             const alertAiKey = alert.id;
             if (!firedAlertsRef.current.has(alertAiKey)) {
@@ -558,21 +515,16 @@ export const NotificationProvider = ({ children }) => {
           }
           return alert;
         });
-
         if (changed) {
           localStorage.setItem(aiKey, JSON.stringify(updated));
         }
-      } catch { /* ignorar errores de parsing */ }
+      } catch { /* ignorar errores */ }
     };
 
-    // Ejecutar inmediatamente y luego cada 60 s
     dispatch();
     const intervalId = setInterval(dispatch, 60_000);
-
     return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
 
   return (
     <NotificationContext.Provider value={{
@@ -582,7 +534,8 @@ export const NotificationProvider = ({ children }) => {
       markAsRead,
       deleteNotification,
       dailyAlertTime,
-      setDailyAlertTime
+      setDailyAlertTime,
+      registerPushSubscription
     }}>
       {children}
     </NotificationContext.Provider>
