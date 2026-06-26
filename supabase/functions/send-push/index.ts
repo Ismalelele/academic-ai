@@ -29,17 +29,12 @@ const createPayload = (title, body, data = {}) => JSON.stringify({
 });
 
 const sendPushToSubscriptions = async (subscriptions, payload) => {
-  const pushOptions = {
-    TTL: 300,
-    urgency: "high"
-  };
-
   await Promise.all(subscriptions.map(async (sub) => {
     try {
       const subJson = typeof sub.subscription_json === "string" 
         ? JSON.parse(sub.subscription_json) 
         : sub.subscription_json;
-      await webpush.sendNotification(subJson, payload, pushOptions);
+      await webpush.sendNotification(subJson, payload);
     } catch (err) {
       if (err.statusCode === 410 || err.statusCode === 404) {
         await supabase.from("push_subscriptions").delete().eq("id_suscripcion", sub.id_suscripcion);
@@ -49,89 +44,75 @@ const sendPushToSubscriptions = async (subscriptions, payload) => {
   }));
 };
 
-// --- LÓGICA DE ALERTAS ACADÉMICAS CON TIMEZONE DINÁMICO ---
+// --- LÓGICA DE ALERTAS ACADÉMICAS ---
 const handleAcademicAlerts = async () => {
-  // 1. Obtener todos los usuarios con suscripciones push registradas
-  const { data: subs, error: subsError } = await supabase
-    .from("push_subscriptions")
-    .select("user_id")
-    .neq("user_id", null);
+  // CORRECCIÓN CRÍTICA: Forzar el huso horario de Chile para evitar desfase UTC del servidor Cloud
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Santiago",
+    hour: "numeric",
+    minute: "numeric",
+    weekday: "short",
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(new Date());
+  const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0");
+  const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0");
+  const weekday = parts.find(p => p.type === "weekday")?.value || "Mon";
+  
+  const daysMap = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6 };
+  const currentDay = daysMap[weekday] ?? 0;
+  const currentMins = hour * 60 + minute;
 
-  if (planError || !subs) return;
-  const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
+  const { data: subs } = await supabase.from("push_subscriptions").select("user_id").neq("user_id", null);
+  const uniqueUserIds = [...new Set((subs || []).map(s => s.user_id))];
 
   for (const userId of uniqueUserIds) {
-    // Recuperar todos los dispositivos activos del alumno
-    const { data: userSubs = [] } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
+    const { data: userSubs } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
     if (!userSubs || userSubs.length === 0) continue;
 
-    // Descargar datos académicos del alumno una sola vez
+    // A) PROCESAR HORARIOS DE CLASES
     const { data: horario } = await supabase.from("horarios")
       .select("id_horario")
       .eq("user_id", userId)
       .order("fecha_subida", { ascending: false })
       .limit(1)
       .maybeSingle();
-
-    let bloquesClases = [];
+      
     if (horario) {
-      const { data: bClases } = await supabase.from("bloques_clases").select("*").eq("id_horario", horario.id_horario);
-      bloquesClases = bClases || [];
+      const { data: bloques } = await supabase.from("bloques_clases")
+        .select("*")
+        .eq("id_horario", horario.id_horario)
+        .eq("dia_semana", currentDay);
+
+      for (const b of (bloques || [])) {
+        const [h, m] = b.hora_inicio.split(":").map(Number);
+        const startMins = h * 60 + m;
+        const minsUntilStart = startMins - currentMins;
+        
+        if (minsUntilStart >= 14 && minsUntilStart <= 16) {
+          const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class_start" });
+          await sendPushToSubscriptions(userSubs, payload);
+        }
+      }
     }
 
+    // B) PROCESAR PLANIFICACIÓN DE ESTUDIO (BLOQUES IA)
     const { data: estudioData } = await supabase.from("planificacion_estudio")
       .select("bloques_json")
       .eq("user_id", userId)
       .maybeSingle();
+
     const studyBlocks = Array.isArray(estudioData?.bloques_json) ? estudioData.bloques_json : [];
+    for (const block of studyBlocks) {
+      if (block.day !== currentDay) continue;
+      const bStartMins = (block.startH || 0) * 60 + (block.startM || 0);
+      const minsUntilBlock = bStartMins - currentMins;
 
-    // Evaluar cada dispositivo de forma aislada respetando su zona horaria nativa
-    for (const sub of userSubs) {
-      try {
-        const userTimezone = sub.timezone || "America/Santiago";
-        
-        const formatter = new Intl.DateTimeFormat("en-US", {
-          timeZone: userTimeZone,
-          hour: "numeric",
-          minute: "numeric",
-          weekday: "short",
-          hour12: false
-        });
-        
-        const parts = formatter.formatToParts(new Date());
-        const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10);
-        const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
-        const weekday = parts.find(p => p.type === "weekday")?.value || "Mon";
-        
-        const daysMap = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6 };
-        const currentDay = daysMap[weekday] ?? 0;
-        const currentMins = hour * 60 + minute;
-
-        // A) Evaluación de Ramos/Clases
-        for (const b of bloquesClases) {
-          if (Number(b.dia_semana) !== currentDay) continue;
-          const [h, m] = b.hora_inicio.split(":").map(Number);
-          const startMins = h * 60 + m;
-          
-          if (startMins - currentMins === 15) {
-            const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class" });
-            await sendPushToSubscriptions([sub], payload);
-          }
-        }
-
-        // B) Verificación de Bloques de Estudio (IA Planificador)
-        for (const block of studyBlocks) {
-          if (Number(block.day) !== currentDay) continue;
-          const bStartMins = Number(block.startH || 0) * 60 + Number(block.startM || 0);
-          
-          if (bStartMins - currentMins === 15) {
-            const blockTitle = block.taskTitle || block.title || "Estudio Planificado";
-            const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study" });
-            await sendPushToSubscriptions(sub, payload);
-          }
-        }
-      } catch (err) {
-        console.error(`Error procesando huso horario para sub de usuario ${userId}:`, err);
+      if (minsUntilBlock >= 14 && minsUntilBlock <= 16) {
+        const blockTitle = block.taskTitle || block.title || "Estudio";
+        const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study_block" });
+        await sendPushToSubscriptions(userSubs, payload);
       }
     }
   }
@@ -146,13 +127,13 @@ serve(async (req) => {
   try {
     const payload = await req.json();
 
-    // 1. Cron Job: Alertas Académicas periódicas
+    // 1. Cron Job: Alertas Académicas
     if (payload?.type === "academic_alerts") {
       await handleAcademicAlerts();
       return new Response(JSON.stringify({ message: "Academic alerts processed" }), { status: 200 });
     }
 
-    // 2. Webhook: Chat en tiempo real
+    // 2. Webhook: Chat de Base de Datos
     const newMsg = payload.record;
     if (newMsg && newMsg.id_grupo) {
       const { data: miembros } = await supabase.from("chat_miembros")
