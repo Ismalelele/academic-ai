@@ -29,12 +29,18 @@ const createPayload = (title, body, data = {}) => JSON.stringify({
 });
 
 const sendPushToSubscriptions = async (subscriptions, payload) => {
+  // CONFIGURACIÓN DE TRANSPORTE CRÍTICA: Forzar entrega inmediata e interactiva incluso con app cerrada
+  const pushOptions = {
+    TTL: 300,            // Tiempo de vida del mensaje (5 minutos)
+    urgency: "high"      // Despierta al sistema operativo/navegador suspendido
+  };
+
   await Promise.all(subscriptions.map(async (sub) => {
     try {
       const subJson = typeof sub.subscription_json === "string" 
         ? JSON.parse(sub.subscription_json) 
         : sub.subscription_json;
-      await webpush.sendNotification(subJson, payload);
+      await webpush.sendNotification(subJson, payload, pushOptions);
     } catch (err) {
       if (err.statusCode === 410 || err.statusCode === 404) {
         await supabase.from("push_subscriptions").delete().eq("id_suscripcion", sub.id_suscripcion);
@@ -46,23 +52,29 @@ const sendPushToSubscriptions = async (subscriptions, payload) => {
 
 // --- LÓGICA DE ALERTAS ACADÉMICAS ---
 const handleAcademicAlerts = async () => {
-  // Solución al desajuste horario: Forzar conversión limpia a la zona de Chile (Evita bugs de medianoche 24h)
-  const santiagoTimeStr = new Date().toLocaleString("en-US", { timeZone: "America/Santiago" });
-  const santiagoDate = new Date(santiagoTimeStr);
+  // Solución definitiva al Huso Horario: Extraer componentes numéricos limpios nativamente
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Santiago",
+    hour: "numeric",
+    minute: "numeric",
+    weekday: "short",
+    hour12: false
+  });
   
-  const hour = santiagoDate.getHours();
-  const minute = santiagoDate.getMinutes();
-  const jsDay = santiagoDate.getDay(); 
-
-  // Mapeo uniforme: Lunes = 0, Domingo = 6
-  const currentDay = jsDay === 0 ? 6 : jsDay - 1;
+  const parts = formatter.formatToParts(new Date());
+  const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10);
+  const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
+  const weekday = parts.find(p => p.type === "weekday")?.value || "Mon";
+  
+  const daysMap = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6 };
+  const currentDay = daysMap[weekday] ?? 0;
   const currentMins = hour * 60 + minute;
 
   const { data: subs } = await supabase.from("push_subscriptions").select("user_id").neq("user_id", null);
   const uniqueUserIds = [...new Set((subs || []).map(s => s.user_id))];
 
   for (const userId of uniqueUserIds) {
-    const { data: userSubs } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
+    const { data: userSubs = [] } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
     if (!userSubs || userSubs.length === 0) continue;
 
     // A) VERIFICACIÓN DE HORARIOS DE CLASES
@@ -82,9 +94,10 @@ const handleAcademicAlerts = async () => {
       for (const b of (bloques || [])) {
         const [h, m] = b.hora_inicio.split(":").map(Number);
         const startMins = h * 60 + m;
+        const minsUntilStart = startMins - currentMins;
         
-        // Match exacto a los 15 minutos de antelación
-        if (startMins - currentMins === 15) {
+        // Ventana segura contra retrasos del Cron del servidor (14 a 16 minutos)
+        if (minsUntilStart >= 14 && minsUntilStart <= 16) {
           const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class" });
           await sendPushToSubscriptions(userSubs, payload);
         }
@@ -102,8 +115,9 @@ const handleAcademicAlerts = async () => {
       if (Number(block.day) !== Number(currentDay)) continue;
       
       const bStartMins = Number(block.startH || 0) * 60 + Number(block.startM || 0);
+      const minsUntilBlock = bStartMins - currentMins;
       
-      if (bStartMins - currentMins === 15) {
+      if (minsUntilBlock >= 14 && minsUntilBlock <= 16) {
         const blockTitle = block.taskTitle || block.title || "Estudio Planificado";
         const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study" });
         await sendPushToSubscriptions(userSubs, payload);
