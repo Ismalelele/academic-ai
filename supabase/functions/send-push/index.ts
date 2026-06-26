@@ -29,10 +29,9 @@ const createPayload = (title, body, data = {}) => JSON.stringify({
 });
 
 const sendPushToSubscriptions = async (subscriptions, payload) => {
-  // CONFIGURACIÓN DE TRANSPORTE CRÍTICA: Forzar entrega inmediata e interactiva incluso con app cerrada
   const pushOptions = {
-    TTL: 300,            // Tiempo de vida del mensaje (5 minutos)
-    urgency: "high"      // Despierta al sistema operativo/navegador suspendido
+    TTL: 300,
+    urgency: "high"
   };
 
   await Promise.all(subscriptions.map(async (sub) => {
@@ -50,77 +49,89 @@ const sendPushToSubscriptions = async (subscriptions, payload) => {
   }));
 };
 
-// --- LÓGICA DE ALERTAS ACADÉMICAS ---
+// --- LÓGICA DE ALERTAS ACADÉMICAS CON TIMEZONE DINÁMICO ---
 const handleAcademicAlerts = async () => {
-  // Solución definitiva al Huso Horario: Extraer componentes numéricos limpios nativamente
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Santiago",
-    hour: "numeric",
-    minute: "numeric",
-    weekday: "short",
-    hour12: false
-  });
-  
-  const parts = formatter.formatToParts(new Date());
-  const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10);
-  const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
-  const weekday = parts.find(p => p.type === "weekday")?.value || "Mon";
-  
-  const daysMap = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6 };
-  const currentDay = daysMap[weekday] ?? 0;
-  const currentMins = hour * 60 + minute;
+  // 1. Obtener todos los usuarios con suscripciones push registradas
+  const { data: subs, error: subsError } = await supabase
+    .from("push_subscriptions")
+    .select("user_id")
+    .neq("user_id", null);
 
-  const { data: subs } = await supabase.from("push_subscriptions").select("user_id").neq("user_id", null);
-  const uniqueUserIds = [...new Set((subs || []).map(s => s.user_id))];
+  if (planError || !subs) return;
+  const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
 
   for (const userId of uniqueUserIds) {
+    // Recuperar todos los dispositivos activos del alumno
     const { data: userSubs = [] } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
     if (!userSubs || userSubs.length === 0) continue;
 
-    // A) VERIFICACIÓN DE HORARIOS DE CLASES
+    // Descargar datos académicos del alumno una sola vez
     const { data: horario } = await supabase.from("horarios")
       .select("id_horario")
       .eq("user_id", userId)
       .order("fecha_subida", { ascending: false })
       .limit(1)
       .maybeSingle();
-      
-    if (horario) {
-      const { data: bloques } = await supabase.from("bloques_clases")
-        .select("*")
-        .eq("id_horario", horario.id_horario)
-        .eq("dia_semana", currentDay);
 
-      for (const b of (bloques || [])) {
-        const [h, m] = b.hora_inicio.split(":").map(Number);
-        const startMins = h * 60 + m;
-        const minsUntilStart = startMins - currentMins;
-        
-        // Ventana segura contra retrasos del Cron del servidor (14 a 16 minutos)
-        if (minsUntilStart >= 14 && minsUntilStart <= 16) {
-          const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class" });
-          await sendPushToSubscriptions(userSubs, payload);
-        }
-      }
+    let bloquesClases = [];
+    if (horario) {
+      const { data: bClases } = await supabase.from("bloques_clases").select("*").eq("id_horario", horario.id_horario);
+      bloquesClases = bClases || [];
     }
 
-    // B) VERIFICACIÓN DE PLANIFICACIÓN DE ESTUDIO (BLOQUES DE IA)
     const { data: estudioData } = await supabase.from("planificacion_estudio")
       .select("bloques_json")
       .eq("user_id", userId)
       .maybeSingle();
-
     const studyBlocks = Array.isArray(estudioData?.bloques_json) ? estudioData.bloques_json : [];
-    for (const block of studyBlocks) {
-      if (Number(block.day) !== Number(currentDay)) continue;
-      
-      const bStartMins = Number(block.startH || 0) * 60 + Number(block.startM || 0);
-      const minsUntilBlock = bStartMins - currentMins;
-      
-      if (minsUntilBlock >= 14 && minsUntilBlock <= 16) {
-        const blockTitle = block.taskTitle || block.title || "Estudio Planificado";
-        const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study" });
-        await sendPushToSubscriptions(userSubs, payload);
+
+    // Evaluar cada dispositivo de forma aislada respetando su zona horaria nativa
+    for (const sub of userSubs) {
+      try {
+        const userTimezone = sub.timezone || "America/Santiago";
+        
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: userTimeZone,
+          hour: "numeric",
+          minute: "numeric",
+          weekday: "short",
+          hour12: false
+        });
+        
+        const parts = formatter.formatToParts(new Date());
+        const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10);
+        const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
+        const weekday = parts.find(p => p.type === "weekday")?.value || "Mon";
+        
+        const daysMap = { "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6 };
+        const currentDay = daysMap[weekday] ?? 0;
+        const currentMins = hour * 60 + minute;
+
+        // A) Evaluación de Ramos/Clases
+        for (const b of bloquesClases) {
+          if (Number(b.dia_semana) !== currentDay) continue;
+          const [h, m] = b.hora_inicio.split(":").map(Number);
+          const startMins = h * 60 + m;
+          
+          if (startMins - currentMins === 15) {
+            const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class" });
+            await sendPushToSubscriptions([sub], payload);
+          }
+        }
+
+        // B) Verificación de Bloques de Estudio (IA Planificador)
+        for (const block of studyBlocks) {
+          if (Number(block.day) !== currentDay) continue;
+          const bStartMins = Number(block.startH || 0) * 60 + Number(block.startM || 0);
+          
+          if (bStartMins - currentMins === 15) {
+            const blockTitle = block.taskTitle || block.title || "Estudio Planificado";
+            const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study" });
+            await sendPushToSubscriptions(sub, payload);
+          }
+        }
+      } catch (err) {
+        console.error(`Error procesando huso horario para sub de usuario ${userId}:`, err);
       }
     }
   }

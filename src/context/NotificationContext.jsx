@@ -103,33 +103,20 @@ export const NotificationProvider = ({ children }) => {
     try {
       const registration = await navigator.serviceWorker.ready;
 
-      // SANEAMIENTO: Remover suscripción antigua si existe para mitigar conflictos de applicationServerKey
+      // Saneamiento preventivo de tokens huérfanos
       const existingSub = await registration.pushManager.getSubscription();
       if (existingSub) {
         await existingSub.unsubscribe();
-        console.log("[AURA Push] Antigua suscripción removida con éxito para sincronizar claves VAPID.");
       }
 
-      // Si el permiso ya está denegado/bloqueado, salimos para evitar spam en consola
-      if (Notification.permission === 'denied') {
-        console.warn("Notification permission is denied/blocked in browser settings.");
-        return;
-      }
-
-      // Solicitar permiso dinámicamente si está en estado predeterminado ('default')
+      if (Notification.permission === 'denied') return;
       if (Notification.permission === 'default') {
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          console.warn("Notification permission was denied.");
-          return;
-        }
+        if (permission !== 'granted') return;
       }
 
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        console.warn("VITE_VAPID_PUBLIC_KEY is missing in env variables.");
-        return;
-      }
+      if (!vapidPublicKey) return;
 
       const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
       const subscription = await registration.pushManager.subscribe({
@@ -140,7 +127,10 @@ export const NotificationProvider = ({ children }) => {
       const dispositivoString = navigator.userAgent;
       const subscriptionJson = subscription.toJSON();
 
-      // Sincronizar el endpoint único con la base de datos distribuida
+      // DETECCIÓN DE TIMEZONE: Captura la zona horaria real del sistema operativo/navegador
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santiago';
+
+      // Persistencia en Supabase con el nuevo campo mapeado
       const { error } = await supabase
         .from('push_subscriptions')
         .upsert({
@@ -148,18 +138,15 @@ export const NotificationProvider = ({ children }) => {
           endpoint: subscriptionJson.endpoint,
           subscription_json: subscriptionJson,
           dispositivo: dispositivoString,
+          timezone: userTimezone, // <-- Columna Nueva
           fecha_creacion: new Date().toISOString()
         }, {
           onConflict: 'endpoint'
         });
 
-      if (error) {
-        console.error("Error saving push subscription to Supabase:", error);
-      } else {
-        console.log("[AURA Push] Nueva suscripción sincronizada con éxito en la base de datos.");
-      }
+      if (error) console.error("Error saving push subscription:", error);
     } catch (err) {
-      console.warn("Error setting up Web Push subscription (browser/network environment issue):", err?.message || err);
+      console.warn("Error setting up Web Push subscription:", err?.message || err);
     }
   }, [user?.id]);
 
