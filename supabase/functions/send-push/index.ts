@@ -46,14 +46,26 @@ const sendPushToSubscriptions = async (subscriptions, payload) => {
 
 // --- LÓGICA DE ALERTAS ACADÉMICAS ---
 const handleAcademicAlerts = async () => {
-  const now = new Date();
-  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  const currentMins = now.getHours() * 60 + now.getMinutes();
+  // Solución al desajuste horario: Forzar conversión limpia a la zona de Chile (Evita bugs de medianoche 24h)
+  const santiagoTimeStr = new Date().toLocaleString("en-US", { timeZone: "America/Santiago" });
+  const santiagoDate = new Date(santiagoTimeStr);
+  
+  const hour = santiagoDate.getHours();
+  const minute = santiagoDate.getMinutes();
+  const jsDay = santiagoDate.getDay(); 
+
+  // Mapeo uniforme: Lunes = 0, Domingo = 6
+  const currentDay = jsDay === 0 ? 6 : jsDay - 1;
+  const currentMins = hour * 60 + minute;
 
   const { data: subs } = await supabase.from("push_subscriptions").select("user_id").neq("user_id", null);
   const uniqueUserIds = [...new Set((subs || []).map(s => s.user_id))];
 
   for (const userId of uniqueUserIds) {
+    const { data: userSubs } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
+    if (!userSubs || userSubs.length === 0) continue;
+
+    // A) VERIFICACIÓN DE HORARIOS DE CLASES
     const { data: horario } = await supabase.from("horarios")
       .select("id_horario")
       .eq("user_id", userId)
@@ -61,23 +73,40 @@ const handleAcademicAlerts = async () => {
       .limit(1)
       .maybeSingle();
       
-    if (!horario) continue;
+    if (horario) {
+      const { data: bloques } = await supabase.from("bloques_clases")
+        .select("*")
+        .eq("id_horario", horario.id_horario)
+        .eq("dia_semana", currentDay);
 
-    const { data: bloques } = await supabase.from("bloques_clases")
-      .select("*")
-      .eq("id_horario", horario.id_horario)
-      .eq("dia_semana", currentDay);
-
-    for (const b of (bloques || [])) {
-      const [h, m] = b.hora_inicio.split(":").map(Number);
-      const startMins = h * 60 + m;
-      
-      if (startMins - currentMins >= 14 && startMins - currentMins <= 16) {
-        const { data: userSubs } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
-        if (userSubs && userSubs.length > 0) {
-          const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`);
+      for (const b of (bloques || [])) {
+        const [h, m] = b.hora_inicio.split(":").map(Number);
+        const startMins = h * 60 + m;
+        
+        // Match exacto a los 15 minutos de antelación
+        if (startMins - currentMins === 15) {
+          const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class" });
           await sendPushToSubscriptions(userSubs, payload);
         }
+      }
+    }
+
+    // B) VERIFICACIÓN DE PLANIFICACIÓN DE ESTUDIO (BLOQUES DE IA)
+    const { data: estudioData } = await supabase.from("planificacion_estudio")
+      .select("bloques_json")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const studyBlocks = Array.isArray(estudioData?.bloques_json) ? estudioData.bloques_json : [];
+    for (const block of studyBlocks) {
+      if (Number(block.day) !== Number(currentDay)) continue;
+      
+      const bStartMins = Number(block.startH || 0) * 60 + Number(block.startM || 0);
+      
+      if (bStartMins - currentMins === 15) {
+        const blockTitle = block.taskTitle || block.title || "Estudio Planificado";
+        const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study" });
+        await sendPushToSubscriptions(userSubs, payload);
       }
     }
   }
@@ -92,13 +121,13 @@ serve(async (req) => {
   try {
     const payload = await req.json();
 
-    // 1. Cron Job: Alertas Académicas
+    // 1. Cron Job: Alertas Académicas periódicas
     if (payload?.type === "academic_alerts") {
       await handleAcademicAlerts();
       return new Response(JSON.stringify({ message: "Academic alerts processed" }), { status: 200 });
     }
 
-    // 2. Webhook: Chat de Base de Datos
+    // 2. Webhook: Chat en tiempo real
     const newMsg = payload.record;
     if (newMsg && newMsg.id_grupo) {
       const { data: miembros } = await supabase.from("chat_miembros")
@@ -117,10 +146,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ message: "Chat notification processed" }), { status: 200 });
     }
 
- // ... (el resto del código que te envié)
     return new Response(JSON.stringify({ error: "Unknown payload type" }), { status: 400 });
   } catch (err) {
     console.error("Critical Execution Error:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
-}); // <--- ESTA ES LA ÚLTIMA LÍNEA DE CÓDIGO
+});
