@@ -1,299 +1,126 @@
 // @ts-nocheck
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import webpush from "npm:web-push@3.6.7";
 
-// Configure Web Push VAPID keys
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") || "";
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") || "";
-const VAPID_SUBJECT = "mailto:academic-ai-notifications@example.com";
+// --- CONFIGURACIÓN ---
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+const supabase = createClient(SUPABASE_URL || "", SUPABASE_SERVICE_ROLE_KEY || "");
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} else {
-  // Este error es crítico: sin claves VAPID, ninguna notificación push puede enviarse.
-  // Confíguralas en: Supabase Dashboard → Project Settings → Edge Functions → Secrets
-  console.error(
-    `[send-push] VAPID keys missing! Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in Supabase Secrets.`,
-    `VAPID_PUBLIC_KEY present: ${!!VAPID_PUBLIC_KEY}, VAPID_PRIVATE_KEY present: ${!!VAPID_PRIVATE_KEY}`
+  webpush.setVapidDetails(
+    "mailto:academic-ai-notifications@aura.com",
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
   );
 }
 
-// Initialize Supabase Client
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-const createNotificationPayload = (title: string, body: string, data: Record<string, unknown> = {}) => JSON.stringify({
+// --- UTILIDADES ---
+const createPayload = (title, body, data = {}) => JSON.stringify({
   title,
   body,
   data,
   icon: "/logo.png",
-  badge: "/badge.svg",
+  badge: "/badge.svg"
 });
 
-const sendPushToSubscriptions = async (subscriptions: Array<{ id_suscripcion: any; user_id: string; subscription_json: any }>, notificationPayload: string) => {
-  const pushPromises = subscriptions.map(async (sub) => {
+const sendPushToSubscriptions = async (subscriptions, payload) => {
+  await Promise.all(subscriptions.map(async (sub) => {
     try {
-      const subJson = typeof sub.subscription_json === "string"
-        ? JSON.parse(sub.subscription_json)
+      const subJson = typeof sub.subscription_json === "string" 
+        ? JSON.parse(sub.subscription_json) 
         : sub.subscription_json;
-
-      await webpush.sendNotification(subJson, notificationPayload);
-      console.log(`Successfully sent push to user: ${sub.user_id}`);
-    } catch (err: any) {
-      console.error(`Failed to send push to user: ${sub.user_id}`, err);
+      await webpush.sendNotification(subJson, payload);
+    } catch (err) {
       if (err.statusCode === 410 || err.statusCode === 404) {
-        console.log(`Removing expired subscription ID: ${sub.id_suscripcion} for user: ${sub.user_id}`);
-        await supabase
-          .from("push_subscriptions")
-          .delete()
-          .eq("id_suscripcion", sub.id_suscripcion);
+        await supabase.from("push_subscriptions").delete().eq("id_suscripcion", sub.id_suscripcion);
       }
+      console.error(`Error enviando push a ${sub.user_id}:`, err);
     }
-  });
-
-  await Promise.all(pushPromises);
+  }));
 };
 
-const handleAcademicAlerts = async (payload: any) => {
-  const now = payload.now ? new Date(payload.now) : new Date();
+// --- LÓGICA DE ALERTAS ACADÉMICAS ---
+const handleAcademicAlerts = async () => {
+  const now = new Date();
   const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
   const currentMins = now.getHours() * 60 + now.getMinutes();
-  const targetUserIds = payload.user_id ? [payload.user_id] : (payload.user_ids || []);
 
-  if (targetUserIds.length === 0) {
-    const { data: subs, error: subsErr } = await supabase
-      .from("push_subscriptions")
-      .select("user_id")
-      .neq("user_id", null);
+  const { data: subs } = await supabase.from("push_subscriptions").select("user_id").neq("user_id", null);
+  const uniqueUserIds = [...new Set((subs || []).map(s => s.user_id))];
 
-    if (subsErr) {
-      console.error("Error fetching subscriptions for academic alerts:", subsErr);
-      return new Response(JSON.stringify({ error: "Failed to fetch subscriptions" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  for (const userId of uniqueUserIds) {
+    const { data: horario } = await supabase.from("horarios")
+      .select("id_horario")
+      .eq("user_id", userId)
+      .order("fecha_subida", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+      
+    if (!horario) continue;
 
-    const uniqueUserIds = Array.from(new Set((subs || []).map((sub: any) => sub.user_id).filter(Boolean)));
-    targetUserIds.push(...uniqueUserIds);
-  }
+    const { data: bloques } = await supabase.from("bloques_clases")
+      .select("*")
+      .eq("id_horario", horario.id_horario)
+      .eq("dia_semana", currentDay);
 
-  for (const userId of targetUserIds) {
-    try {
-      const { data: horarioData, error: horarioErr } = await supabase
-        .from("horarios")
-        .select("id_horario")
-        .eq("user_id", userId)
-        .order("fecha_subida", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (horarioErr) {
-        console.error(`Error fetching schedule for user ${userId}:`, horarioErr);
-        continue;
-      }
-
-      const reminders: Array<{ title: string; body: string; data: Record<string, unknown> }> = [];
-
-      if (horarioData?.id_horario) {
-        const { data: bloquesData } = await supabase
-          .from("bloques_clases")
-          .select("*")
-          .eq("id_horario", horarioData.id_horario);
-
-        (bloquesData || []).forEach((bloque: any) => {
-          if (bloque.dia_semana !== currentDay) return;
-          const [startH, startM] = (bloque.hora_inicio || "00:00").split(":").map(Number);
-          const [endH, endM] = (bloque.hora_fin || "00:00").split(":").map(Number);
-          const startMins = startH * 60 + startM;
-          const endMins = endH * 60 + endM;
-
-          // Ventana de ±1 minuto para absorber el jitter del cron scheduler.
-          // Un comparador exacto (=== 15) falla si el cron se dispara con 1s de desface.
-          const minsUntilStart = startMins - currentMins;
-          const minsAfterEnd   = currentMins - endMins;
-
-          if (minsUntilStart >= 14 && minsUntilStart <= 16) {
-            reminders.push({
-              title: "📚 Clase Próxima",
-              body: `Tu clase de ${bloque.asignatura || "tu materia"} empieza en 15 minutos.`,
-              data: { url: "/horario", type: "academic_class_start" },
-            });
-          }
-
-          if (minsAfterEnd >= 4 && minsAfterEnd <= 6) {
-            reminders.push({
-              title: "✅ Fin de Clase",
-              body: `Terminó tu clase de ${bloque.asignatura || "tu materia"}. Repasa tus apuntes.`,
-              data: { url: "/horario", type: "academic_class_end" },
-            });
-          }
-        });
-      }
-
-      const { data: estudioData } = await supabase
-        .from("planificacion_estudio")
-        .select("bloques_json")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      const studyBlocks = Array.isArray(estudioData?.bloques_json) ? estudioData.bloques_json : [];
-      studyBlocks.forEach((block: any) => {
-        if (block.day !== currentDay) return;
-        const startMins = (block.startH || 0) * 60 + (block.startM || 0);
-        const minsUntilBlock = startMins - currentMins;
-        if (minsUntilBlock >= 4 && minsUntilBlock <= 16) {
-          reminders.push({
-            title: "📚 Bloque de Estudio",
-            body: `Tu bloque de estudio para '${block.taskTitle || block.title || "Estudio"}' empieza en ${minsUntilBlock} minutos.`,
-            data: { url: "/horario", type: "academic_study_block" },
-          });
+    for (const b of (bloques || [])) {
+      const [h, m] = b.hora_inicio.split(":").map(Number);
+      const startMins = h * 60 + m;
+      
+      if (startMins - currentMins >= 14 && startMins - currentMins <= 16) {
+        const { data: userSubs } = await supabase.from("push_subscriptions").select("*").eq("user_id", userId);
+        if (userSubs && userSubs.length > 0) {
+          const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`);
+          await sendPushToSubscriptions(userSubs, payload);
         }
-      });
-
-      if (reminders.length === 0) continue;
-
-      const { data: subs, error: subsErr } = await supabase
-        .from("push_subscriptions")
-        .select("id_suscripcion, user_id, subscription_json")
-        .eq("user_id", userId);
-
-      if (subsErr) {
-        console.error(`Error fetching push subscriptions for user ${userId}:`, subsErr);
-        continue;
       }
-
-      const notifications = reminders.map((reminder) => {
-        const payloadJson = createNotificationPayload(reminder.title, reminder.body, reminder.data);
-        return { notificationPayload: payloadJson, userId };
-      });
-
-      for (const notification of notifications) {
-        if (!subs || subs.length === 0) continue;
-        await sendPushToSubscriptions(subs, notification.notificationPayload);
-      }
-    } catch (error) {
-      console.error(`General error processing academic alerts for user ${userId}:`, error);
     }
   }
-
-  return new Response(JSON.stringify({ message: "Academic alerts processed successfully" }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
 };
 
-Deno.serve(async (req: Request) => {
-  // Only allow POST requests
+// --- SERVIDOR Y WEBHOOKS ---
+serve(async (req) => {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
   }
 
   try {
     const payload = await req.json();
-    console.log("Received webhook payload:", JSON.stringify(payload));
 
-    if (payload?.type === "academic_alerts" || payload?.action === "academic_alerts") {
-      return await handleAcademicAlerts(payload);
+    // 1. Cron Job: Alertas Académicas
+    if (payload?.type === "academic_alerts") {
+      await handleAcademicAlerts();
+      return new Response(JSON.stringify({ message: "Academic alerts processed" }), { status: 200 });
     }
 
-    // Webhook from Supabase table 'chat_mensajes' on INSERT
+    // 2. Webhook: Chat de Base de Datos
     const newMsg = payload.record;
-    if (!newMsg || !newMsg.id_grupo) {
-      return new Response(JSON.stringify({ error: "Invalid payload, missing message record" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (newMsg && newMsg.id_grupo) {
+      const { data: miembros } = await supabase.from("chat_miembros")
+        .select("user_id")
+        .eq("id_grupo", newMsg.id_grupo)
+        .eq("notificaciones_activas", true)
+        .neq("user_id", newMsg.user_id);
+      
+      const userIds = miembros?.map(m => m.user_id) || [];
+      if (userIds.length > 0) {
+        const { data: subs } = await supabase.from("push_subscriptions").select("*").in("user_id", userIds);
+        if (subs) {
+          await sendPushToSubscriptions(subs, createPayload(newMsg.user_name || "Nuevo mensaje", newMsg.texto, { id_grupo: newMsg.id_grupo }));
+        }
+      }
+      return new Response(JSON.stringify({ message: "Chat notification processed" }), { status: 200 });
     }
 
-    // 1. Fetch group title
-    const { data: grupo, error: grupoErr } = await supabase
-      .from("chat_grupos")
-      .select("titulo")
-      .eq("id_grupo", newMsg.id_grupo)
-      .single();
-
-    if (grupoErr) {
-      console.error("Error fetching group details:", grupoErr);
-    }
-    const groupTitle = grupo?.titulo || "Grupo de Estudio";
-
-    // 2. Find members of this group (excluding the message sender)
-    // We want all members where status is accepted ('aceptado') and notifications are active
-    const { data: miembros, error: miembrosErr } = await supabase
-      .from("chat_miembros")
-      .select("user_id")
-      .eq("id_grupo", newMsg.id_grupo)
-      .eq("estado", "aceptado")
-      .eq("notificaciones_activas", true)
-      .neq("user_id", newMsg.user_id);
-
-    if (miembrosErr) {
-      console.error("Error fetching group members:", miembrosErr);
-      return new Response(JSON.stringify({ error: "Failed to fetch members" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const userIds = miembros?.map((m: { user_id: string }) => m.user_id) || [];
-    if (userIds.length === 0) {
-      console.log("No members to notify (excluding the sender).");
-      return new Response(JSON.stringify({ message: "No members to notify" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. Fetch push subscriptions for all target users
-    const { data: subs, error: subsErr } = await supabase
-      .from("push_subscriptions")
-      .select("id_suscripcion, user_id, subscription_json")
-      .in("user_id", userIds);
-
-    if (subsErr) {
-      console.error("Error fetching push subscriptions:", subsErr);
-      return new Response(JSON.stringify({ error: "Failed to fetch subscriptions" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (!subs || subs.length === 0) {
-      console.log("No active push subscriptions found for these members.");
-      return new Response(JSON.stringify({ message: "No active subscriptions" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    console.log(`Sending push notifications to ${subs.length} device(s)...`);
-
-    // 4. Construct push notification payload
-    const notificationPayload = JSON.stringify({
-      title: groupTitle,
-      body: `${newMsg.user_name}: ${newMsg.texto}`,
-      data: {
-        url: `/chats`,
-        id_grupo: newMsg.id_grupo,
-      },
-    });
-
-    await sendPushToSubscriptions(subs, notificationPayload);
-
-    return new Response(JSON.stringify({ message: "Notifications processed successfully" }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error: any) {
-    console.error("General error processing webhook:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+ // ... (el resto del código que te envié)
+    return new Response(JSON.stringify({ error: "Unknown payload type" }), { status: 400 });
+  } catch (err) {
+    console.error("Critical Execution Error:", err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
-});
+}); // <--- ESTA ES LA ÚLTIMA LÍNEA DE CÓDIGO
