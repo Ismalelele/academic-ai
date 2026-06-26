@@ -120,6 +120,70 @@ export default function Nav({ isDarkMode, toggleTheme }) {
   const [adminNotifType, setAdminNotifType] = useState('info');
   const [adminStatus, setAdminStatus] = useState('');
 
+  // ── Push notification permission state ───────────────────────────────────
+  const [notifPerm, setNotifPerm] = useState(
+    'Notification' in window ? Notification.permission : 'unsupported'
+  );
+  const [isActivatingPush, setIsActivatingPush] = useState(false);
+  const [pushMsg, setPushMsg] = useState('');
+
+  // Poll permission state every 3 s (user may change in browser settings)
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if ('Notification' in window) setNotifPerm(Notification.permission);
+    }, 3000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const handleEnablePush = async () => {
+    if (!('Notification' in window) || !('PushManager' in window)) {
+      setPushMsg('⚠️ Tu navegador no soporta notificaciones push.');
+      return;
+    }
+    if (!user || user.id.startsWith('user-local-')) {
+      setPushMsg('⚠️ Inicia sesión con tu cuenta para activar alertas.');
+      return;
+    }
+    setIsActivatingPush(true);
+    setPushMsg('');
+    try {
+      const permission = await Notification.requestPermission();
+      setNotifPerm(permission);
+      if (permission !== 'granted') {
+        setPushMsg('❌ Permiso denegado. Permiételo en los ajustes del navegador.');
+        setIsActivatingPush(false);
+        return;
+      }
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidKey) { setPushMsg('⚠️ Clave VAPID no configurada.'); setIsActivatingPush(false); return; }
+      const toUint8 = (b64) => {
+        const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+        const raw = window.atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+        return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+      };
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8(vapidKey) });
+      const subJson = sub.toJSON();
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id: user.id,
+        endpoint: subJson.endpoint,
+        subscription_json: subJson,
+        dispositivo: navigator.userAgent,
+        fecha_creacion: new Date().toISOString()
+      }, { onConflict: 'endpoint' });
+      if (error) {
+        console.error('[AURA Push]', error);
+        setPushMsg('⚠️ Activadas localmente, pero falló el guardado. Intenta de nuevo.');
+      } else {
+        setPushMsg('✅ ¡Listo! Recibirás alertas aunque la app esté cerrada.');
+      }
+    } catch (err) {
+      setPushMsg(`❌ Error: ${err.message}`);
+    } finally {
+      setIsActivatingPush(false);
+    }
+  };
+
   const handleAdminSend = async (e) => {
     e.preventDefault();
     setAdminStatus('Enviando...');
@@ -1619,6 +1683,73 @@ export default function Nav({ isDarkMode, toggleTheme }) {
                 <AlertTriangle size={14} /> Pruebas Globales
               </button>
             )}
+
+            {/* ── Notificaciones ── */}
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{
+                borderRadius: '12px',
+                border: notifPerm === 'granted'
+                  ? '1px solid rgba(16,185,129,0.25)'
+                  : notifPerm === 'denied'
+                    ? '1px solid rgba(239,68,68,0.25)'
+                    : '1px solid rgba(139,92,246,0.3)',
+                background: notifPerm === 'granted'
+                  ? 'rgba(16,185,129,0.07)'
+                  : notifPerm === 'denied'
+                    ? 'rgba(239,68,68,0.07)'
+                    : 'rgba(139,92,246,0.08)',
+                padding: '11px 14px',
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                    {notifPerm === 'granted'
+                      ? <Bell size={15} color="#10b981" style={{ flexShrink: 0 }} />
+                      : notifPerm === 'denied'
+                        ? <BellOff size={15} color="#ef4444" style={{ flexShrink: 0 }} />
+                        : <BellRing size={15} color="#8b5cf6" style={{ flexShrink: 0, animation: 'bellPulse 2s ease-in-out infinite' }} />
+                    }
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 700,
+                        color: notifPerm === 'granted' ? '#10b981' : notifPerm === 'denied' ? '#ef4444' : 'var(--text-main)'
+                      }}>
+                        {notifPerm === 'granted' ? 'Alertas activadas' : notifPerm === 'denied' ? 'Alertas bloqueadas' : 'Activa las notificaciones'}
+                      </p>
+                      <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3, marginTop: '1px' }}>
+                        {notifPerm === 'granted'
+                          ? 'Recibirás alertas aunque la app esté cerrada'
+                          : notifPerm === 'denied'
+                            ? 'Ve a Ajustes del navegador → Notificaciones → Permitir'
+                            : 'Para recibir notificaciones con la app cerrada'}
+                      </p>
+                    </div>
+                  </div>
+                  {notifPerm !== 'granted' && notifPerm !== 'denied' && notifPerm !== 'unsupported' && (
+                    <button
+                      id="btn-activar-alertas-perfil"
+                      onClick={handleEnablePush}
+                      disabled={isActivatingPush}
+                      style={{
+                        flexShrink: 0, padding: '6px 12px', borderRadius: '8px', border: 'none',
+                        cursor: isActivatingPush ? 'wait' : 'pointer',
+                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                        color: 'white', fontSize: '0.75rem', fontWeight: 700,
+                        boxShadow: '0 2px 8px rgba(139,92,246,0.4)', transition: 'all 0.2s',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {isActivatingPush ? 'Activando…' : 'Activar'}
+                    </button>
+                  )}
+                </div>
+                {pushMsg && (
+                  <p style={{
+                    margin: '8px 0 0', fontSize: '0.72rem', fontWeight: 600,
+                    color: pushMsg.startsWith('✅') ? '#10b981' : pushMsg.startsWith('❌') ? '#ef4444' : '#f59e0b'
+                  }}>{pushMsg}</p>
+                )}
+              </div>
+            </div>
 
             <button
               onClick={openSettingsModal}
