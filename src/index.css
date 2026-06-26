@@ -1765,6 +1765,11 @@ body.dark-mode textarea {
     }
 }
 
+@keyframes bellPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.65); }
+}
+
 .processing-overlay {
     position: absolute;
     top: 0;
