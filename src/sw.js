@@ -16,11 +16,12 @@ const getNotificationBadge = () => getAppAssetUrl('/badge.svg');
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  console.log('[Service Worker] Instalado exitosamente con Workbox.');
+  console.log('[SW] Instalado exitosamente con Workbox.');
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activado y listo para recibir Push.');
+  event.waitUntil(clients.claim());
+  console.log('[SW] Activado y listo para recibir Push.');
 });
 
 // Escuchar mensajes del cliente (App reactiva)
@@ -39,7 +40,7 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'academic-reminders') {
     event.waitUntil(
       Promise.resolve().then(() => {
-        console.log('[Service Worker] Sincronización académica registrada.');
+        console.log('[SW] Sincronización académica registrada.');
       })
     );
   }
@@ -49,35 +50,43 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Al hacer clic en la notificación, abre o enfoca la pestaña de AURA
+  const targetUrl = event.notification.data?.url || '/';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Si ya hay una pestaña abierta con la app, enfócala
       for (let client of windowClients) {
-        if (client.url.includes('/') && 'focus' in client) {
+        if ('focus' in client) {
           return client.focus();
         }
       }
-      // Si no hay ninguna abierta, abre una nueva
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(targetUrl);
       }
     })
   );
 });
 
-// Manejo de notificaciones Push en segundo plano
+// ─────────────────────────────────────────────────────────────────────────────
+// PUSH HANDLER — notificaciones en segundo plano / app cerrada
+//
+// Estrategia:
+//  • Alertas académicas (type empieza con "academic_"): SIEMPRE se muestran.
+//    El servidor las envía desde la Edge Function cuando la app puede estar cerrada.
+//  • Mensajes de chat: se suprimen solo si el usuario está activo en ese chat.
+// ─────────────────────────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Notificación Push recibida.');
-  let data = { title: 'AURA', body: 'Nueva notificación recibida' };
-  
+  let data = { title: 'AURA', body: 'Nueva notificación' };
+
   if (event.data) {
     try {
       data = event.data.json();
-    } catch (e) {
+    } catch {
       data = { title: 'AURA', body: event.data.text() };
     }
   }
+
+  const notifType = data.data?.type || '';
+  const isAcademicAlert = notifType.startsWith('academic_');
 
   const options = {
     body: data.body || data.message || '',
@@ -85,32 +94,45 @@ self.addEventListener('push', (event) => {
     badge: getNotificationBadge(),
     vibrate: [200, 100, 200],
     data: data.data || {},
-    requireInteraction: true
+    requireInteraction: true,
+    // 'tag' evita duplicados en el SO: una notif del mismo tag reemplaza la anterior
+    tag: data.tag || `aura-${notifType || 'general'}`,
   };
 
+  // Alertas académicas: mostrar siempre, sin consultar clientes React
+  if (isAcademicAlert) {
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+    return;
+  }
+
+  // Mensajes de chat: suprimir solo si el usuario está en ese chat exacto
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // 1. Validar por el estado en tiempo real enviado por mensajes del cliente
-      const targetGroupId = data.data ? data.data.id_grupo : null;
-      const isViewingActiveChat = isAppVisible && activeChatId && targetGroupId && activeChatId === targetGroupId;
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        const targetGroupId = data.data?.id_grupo ?? null;
 
-      // 2. Validar como respaldo revisando el foco e URL de las ventanas abiertas
-      const isUserActiveInChatWindow = windowClients.some((client) => {
-        try {
-          const url = new URL(client.url);
-          const isChatPath = url.pathname.startsWith('/chats');
-          return client.focused && isChatPath && (!targetGroupId || activeChatId === targetGroupId);
-        } catch (e) {
-          return false;
+        if (targetGroupId) {
+          const isActiveInTargetChat = windowClients.some((client) => {
+            try {
+              return (
+                client.focused &&
+                new URL(client.url).pathname.startsWith('/chats') &&
+                activeChatId === targetGroupId
+              );
+            } catch {
+              return false;
+            }
+          });
+
+          if (isActiveInTargetChat) {
+            console.log('[SW] Usuario activo en el chat destino — notificación suprimida.');
+            return;
+          }
         }
-      });
 
-      if (isViewingActiveChat || isUserActiveInChatWindow) {
-        console.log('[Service Worker] El usuario está activo en este chat específico, omitiendo notificación push.');
-        return;
-      }
-
-      return self.registration.showNotification(data.title, options);
-    })
+        return self.registration.showNotification(data.title, options);
+      })
   );
 });

@@ -133,16 +133,21 @@ export const NotificationProvider = ({ children }) => {
       // Send subscription to Supabase
       const dispositivoString = navigator.userAgent;
       
+      const subscriptionJson = subscription.toJSON();
+
       // Upsert subscription into database
+      // La clave de conflicto es 'endpoint': es el identificador único que
+      // el navegador asigna a cada suscripción. Usar JSONB como clave UNIQUE falla.
       const { error } = await supabase
         .from('push_subscriptions')
         .upsert({
           user_id: user.id,
-          subscription_json: subscription.toJSON(),
+          endpoint: subscriptionJson.endpoint,
+          subscription_json: subscriptionJson,
           dispositivo: dispositivoString,
           fecha_creacion: new Date().toISOString()
         }, {
-          onConflict: 'user_id, subscription_json'
+          onConflict: 'endpoint'
         });
 
       if (error) {

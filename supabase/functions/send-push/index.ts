@@ -10,7 +10,12 @@ const VAPID_SUBJECT = "mailto:academic-ai-notifications@example.com";
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 } else {
-  console.warn("VAPID keys are missing from environment variables.");
+  // Este error es crítico: sin claves VAPID, ninguna notificación push puede enviarse.
+  // Confíguralas en: Supabase Dashboard → Project Settings → Edge Functions → Secrets
+  console.error(
+    `[send-push] VAPID keys missing! Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in Supabase Secrets.`,
+    `VAPID_PUBLIC_KEY present: ${!!VAPID_PUBLIC_KEY}, VAPID_PRIVATE_KEY present: ${!!VAPID_PRIVATE_KEY}`
+  );
 }
 
 // Initialize Supabase Client
@@ -104,18 +109,23 @@ const handleAcademicAlerts = async (payload: any) => {
           const startMins = startH * 60 + startM;
           const endMins = endH * 60 + endM;
 
-          if (startMins - currentMins === 15) {
+          // Ventana de ±1 minuto para absorber el jitter del cron scheduler.
+          // Un comparador exacto (=== 15) falla si el cron se dispara con 1s de desface.
+          const minsUntilStart = startMins - currentMins;
+          const minsAfterEnd   = currentMins - endMins;
+
+          if (minsUntilStart >= 14 && minsUntilStart <= 16) {
             reminders.push({
-              title: "Clase Próxima",
+              title: "📚 Clase Próxima",
               body: `Tu clase de ${bloque.asignatura || "tu materia"} empieza en 15 minutos.`,
               data: { url: "/horario", type: "academic_class_start" },
             });
           }
 
-          if (currentMins === endMins + 5) {
+          if (minsAfterEnd >= 4 && minsAfterEnd <= 6) {
             reminders.push({
-              title: "Fin de Clase",
-              body: `Terminó tu clase de ${bloque.asignatura || "tu materia"}.`,
+              title: "✅ Fin de Clase",
+              body: `Terminó tu clase de ${bloque.asignatura || "tu materia"}. Repasa tus apuntes.`,
               data: { url: "/horario", type: "academic_class_end" },
             });
           }
@@ -132,10 +142,11 @@ const handleAcademicAlerts = async (payload: any) => {
       studyBlocks.forEach((block: any) => {
         if (block.day !== currentDay) return;
         const startMins = (block.startH || 0) * 60 + (block.startM || 0);
-        if (startMins - currentMins === 15) {
+        const minsUntilBlock = startMins - currentMins;
+        if (minsUntilBlock >= 4 && minsUntilBlock <= 16) {
           reminders.push({
-            title: "Bloque de Estudio",
-            body: `Tu bloque de estudio para '${block.taskTitle || block.title || "Estudio"}' empieza en 15 minutos.`,
+            title: "📚 Bloque de Estudio",
+            body: `Tu bloque de estudio para '${block.taskTitle || block.title || "Estudio"}' empieza en ${minsUntilBlock} minutos.`,
             data: { url: "/horario", type: "academic_study_block" },
           });
         }

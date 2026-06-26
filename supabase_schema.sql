@@ -200,6 +200,22 @@ CREATE TABLE IF NOT EXISTS public.calificaciones (
     CONSTRAINT unique_calificaciones_user_subject UNIQUE (user_id, asignatura)
 );
 
+-- 19. push_subscriptions
+-- Guarda el endpoint de suscripción Web Push de cada dispositivo del usuario.
+-- La clave UNIQUE es 'endpoint' (no subscription_json, que es JSONB y no puede ser índice UNIQUE).
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+    id_suscripcion  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    endpoint        TEXT NOT NULL,
+    subscription_json JSONB NOT NULL,
+    dispositivo     TEXT,
+    fecha_creacion  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    CONSTRAINT unique_push_endpoint UNIQUE (endpoint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
+    ON public.push_subscriptions (user_id);
+
 -- =========================================================================
 -- Enable Row Level Security (RLS) on all tables for Production
 -- =========================================================================
@@ -221,6 +237,7 @@ ALTER TABLE public.clases_grabadas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pizarras_grupos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.planificacion_estudio ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.calificaciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- =========================================================================
 -- Row Level Security (RLS) Policies & Helper Functions
