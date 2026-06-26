@@ -57,7 +57,7 @@ const handleAcademicAlerts = async () => {
     .select("user_id")
     .neq("user_id", null);
 
-  if (planError || !subs) return;
+  if (subsError || !subs) return;
   const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
 
   for (const userId of uniqueUserIds) {
@@ -91,7 +91,7 @@ const handleAcademicAlerts = async () => {
         const userTimezone = sub.timezone || "America/Santiago";
         
         const formatter = new Intl.DateTimeFormat("en-US", {
-          timeZone: userTimeZone,
+          timeZone: userTimezone,
           hour: "numeric",
           minute: "numeric",
           weekday: "short",
@@ -113,7 +113,8 @@ const handleAcademicAlerts = async () => {
           const [h, m] = b.hora_inicio.split(":").map(Number);
           const startMins = h * 60 + m;
           
-          if (startMins - currentMins === 15) {
+          const classDiff = startMins - currentMins;
+          if (classDiff > 14 && classDiff <= 15) {
             const payload = createPayload("📚 Clase Próxima", `Tu clase de ${b.asignatura} empieza en 15 minutos.`, { type: "academic_class" });
             await sendPushToSubscriptions([sub], payload);
           }
@@ -124,10 +125,11 @@ const handleAcademicAlerts = async () => {
           if (Number(block.day) !== currentDay) continue;
           const bStartMins = Number(block.startH || 0) * 60 + Number(block.startM || 0);
           
-          if (bStartMins - currentMins === 15) {
+          const studyDiff = bStartMins - currentMins;
+          if (studyDiff > 14 && studyDiff <= 15) {
             const blockTitle = block.taskTitle || block.title || "Estudio Planificado";
             const payload = createPayload("📖 Bloque de Estudio", `Tu sesión para "${blockTitle}" empieza en 15 minutos.`, { type: "academic_study" });
-            await sendPushToSubscriptions(sub, payload);
+            await sendPushToSubscriptions([sub], payload);
           }
         }
       } catch (err) {
