@@ -1035,7 +1035,7 @@ Recibirás:
 REGLAS DE PROGRAMACIÓN ESTRICTAS:
 1. ROL EXCLUSIVO DE COACH MOTIVACIONAL: Tu mensaje debe ser inspirador y de aliento. No eres un gestor de calendario.
 2. PROHIBICIÓN ABSOLUTA DE HORAS EXACTAS DE EVENTOS ACADÉMICOS: Tienes terminantemente PROHIBIDO programar alertas para avisar del inicio de clases o el inicio/vencimiento exacto de tareas. El sistema de la aplicación se encargará de avisar sobre esos eventos de forma automática y determinista.
-3. RESTRICCIÓN DE HORARIO DIURNO (08:00 A 20:00): El campo 'triggerTime' DEBE estar comprendido estrictamente entre las 08:00 y las 20:00. NUNCA programes una notificación antes de las 08:00 o después de las 20:00.
+3. SIN RESTRICCIÓN DE HORARIO DIURNO: Para esta prueba no apliques ningún límite entre las 08:00 y las 20:00; puedes programar alertas en cualquier momento del día si resulta necesario para probar el flujo.
 4. FORMATO DE TIEMPO ABSOLUTO: Cuando hagas referencia al tiempo en tus mensajes, usa siempre tiempo absoluto (ej: "Hoy a las 14:00", "Mañana a las 10:00"). Nunca uses tiempo relativo ("en 1 hora", "en 15 minutos", "hace poco").
 
 Devuelve EXCLUSIVAMENTE un JSON:
@@ -1069,12 +1069,7 @@ Devuelve EXCLUSIVAMENTE un JSON:
           const formattedAlerts = parsed.alerts
             .map(alert => {
               const trigger = new Date(alert.triggerTime);
-              if (trigger.getHours() < 8) {
-                trigger.setHours(8, 0, 0, 0);
-              } else if (trigger.getHours() >= 20) {
-                trigger.setHours(20, 0, 0, 0);
-              }
-              
+
               // Evitar que la alerta sea en el pasado
               if (trigger <= now) {
                 return null;
@@ -1100,11 +1095,6 @@ Devuelve EXCLUSIVAMENTE un JSON:
           const formattedAlerts = parsed.alerts
             .map(alert => {
               const trigger = new Date(alert.triggerTime);
-              if (trigger.getHours() < 8) {
-                trigger.setHours(8, 0, 0, 0);
-              } else if (trigger.getHours() >= 20) {
-                trigger.setHours(20, 0, 0, 0);
-              }
               if (trigger <= now) return null;
               return { ...alert, triggerTime: trigger.toISOString(), fired: false };
             })
@@ -1122,23 +1112,11 @@ Devuelve EXCLUSIVAMENTE un JSON:
   console.log("Using local heuristic alert generator...");
   const fallbackAlerts = [];
 
-  // Helper to check and clamp time between 08:00 and 20:00
-  const clampToDaytime = (date) => {
-    const hours = date.getHours();
-    if (hours < 8) {
-      date.setHours(8, 0, 0, 0);
-    } else if (hours >= 20) {
-      date.setHours(20, 0, 0, 0);
-    }
-    return date;
-  };
-
   // Alert 1: Study Block reminder if there is one
   if (studyBlocks && studyBlocks.length > 0) {
     const nextBlock = studyBlocks[0];
     let blockTime = new Date();
     blockTime.setHours(nextBlock.startH, nextBlock.startM - 5, 0, 0);
-    blockTime = clampToDaytime(blockTime);
 
     if (blockTime > now) {
       fallbackAlerts.push({
@@ -1153,11 +1131,10 @@ Devuelve EXCLUSIVAMENTE un JSON:
 
   // Alert 2: General focus/motivational reminder in 3 hours
   let motivTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-  motivTime = clampToDaytime(motivTime);
   const pendingUrgentes = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
   let motivMsg = "¡Hola! Mantén el foco en tus metas de hoy. Recuerda tomar pequeños descansos.";
   if (pendingUrgentes.length > 0) {
-    motivMsg = `Hoy a las 20:00: recuerda avanzar en la tarea "${pendingUrgentes[0].title}". ¡Confío en que lograrás completarla paso a paso!`;
+    motivMsg = `Hoy recuerda avanzar en la tarea "${pendingUrgentes[0].title}". ¡Confío en que lograrás completarla paso a paso!`;
   }
 
   fallbackAlerts.push({
@@ -1170,7 +1147,6 @@ Devuelve EXCLUSIVAMENTE un JSON:
 
   // Alert 3: Check-in reminder in 6 hours
   let checkTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
-  checkTime = clampToDaytime(checkTime);
   fallbackAlerts.push({
     id: `ai-alert-fallback-check-${Date.now()}`,
     title: `🌱 Balance de Estudio`,
