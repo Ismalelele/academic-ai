@@ -36,15 +36,9 @@ self.addEventListener('message', (event) => {
   }
 });
 
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'academic-reminders') {
-    event.waitUntil(
-      Promise.resolve().then(() => {
-        console.log('[SW] Sincronización académica registrada.');
-      })
-    );
-  }
-});
+// NOTA: Se eliminó el listener 'sync' porque Background Sync
+// ya no se registra desde el cliente (evita NotAllowedError).
+// Las alertas se entregan únicamente vía Web Push desde la Edge Function.
 
 // Manejo de clicks en las notificaciones del SO
 self.addEventListener('notificationclick', (event) => {
@@ -75,6 +69,8 @@ self.addEventListener('notificationclick', (event) => {
 //  • Mensajes de chat: se suprimen solo si el usuario está activo en ese chat.
 // ─────────────────────────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
+  console.log('[SW] ⭐ Push recibido:', event.data ? event.data.text() : '(sin payload)');
+
   let data = { title: 'AURA', body: 'Nueva notificación' };
 
   if (event.data) {
@@ -87,6 +83,8 @@ self.addEventListener('push', (event) => {
 
   const notifType = data.data?.type || '';
   const isAcademicAlert = notifType.startsWith('academic_');
+
+  console.log('[SW] Tipo:', notifType, '| Es alerta académica:', isAcademicAlert);
 
   const options = {
     body: data.body || data.message || '',
@@ -101,6 +99,7 @@ self.addEventListener('push', (event) => {
 
   // Alertas académicas: mostrar siempre, sin consultar clientes React
   if (isAcademicAlert) {
+    console.log('[SW] Mostrando alerta académica:', data.title);
     event.waitUntil(
       self.registration.showNotification(data.title, options)
     );

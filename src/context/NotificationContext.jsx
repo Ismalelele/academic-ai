@@ -186,20 +186,36 @@ export const NotificationProvider = ({ children }) => {
 
   // Función interna para lanzar la notificación al Sistema Operativo
   const triggerOSNotification = (title, message) => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.showNotification(title, {
-          body: message,
-          icon: new URL('/logo.png', window.location.origin).toString(),
-          badge: new URL('/badge.svg', window.location.origin).toString(),
-          vibrate: [200, 100, 200],
-          requireInteraction: true
-        });
-      }).catch(err => {
-        console.error("Error lanzando Push a través de Service Worker:", err);
-        new Notification(title, { body: message });
-      });
+    const permission = "Notification" in window ? Notification.permission : 'unsupported';
+    console.log(`[AURA Notif] Intentando enviar: "${title}" | Permiso: ${permission} | SW: ${'serviceWorker' in navigator}`);
+
+    if (permission !== 'granted') {
+      console.warn(`[AURA Notif] Bloqueada — permiso actual: ${permission}. Solicita permiso manualmente.`);
+      return;
     }
+
+    if (!('serviceWorker' in navigator)) {
+      console.warn('[AURA Notif] Service Worker no disponible en este contexto.');
+      return;
+    }
+
+    navigator.serviceWorker.ready.then((registration) => {
+      console.log(`[AURA Notif] Mostrando via SW registration:`, registration.scope);
+      return registration.showNotification(title, {
+        body: message,
+        icon: new URL('/logo.png', window.location.origin).toString(),
+        badge: new URL('/badge.svg', window.location.origin).toString(),
+        vibrate: [200, 100, 200],
+        requireInteraction: true
+      });
+    }).catch(err => {
+      console.error('[AURA Notif] Error al mostrar via SW, intentando Notification directa:', err);
+      try {
+        new Notification(title, { body: message });
+      } catch (e2) {
+        console.error('[AURA Notif] Notification directa también falló:', e2);
+      }
+    });
   };
 
   // 2. Función para añadir notificación manual o automática
@@ -362,24 +378,10 @@ export const NotificationProvider = ({ children }) => {
     localStorage.setItem('alertTime', dailyAlertTime);
   }, [dailyAlertTime]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    const registerBackgroundReminderSync = async () => {
-      try {
-        if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-
-        const registration = await navigator.serviceWorker.ready;
-        if (registration.sync) {
-          await registration.sync.register('academic-reminders');
-        }
-      } catch (error) {
-        console.warn('No se pudo registrar la sincronización de recordatorios académicos.', error);
-      }
-    };
-
-    registerBackgroundReminderSync();
-  }, [user?.id]);
+  // NOTA: Se eliminó el registro de Background Sync (registration.sync.register)
+  // porque lanza NotAllowedError en la mayoría de navegadores modernos (Android/Desktop)
+  // sin una acción explícita del usuario. Las notificaciones de clases y bloques
+  // se envían vía Web Push desde la Edge Function de Supabase.
 
   // 3.5 Programar notificaciones de IA una vez al día o al iniciar la app
   useEffect(() => {
